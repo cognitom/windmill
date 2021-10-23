@@ -16,6 +16,20 @@ Windmill is a keymap for 40% keyboard.
 
 ![layout](docs/images/layout.png)
 
+### 配置の特徴
+
+- 下段中央のふたつは、タップでSpace、ホールドでShift (いわゆるSandS)
+- その左右は、それぞれタップで英数(左側)、タップでカナ(右側)、どちらもホールドでSymレイヤー
+- BSとDeleteが対称配置
+- ESC(✕)とEnter(○)が対称配置
+
+### かな配列
+
+- JISかなの第二段(たていすかんなにらせ)が、第三段(ちとしはきくまのりれ)のシフト側に
+- 「ほ」「へ」と「け」「ろ」が、最右から左手シフト側へ
+- 「め」「む」が下段中央のシフト側へ
+
+
 ## ファームウェアの作成
 
 必要な環境は以下の通り。
@@ -41,9 +55,11 @@ $ bash scripts/build.sh
 
 ![screenshot](docs/images/qmk.png)
 
+※WindowsがUS配列としてデバイスを認識していると、変換や無変換キーを無視してしまうため、F23とF24をそれぞれ英数(IME off)・かな(IME on)に当てて、IMEのキーマップに設定を加えています。
+
 ※なお、Macについては未検証なので、調整が必要かもしれません。
 
-## かな入力
+## かな入力のセットアップ
 
 Google 日本語入力との併用で、かな入力が可能です。導入手順は[こちら](https://github.com/cognitom/sankaku/blob/master/getting-started.md#google-%E6%97%A5%E6%9C%AC%E8%AA%9E%E5%85%A5%E5%8A%9B-google-ime-japanese-%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB)と同様にすればOKです。
 
