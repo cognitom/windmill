@@ -6,7 +6,7 @@ Windmill is a keymap for 40% keyboard.
 このキー配列は、40%キーボード向けに作成したものです。
 
 - 風車状のカーソル配置
-- かな入力対応 (JISかな配列に近い)
+- かな入力対応 (ほぼJISかな配列)
 - SandS (Space and Shift)
 - [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)用のファームウェア作成済み
 
@@ -14,21 +14,22 @@ Windmill is a keymap for 40% keyboard.
 
 ## キー配列
 
-![layout](docs/images/layout.png)
-
-### 配置の特徴
+### 英数入力時
 
 - 下段中央のふたつは、タップでSpace、ホールドでShift (いわゆるSandS)
-- その左右は、それぞれタップで英数(左側)、タップでカナ(右側)、どちらもホールドでSymレイヤー
-- BSとDeleteが対称配置
+- その左右は、それぞれタップで"\"(左側)、タップで"/"(右側)、どちらもホールドでSymレイヤー
 - ESC(✕)とEnter(○)が対称配置
+- BSが最左列
 
-### かな配列
+![main](docs/images/layout-main.png)
 
-- JISかなの第二段(たていすかんなにらせ)が、第三段(ちとしはきくまのりれ)のシフト側に
-- 「ほ」「へ」と「け」「ろ」が、最右から左手シフト側へ
-- 「め」「む」が下段中央のシフト側へ
+### かな入力時
 
+- 英語配列では修飾キーが並ぶ最下段も含めて、フルに4段を使う
+- 「ほ」「へ」「む」のみシフト側へ
+- 下段中央のふたつは、タップで「こ」(左側)、タップで「み」(右側)、どちらもホールドでShift
+
+![kana](docs/images/layout-kana.png)
 
 ## ファームウェアの作成
 
@@ -55,13 +56,10 @@ $ bash scripts/build.sh
 
 ![screenshot](docs/images/qmk.png)
 
-※WindowsがUS配列としてデバイスを認識していると、変換や無変換キーを無視してしまうため、F23とF24をそれぞれ英数(IME off)・かな(IME on)に当てて、IMEのキーマップに設定を加えています。
-
 ※なお、Macについては未検証なので、調整が必要かもしれません。
 
 ## かな入力のセットアップ
 
-Google 日本語入力との併用で、かな入力が可能です。導入手順は[こちら](https://github.com/cognitom/sankaku/blob/master/getting-started.md#google-%E6%97%A5%E6%9C%AC%E8%AA%9E%E5%85%A5%E5%8A%9B-google-ime-japanese-%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB)と同様にすればOKです。
+IMEの入力方式として「かな入力」を選択しておきます。
 
-- 配列データ - [romantable-windmill.txt](https://raw.githubusercontent.com/cognitom/windmill/master/google-japanese-input/romantable-windmill.txt)
-- キーマップ - [keymap-windmill.txt](https://raw.githubusercontent.com/cognitom/windmill/master/google-japanese-input/keymap-windmill.txt)
+※以前のバージョンで必要だった、ローマ字変換テーブルの置き換えなどは不要です。

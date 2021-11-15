@@ -18,38 +18,57 @@
 
 enum layers {
     _MAIN,
+    _KANA,
     _SYM,
     _FN,
 };
 
+enum custom_keycodes {
+  EISU = SAFE_RANGE,
+  KANA,
+};
+
 // Readability keycodes
-#define LOWER LT(_SYM, KC_F23)
-#define RAISE LT(_SYM, KC_F24)
-#define FUNC  MO(_FN)
-#define SNADS LSFT_T(KC_SPC)
+#define FUNC    MO(_FN)
+#define SPC_SFT LSFT_T(KC_SPC)
+#define BSL_SYM LT(_SYM, KC_BSLS)
+#define SLS_SYM LT(_SYM, KC_SLSH)
+#define B_SFT   LSFT_T(KC_B)
+#define N_SFT   LSFT_T(KC_N)
+#define V_SYM   LT(_SYM, KC_V)
+#define M_SYM   LT(_SYM, KC_M)
+#define LANG_JA DF(_KANA)
+#define LANG_EN DF(_MAIN)
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [_MAIN] = LAYOUT_ortho_4x12(
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_MINS, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
-    KC_TAB,  KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, KC_BSPC, LOWER,   SNADS,   SNADS,   RAISE,   KC_DEL,  FUNC,    KC_LEFT, KC_DOWN
+    KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
+    KC_LCTL, KC_LGUI, KC_LALT, FUNC,    BSL_SYM, SPC_SFT, SPC_SFT, SLS_SYM, KANA,    KC_TAB,  KC_LEFT, KC_DOWN
+  ),
+
+  [_KANA] = LAYOUT_ortho_4x12(
+    EISU,    KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_ENT,
+    KC_UNDS, KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC,
+    KC_BSPC, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
+    KC_LCTL, KC_Z,    KC_X,    KC_C,    KC_V,    B_SFT,   N_SFT,   KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_GRV
   ),
 
   [_SYM] = LAYOUT_ortho_4x12(
     _______, KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    _______,
     KC_TILD, KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_AMPR, KC_ASTR, KC_LPRN, KC_RPRN, KC_GRV,
-    _______, KC_QUES, KC_EQL,  KC_PLUS, KC_PIPE, KC_LBRC, KC_RBRC, KC_BSLS, KC_LCBR, KC_RCBR, KC_SLSH, XXXXXXX,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, XXXXXXX, XXXXXXX
+    _______, _______, KC_EQL,  KC_PLUS, _______, KC_LBRC, KC_RBRC, _______, KC_LCBR, KC_RCBR, _______, _______,
+    _______, _______, _______, _______, _______, KC_SPC,  KC_SPC,  _______, _______, _______, _______, _______
   ),
 
   [_FN] = LAYOUT_ortho_4x12(
     RESET,   _______, _______, _______, _______, _______, _______, _______, _______, _______, RGB_MOD, RGB_TOG,
     KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
-    _______, KC_PSCR, KC_INS,  _______, _______, KC_BRID, KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PGUP, KC_END,
+    KC_DEL,  KC_PSCR, KC_INS,  _______, _______, KC_BRID, KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PGUP, KC_END,
     _______, _______, _______, _______, _______, KC_SPC,  KC_SPC,  _______, _______, _______, KC_HOME, KC_PGDN
-  )
+  ),
 
 };
 
@@ -57,16 +76,41 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * Colors
  */
 
+typedef struct {
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
+  int len;
+  int ps[32];
+} ColorPos;
+
 #define HSV_BASE    43, 43, 63
-#define RGB_SPECIAL 0x66, 0x66, 0x44
-#define RGB_MODKEY  0x22, 0x33, 0x00
-#define RGB_CURSOR  0x66, 0x66, 0x44
-#define RGB_DANGER  0xFF, 0x66, 0x00
+#define RGB_SPECIAL 0x22, 0x11, 0x00
 #define RGB_SYMBOL  0x22, 0x44, 0x44
-#define RGB_NUMBER  0x00, 0x33, 0x88
-#define RGB_BRACKET 0xFF, 0x00, 0xCC
-#define RGB_FUNCKEY 0x44, 0x11, 0x11
-#define RGB_MEDIA   0x66, 0x03, 0x03
+#define RGB_NUMBER  0x66, 0x66, 0x44
+#define RGB_BRACKET 0x22, 0x33, 0x00
+#define RGB_FUNCKEY 0x66, 0x66, 0x44
+#define RGB_MEDIA   0x00, 0x33, 0x55
+
+ColorPos colorset[] = {
+  // main
+  {RGB_SPECIAL, 13, {10, 21, 34, 44, 45, 46, 47, 48, 49, 54, 55, 56, 57}},
+  {RGB_SYMBOL,   7, {22, 32, 33, 42, 43, 50, 53}},
+  {RGB_BRACKET,  2, {42, 43}},
+  // sym
+  {RGB_NUMBER,  10, {11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
+  {RGB_SYMBOL,  16, {22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 36, 37, 39, 40}},
+  {RGB_BRACKET,  6, {31, 32, 39, 40, 42, 43}},
+  // fn
+  {RGB_FUNCKEY, 20, {22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 44, 45, 51, 52, 56, 57}},
+  {RGB_MEDIA,    3, {41, 42, 43}},
+  // kana
+  {RGB_SPECIAL,  5, {10, 21, 34, 46}},
+  {RGB_SYMBOL,   2, {22, 33}},
+  // かな記号
+  {RGB_SYMBOL,   3, {42, 43, 44}},
+  {RGB_BRACKET,  2, {31, 32}},
+};
 
 /*
  * RGB Matrix Timeout
@@ -102,6 +146,38 @@ void process_rgb_matrix_timeout(void) {
 }
 
 /*
+ * Kana
+ */
+ 
+static bool is_kana = false;
+
+void kana_on(void) {
+  is_kana = true;
+  layer_on(_KANA);
+
+  tap_code(KC_LANG1); // Mac
+  tap_code(KC_HENK); // Win
+}
+
+void kana_off(void) {
+  is_kana = false;
+  layer_off(_KANA);
+
+  tap_code(KC_LANG2); // Mac
+  tap_code(KC_MHEN); // Win
+}
+
+/*
+ * Utility methods
+ */
+
+void set_color_range(ColorPos cp) {
+  for (int i = 0; i < cp.len; ++i) {
+    rgb_matrix_set_color(cp.ps[i], cp.red, cp.green, cp.blue);
+  }
+}
+
+/*
  * QMK callbacks
  */
 
@@ -114,81 +190,172 @@ void rgb_matrix_indicators_user(void) {
   if (led_on == false) {
     return;
   }
-
-  rgb_matrix_set_color(10, RGB_SPECIAL);
-  rgb_matrix_set_color(21, RGB_SPECIAL);
-  rgb_matrix_set_color(34, RGB_SPECIAL);
-  // mod keys
-  rgb_matrix_set_color(46, RGB_MODKEY);
-  rgb_matrix_set_color(47, RGB_MODKEY);
-  rgb_matrix_set_color(48, RGB_MODKEY);
-  rgb_matrix_set_color(55, RGB_MODKEY);
-  // layer and spaces
-  rgb_matrix_set_color(50, RGB_MODKEY);
-  rgb_matrix_set_color(51, RGB_MODKEY);
-  rgb_matrix_set_color(52, RGB_MODKEY);
-  rgb_matrix_set_color(53, RGB_MODKEY);
-  // del, bs
-  rgb_matrix_set_color(49, RGB_DANGER);
-  rgb_matrix_set_color(54, RGB_DANGER);
-  // symbols
-  rgb_matrix_set_color(22, RGB_SYMBOL);
-  rgb_matrix_set_color(32, RGB_SYMBOL);
-  rgb_matrix_set_color(33, RGB_SYMBOL);
-  rgb_matrix_set_color(42, RGB_SYMBOL);
-  rgb_matrix_set_color(43, RGB_SYMBOL);
+  uint8_t mod_state = get_mods();
+  bool shifted = (mod_state & MOD_MASK_SHIFT);
+  
+  if (layer_state_is(_KANA)) {
+    set_color_range(colorset[8]);
+    set_color_range(colorset[9]);
+    if (shifted) {
+      set_color_range(colorset[10]);
+      set_color_range(colorset[11]);
+    }
+  } else {
+    set_color_range(colorset[0]);
+    set_color_range(colorset[1]);
+    if (shifted) {
+      set_color_range(colorset[2]);
+    }
+  }
 
   if (layer_state_is(_SYM)) {
-    for (uint8_t i = 11; i <= 20; i++) {
-      rgb_matrix_set_color(i, RGB_NUMBER);
-    }
-    for (uint8_t i = 22; i <= 33; i++) {
-      rgb_matrix_set_color(i, RGB_SYMBOL);
-    }
-    for (uint8_t i = 35; i <= 44; i++) {
-      rgb_matrix_set_color(i, RGB_SYMBOL);
-    }
-    // brackets
-    rgb_matrix_set_color(31, RGB_BRACKET);
-    rgb_matrix_set_color(32, RGB_BRACKET);
-    rgb_matrix_set_color(39, RGB_BRACKET);
-    rgb_matrix_set_color(40, RGB_BRACKET);
-    rgb_matrix_set_color(42, RGB_BRACKET);
-    rgb_matrix_set_color(43, RGB_BRACKET);
+    set_color_range(colorset[3]);
+    set_color_range(colorset[4]);
+    set_color_range(colorset[5]);
     return;
-  } else {  
-    // cursors
-    rgb_matrix_set_color(44, RGB_CURSOR);
-    rgb_matrix_set_color(45, RGB_CURSOR);
-    rgb_matrix_set_color(56, RGB_CURSOR);
-    rgb_matrix_set_color(57, RGB_CURSOR);
   }
   
   if (layer_state_is(_FN)) {
-    for (uint8_t i = 22; i <= 33; i++) {
-      rgb_matrix_set_color(i, RGB_FUNCKEY);
-    }
-    // cursors
-    rgb_matrix_set_color(44, RGB_FUNCKEY);
-    rgb_matrix_set_color(45, RGB_FUNCKEY);
-    rgb_matrix_set_color(56, RGB_FUNCKEY);
-    rgb_matrix_set_color(57, RGB_FUNCKEY);
-    // spaces
-    rgb_matrix_set_color(51, RGB_FUNCKEY);
-    rgb_matrix_set_color(52, RGB_FUNCKEY);
-    // sound
-    rgb_matrix_set_color(41, RGB_MEDIA);
-    rgb_matrix_set_color(42, RGB_MEDIA);
-    rgb_matrix_set_color(43, RGB_MEDIA);
-    // other fn
-    rgb_matrix_set_color(35, RGB_FUNCKEY);
-    rgb_matrix_set_color(36, RGB_FUNCKEY);
+    set_color_range(colorset[6]);
+    set_color_range(colorset[7]);
     return;
   }
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-  if (record->event.pressed) refresh_rgb_matrix_timeout();
+  bool pressed = record->event.pressed;
+  if (pressed) refresh_rgb_matrix_timeout();
+
+  uint8_t mod_state = get_mods();
+  bool ctrled = (mod_state & MOD_MASK_CTRL);
+  bool shifted = (mod_state & MOD_MASK_SHIFT);
+
+  switch (keycode) {
+    case KC_LCTL: // かな入力中にCTRLキーを押した場合かなレイヤーをオフ
+      if (is_kana) {
+        if (pressed) {
+          layer_off(_KANA);
+        } else {
+          layer_on(_KANA);
+        }
+      }
+      break;
+    case KC_ESC: // かな入力中のESCキーは修飾キーを無効化
+      if (pressed) {
+        if (is_kana && ctrled) {
+          del_mods(MOD_MASK_CTRL);
+          //kana_off();
+          tap_code(KC_ESC);
+          set_mods(mod_state);
+          return false;
+        } else {
+          kana_off();
+          tap_code(KC_ESC);
+          return false;
+        }
+      }
+      break;
+    case EISU:
+      if (pressed) {
+        kana_off();
+        return false;
+      }
+      break;
+    case KANA: // かな入力中のKANAキーは修飾キーを無効化
+      if (pressed) {
+        if (is_kana && ctrled) {
+          del_mods(MOD_MASK_CTRL);
+          kana_on();
+          set_mods(mod_state);
+        } else {
+          kana_on();
+        }
+      }
+      return false;
+    case KC_UP: // かな入力中のカーソルキーは修飾キーを無効化
+    case KC_DOWN:
+    case KC_LEFT:
+    case KC_RIGHT:
+      if (is_kana && ctrled && pressed) {
+        del_mods(MOD_MASK_CTRL);
+        tap_code(keycode);
+        set_mods(mod_state);
+        return false;
+      }
+      break;
+    case B_SFT: // かな入力中の同時押しスペース
+    case N_SFT:
+      if (is_kana && (ctrled || shifted) && pressed) {
+        clear_mods();
+        tap_code(KC_SPC);
+        set_mods(mod_state);
+        return false;
+      }
+      break;
+    case KC_W: // へ
+      if (is_kana && shifted && pressed) {
+        del_mods(MOD_MASK_SHIFT);
+        tap_code(KC_EQL);
+        set_mods(mod_state);
+        return false;
+      }
+      break;
+    case KC_R: // む
+      if (is_kana && shifted && pressed) { 
+        del_mods(MOD_MASK_SHIFT);
+        tap_code(KC_BSLS);
+        set_mods(mod_state);
+        return false;
+      }
+      break;
+    case KC_U: // ほ
+      if (is_kana && shifted && pressed) {
+        del_mods(MOD_MASK_SHIFT);
+        tap_code(KC_MINS);
+        set_mods(mod_state);
+        return false;
+      }
+      break;
+    case KC_O: // 「
+      if (is_kana && shifted && pressed) { 
+        tap_code(KC_LBRC);
+        return false;
+      }
+      break;
+    case KC_P: // 」
+      if (is_kana && shifted && pressed) { 
+        tap_code(KC_RBRC);
+        return false;
+      }
+      break;
+    case KC_LBRC: // ゜
+      if (is_kana && shifted && pressed) { 
+        del_mods(MOD_MASK_SHIFT);
+        tap_code(KC_RBRC);
+        set_mods(mod_state);
+        return false;
+      }
+      break;
+    case KC_K: // 、
+      if (is_kana && shifted && pressed) { 
+        tap_code(KC_COMM);
+        return false;
+      }
+      break;
+    case KC_L: // 。
+      if (is_kana && shifted && pressed) { 
+        tap_code(KC_DOT);
+        return false;
+      }
+      break;
+    case KC_SCLN: // ・
+      if (is_kana && shifted && pressed) { 
+        tap_code(KC_SLSH);
+        return false;
+      }
+      break;
+  }
+
   return true;
 }
 
