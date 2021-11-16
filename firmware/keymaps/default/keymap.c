@@ -28,16 +28,7 @@ enum custom_keycodes {
 };
 
 // Readability keycodes
-#define FUNC    MO(_FN)
-#define SPC_SFT LSFT_T(KC_SPC)
-#define BSL_SYM LT(_SYM, KC_BSLS)
-#define SLS_SYM LT(_SYM, KC_SLSH)
-#define B_SFT   LSFT_T(KC_B)
-#define N_SFT   LSFT_T(KC_N)
-#define V_SYM   LT(_SYM, KC_V)
-#define M_SYM   LT(_SYM, KC_M)
-#define LANG_JA DF(_KANA)
-#define LANG_EN DF(_MAIN)
+#define FUNC MO(_FN)
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -45,21 +36,21 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_MINS, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, FUNC,    BSL_SYM, SPC_SFT, SPC_SFT, SLS_SYM, KANA,    KC_TAB,  KC_LEFT, KC_DOWN
+    KC_LCTL, KC_LGUI, KC_LALT, FUNC,    KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KANA,    KC_TAB,  KC_LEFT, KC_DOWN
   ),
 
   [_KANA] = LAYOUT_ortho_4x12(
     KC_ESC,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_ENT,
     KC_UNDS, KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC,
     KC_BSPC, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
-    KC_LCTL, KC_Z,    KC_X,    KC_C,    KC_V,    B_SFT,   N_SFT,   KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_GRV
+    KC_LCTL, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_GRV
   ),
 
   [_SYM] = LAYOUT_ortho_4x12(
     _______, KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    _______,
     KC_TILD, KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_AMPR, KC_ASTR, KC_LPRN, KC_RPRN, KC_GRV,
     _______, _______, KC_EQL,  KC_PLUS, _______, KC_LBRC, KC_RBRC, _______, KC_LCBR, KC_RCBR, _______, _______,
-    _______, _______, _______, _______, _______, KC_SPC,  KC_SPC,  _______, _______, _______, _______, _______
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
   ),
 
   [_FN] = LAYOUT_ortho_4x12(
@@ -221,9 +212,17 @@ void rgb_matrix_indicators_user(void) {
   }
 }
 
+static int shift_counter = 0;
+static uint16_t shift_timer = 0;
+static int shift_mode = 0;
+static int sym_counter = 0;
+static uint16_t sym_timer = 0;
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
-  if (pressed) refresh_rgb_matrix_timeout();
+  if (pressed) {
+    ++shift_counter;
+    refresh_rgb_matrix_timeout();
+  }
 
   uint8_t mod_state = get_mods();
   bool ctrled = (mod_state & MOD_MASK_CTRL);
@@ -282,12 +281,97 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return false;
       }
       break;
-    case B_SFT: // かな入力中の同時押しスペース
-    case N_SFT:
-      if (is_kana && (ctrled || shifted) && pressed) {
-        clear_mods();
+    case KC_B:
+    case KC_N:
+      if (is_kana) {
+        if (pressed) {
+          ++shift_mode;
+          if (shift_mode > 2) {
+            shift_mode = 2;
+          }
+          switch (shift_mode) {
+            case 1:
+              register_mods(MOD_MASK_SHIFT);
+              shift_counter = 0;
+              shift_timer = timer_read();
+              break;
+            case 2:
+              unregister_mods(MOD_MASK_SHIFT);
+              register_code(KC_SPC);
+              break;
+          }
+        } else {
+          switch (shift_mode) {
+            case 1:
+              unregister_mods(MOD_MASK_SHIFT);
+              break;
+            case 2:
+              unregister_code(KC_SPC);
+              register_mods(MOD_MASK_SHIFT);
+              break;
+          }
+          --shift_mode;
+          if (shift_mode < 0) {
+            shift_mode = 0;
+          }
+          if (shift_counter == 0 && timer_elapsed(shift_timer) < TAPPING_TERM) {
+            tap_code(keycode);
+          }
+        }
+        return false;
+      }
+      break;
+    case KC_SPC:
+      if (is_kana && ctrled && pressed) {
+        // かな入力中は修飾キーを無効化
+        del_mods(MOD_MASK_CTRL);
         tap_code(KC_SPC);
         set_mods(mod_state);
+        return false;
+      } else if (!is_kana) {
+        if (pressed) {
+          ++shift_mode;
+          if (shift_mode > 2) {
+            shift_mode = 2;
+          }
+          switch (shift_mode) {
+            case 1:
+              register_mods(MOD_MASK_SHIFT);
+              shift_counter = 0;
+              shift_timer = timer_read();
+              break;
+            case 2:
+              tap_code(KC_SPC);
+              break;
+          }
+        } else {
+          if (shift_mode == 1) {
+            unregister_mods(MOD_MASK_SHIFT);
+          }
+          --shift_mode;
+          if (shift_mode < 0) {
+            shift_mode = 0;
+          }
+          if (shift_counter == 0 && timer_elapsed(shift_timer) < TAPPING_TERM) {
+            tap_code(KC_SPC);
+          }
+        }
+        return false;
+      }
+      break;
+    case KC_BSLS: // ホールドでSYMキー
+    case KC_SLSH:
+      if (!is_kana) {
+        if (pressed) {
+          layer_on(_SYM);
+          sym_counter = 0;
+          sym_timer = timer_read();
+        } else {
+          layer_off(_SYM);
+          if (sym_counter == 0 && timer_elapsed(sym_timer) < TAPPING_TERM) {
+            tap_code(keycode);
+          }
+        }
         return false;
       }
       break;
