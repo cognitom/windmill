@@ -19,7 +19,9 @@ Windmillの説明については、[こちら](../README.md)へ。
 #define PERMISSIVE_HOLD
 ```
 
-こだわる人は、keymap.cの`process_record_*`コールバックで自力で実装するみたいだけど、上記でもたぶん十分。
+こだわる人は、keymap.cの`process_record_*`コールバックで自力で実装するみたいだけど、~~上記でもたぶん十分~~。
+
+全然十分じゃなかった。[ドキュメントにも記載](https://docs.qmk.fm/#/tap_hold?id=permissive-hold)されているけど、permissive holdだけでは、シフトdown→わdown→シフトup→わupの順にキーが押された場合、シフトが有効にならない。一般的な日本語処理系では、上記のケースはシフト有効として判断されるし、打鍵が高速になれば上記のケースが増える。気を付けて打てばどうにかなるというものでもなさそうだ。やはり、`process_record_*`コールバックで自力で実装する必要がある。
 
 ## RGB Matrix
 
