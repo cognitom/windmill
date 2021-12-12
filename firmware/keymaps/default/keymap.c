@@ -75,8 +75,8 @@ typedef struct {
 } ColorPos;
 
 #define HSV_BASE    43, 43, 63
-#define RGB_SPECIAL 0x22, 0x11, 0x00
-#define RGB_SYMBOL  0x22, 0x44, 0x44
+#define RGB_SPECIAL 0x1c, 0x11, 0x00
+#define RGB_SYMBOL  0x11, 0x22, 0x22
 #define RGB_NUMBER  0x66, 0x66, 0x44
 #define RGB_BRACKET 0x22, 0x33, 0x00
 #define RGB_FUNCKEY 0x66, 0x66, 0x44
@@ -106,7 +106,7 @@ ColorPos colorset[] = {
  * RGB Matrix Timeout
  */
 
-#define RGBMATRIX_TIMEOUT 1 // in minutes
+#define RGBMATRIX_TIMEOUT 3 // in minutes
 static uint16_t idle_timer = 0;
 static uint8_t halfmin_counter = 0;
 static bool led_on = true;
@@ -220,8 +220,14 @@ static uint16_t sym_timer = 0;
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
   if (pressed) {
+    if (led_on == false) {
+      refresh_rgb_matrix_timeout();
+      return false;
+    } else {
+      refresh_rgb_matrix_timeout();
+    }
     ++shift_counter;
-    refresh_rgb_matrix_timeout();
+    ++sym_counter;
   }
 
   uint8_t mod_state = get_mods();
