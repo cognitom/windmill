@@ -59,4 +59,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 /* Dual-role keys setting; see https://docs.qmk.fm/#/tap_hold?id=permissive-hold */
 #define TAPPING_TERM 250
-#define PERMISSIVE_HOLD
+//#define PERMISSIVE_HOLD
