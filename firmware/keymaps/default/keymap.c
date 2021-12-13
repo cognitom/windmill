@@ -145,16 +145,16 @@ void kana_on(void) {
   is_kana = true;
   layer_on(_KANA);
 
-  tap_code(KC_LANG1); // Mac
-  tap_code(KC_HENK); // Win
+  tap_code(KC_LANG1); // Mac, Microsoft IME
+  tap_code(KC_HENK); // Mozc
 }
 
 void kana_off(void) {
   is_kana = false;
   layer_off(_KANA);
 
-  tap_code(KC_LANG2); // Mac
-  tap_code(KC_MHEN); // Win
+  tap_code(KC_LANG2); // Mac, Microsoft IME
+  tap_code(KC_MHEN); // Mozc
 }
 
 /*
