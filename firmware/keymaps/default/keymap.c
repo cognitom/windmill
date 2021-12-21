@@ -23,6 +23,7 @@ enum layers {
     _SYM_L,
     _SYM_R,
     _FN,
+    _MOUSE,
 };
 
 enum custom_keycodes {
@@ -31,27 +32,28 @@ enum custom_keycodes {
 
 // Readability keycodes
 #define FUNC MO(_FN)
+#define MOUSE MO(_MOUSE)
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [_MAIN] = LAYOUT_ortho_4x12(
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
-    KC_MINS, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
+    KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, FUNC,    KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KANA,    KC_TAB,  KC_LEFT, KC_DOWN
+    KC_LCTL, KC_LGUI, KC_LALT, FUNC,    KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KANA,    MOUSE,   KC_LEFT, KC_DOWN
   ),
 
   [_KANA] = LAYOUT_ortho_4x12(
     KC_ESC,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_ENT,
-    KC_UNDS, KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC,
+    KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC,
     KC_BSPC, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_LCTL, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_GRV
   ),
 
   [_SYM] = LAYOUT_ortho_4x12(
     _______, KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    _______,
-    KC_TILD, KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_AMPR, KC_ASTR, KC_LPRN, KC_RPRN, KC_GRV,
-    _______, _______, KC_EQL,  KC_PLUS, _______, KC_LBRC, KC_RBRC, _______, KC_LCBR, KC_RCBR, _______, _______,
+    _______, KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_AMPR, KC_ASTR, KC_LPRN, KC_RPRN, KC_GRV,
+    _______, KC_EQL,  KC_PLUS, KC_MINS, KC_UNDS, KC_LBRC, KC_RBRC, KC_TILD, KC_LCBR, KC_RCBR, _______, _______,
     _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
   ),
 
@@ -74,6 +76,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
     KC_DEL,  KC_PSCR, KC_INS,  _______, _______, KC_BRID, KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PGUP, KC_END,
     _______, _______, _______, _______, _______, KC_SPC,  KC_SPC,  _______, _______, _______, KC_HOME, KC_PGDN
+  ),
+
+  [_MOUSE] = LAYOUT_ortho_4x12(
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_MS_U, KC_MS_R,
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_MS_L, KC_MS_D
   ),
 
 };
@@ -100,21 +109,21 @@ typedef struct {
 
 ColorPos colorset[] = {
   // main
-  {RGB_SPECIAL, 13, {10, 21, 34, 44, 45, 46, 47, 48, 49, 54, 55, 56, 57}},
+  {RGB_SPECIAL, 14, {10, 21, 22, 34, 44, 45, 46, 47, 48, 49, 54, 55, 56, 57}},
   {RGB_SYMBOL,   7, {22, 32, 33, 42, 43, 50, 53}},
   {RGB_BRACKET,  2, {42, 43}},
   // sym
   {RGB_NUMBER,  10, {11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
-  {RGB_SYMBOL,  16, {22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 36, 37, 39, 40}},
+  {RGB_SYMBOL,  16, {23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 37, 38, 41}},
   {RGB_BRACKET,  6, {31, 32, 39, 40, 42, 43}},
   // fn
   {RGB_FUNCKEY, 20, {22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 44, 45, 51, 52, 56, 57}},
   {RGB_MEDIA,    3, {41, 42, 43}},
   // kana
-  {RGB_SPECIAL,  5, {10, 21, 34, 46}},
-  {RGB_SYMBOL,   2, {22, 33}},
+  {RGB_SPECIAL,  5, {10, 21, 22, 34, 46}},
+  {RGB_SYMBOL,   1, {33}},
   // かな記号
-  {RGB_SYMBOL,   3, {42, 43, 44}},
+  {RGB_SYMBOL,   4, {42, 43, 44, 45}},
   {RGB_BRACKET,  2, {31, 32}},
 };
 
