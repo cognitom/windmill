@@ -20,6 +20,8 @@ enum layers {
     _MAIN,
     _KANA,
     _SYM,
+    _SYM_L,
+    _SYM_R,
     _FN,
 };
 
@@ -51,6 +53,20 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_TILD, KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_AMPR, KC_ASTR, KC_LPRN, KC_RPRN, KC_GRV,
     _______, _______, KC_EQL,  KC_PLUS, _______, KC_LBRC, KC_RBRC, _______, KC_LCBR, KC_RCBR, _______, _______,
     _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
+  ),
+
+  [_SYM_L] = LAYOUT_ortho_4x12(
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, KC_PIPE, KC_PIPE, _______, _______, _______, _______, _______
+  ),
+
+  [_SYM_R] = LAYOUT_ortho_4x12(
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, KC_QUES, KC_QUES, _______, _______, _______, _______, _______
   ),
 
   [_FN] = LAYOUT_ortho_4x12(
@@ -370,10 +386,14 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       if (!is_kana) {
         if (pressed) {
           layer_on(_SYM);
+          if (keycode == KC_BSLS) layer_on(_SYM_L); // sym -> space で「|」を出力するように
+          if (keycode == KC_SLSH) layer_on(_SYM_R); // sym -> space で「?」を出力するように
           sym_counter = 0;
           sym_timer = timer_read();
         } else {
           layer_off(_SYM);
+          layer_off(_SYM_L);
+          layer_off(_SYM_R);
           if (sym_counter == 0 && timer_elapsed(sym_timer) < TAPPING_TERM) {
             tap_code(keycode);
           }
