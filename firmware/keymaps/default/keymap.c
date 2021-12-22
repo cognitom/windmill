@@ -470,6 +470,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       }
       break;
     case KC_QUOT: // ー
+    case KC_GRV:
       if (is_kana && shifted && pressed) { 
         tap_code(KC_MINS);
         return false;
