@@ -23,7 +23,6 @@ enum layers {
     _SYM_L,
     _SYM_R,
     _FN,
-    _MOUSE,
 };
 
 enum custom_keycodes {
@@ -32,7 +31,6 @@ enum custom_keycodes {
 
 // Readability keycodes
 #define FUNC MO(_FN)
-#define MOUSE MO(_MOUSE)
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -40,7 +38,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, FUNC,    KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KANA,    MOUSE,   KC_LEFT, KC_DOWN
+    KC_LCTL, KC_LGUI, KC_LALT, FUNC,    KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KANA,    KC_APP,  KC_LEFT, KC_DOWN
   ),
 
   [_KANA] = LAYOUT_ortho_4x12(
@@ -78,13 +76,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______, _______, _______, _______, _______, KC_SPC,  KC_SPC,  _______, _______, _______, KC_HOME, KC_PGDN
   ),
 
-  [_MOUSE] = LAYOUT_ortho_4x12(
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_MS_U, KC_MS_R,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_MS_L, KC_MS_D
-  ),
-
 };
 
 /*
@@ -110,7 +101,7 @@ typedef struct {
 ColorPos colorset[] = {
   // main
   {RGB_SPECIAL, 14, {10, 21, 22, 34, 44, 45, 46, 47, 48, 49, 54, 55, 56, 57}},
-  {RGB_SYMBOL,   7, {22, 32, 33, 42, 43, 50, 53}},
+  {RGB_SYMBOL,   6, {32, 33, 42, 43, 50, 53}},
   {RGB_BRACKET,  2, {42, 43}},
   // sym
   {RGB_NUMBER,  10, {11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
