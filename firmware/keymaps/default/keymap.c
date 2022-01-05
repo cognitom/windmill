@@ -262,21 +262,17 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       }
       break;
     case KC_ESC:
-      if (pressed) {
-        if (is_kana && ctrled) {
+      if (pressed && is_kana) {
+        if (ctrled) {
           // かな入力中は修飾キーを無効化
           del_mods(MOD_MASK_CTRL);
           tap_code(KC_ESC);
           set_mods(mod_state);
-          return false;
         } else {
-          // 非かな入力時のみESCを送信
-          if (!is_kana) {
-            tap_code(KC_ESC);
-          }
+          // かな入力中のみ、ESCでかな入力をオフに
           kana_off();
-          return false;
         }
+        return false;
       }
       break;
     case KANA:
