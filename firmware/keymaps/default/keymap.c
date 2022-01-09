@@ -26,8 +26,7 @@ enum layers {
 };
 
 enum custom_keycodes {
-  KANA = SAFE_RANGE,
-  ALPHA,
+  THUM_L3 = SAFE_RANGE, THUM_L2, THUM_L1, THUM_R1, THUM_R2, THUM_R3,
 };
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -36,14 +35,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, ALPHA,   KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KANA,    KC_APP,  KC_LEFT, KC_DOWN
+    KC_LCTL, KC_LGUI, KC_LALT, THUM_L3, KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, THUM_R3, KC_APP,  KC_LEFT, KC_DOWN
   ),
 
   [_KANA] = LAYOUT_ortho_4x12(
     KC_ESC,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_ENT,
     KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC,
     KC_BSPC, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
-    KC_LCTL, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_GRV
+    KC_LCTL, KC_Z,    KC_X,    _______, KC_V,    KC_B,    KC_N,    KC_M,    _______, KC_DOT,  KC_SLSH, KC_GRV
   ),
 
   [_SYM] = LAYOUT_ortho_4x12(
@@ -264,20 +263,20 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       break;
     case KC_ESC:
       if (pressed && is_kana) {
+        // かな入力中のみ、ESCでかな入力をオフに
         if (ctrled) {
-          // かな入力中は修飾キーを無効化
+          // ただし、Ctrl押下中はプレーンなESCを送出
           del_mods(MOD_MASK_CTRL);
           tap_code(KC_ESC);
           set_mods(mod_state);
         } else {
-          // かな入力中のみ、ESCでかな入力をオフに
           kana_off();
         }
         return false;
       }
       break;
-    case KANA:
-    case ALPHA:
+    case THUM_L3:
+    case THUM_R3:
       if (pressed) {
         layer_on(_FN);
         fn_counter = 0;
@@ -285,10 +284,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       } else {
         layer_off(_FN);
         if (fn_counter == 0 && timer_elapsed(fn_timer) < TAPPING_TERM) {
-          del_mods(MOD_MASK_CTRL);
-          if (keycode == KANA) kana_on();
-          if (keycode == ALPHA) kana_off();
-          set_mods(mod_state);
+          if (is_kana && !ctrled) {
+            if (keycode == THUM_L3) tap_code(KC_C); // 「そ」
+            if (keycode == THUM_R3) tap_code(KC_COMM); // 「ね」
+          } else {
+            del_mods(MOD_MASK_CTRL); // 常にCtrlを無効化
+            if (keycode == THUM_L3) kana_off();
+            if (keycode == THUM_R3) kana_on();
+            set_mods(mod_state);
+          }
         }
       }
       return false;
