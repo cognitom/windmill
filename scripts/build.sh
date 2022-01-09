@@ -2,7 +2,7 @@
 
 cd "$(dirname "$0")/.." # move to the current dir
 dirpath="$( pwd -P )" # study the dir path
-project=${dirpath##*/} # set the name of dir
+project=windmill
 
 if [ -z "$(docker image ls -q $project-qmk)" ]; then
   docker build -t $project-qmk -f ./scripts/Dockerfile .

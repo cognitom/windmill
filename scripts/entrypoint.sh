@@ -10,5 +10,5 @@ host_gid=$(ls -n $0 | awk '{print $4}') # study what I belong to
 
 make $@:default
 
-mv $@* /output
+mv $@_default.hex /output/$@.hex
 chown $host_uid:$host_gid /output/*
