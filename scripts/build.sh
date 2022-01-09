@@ -10,7 +10,7 @@ fi
 
 # Run container and build firmware
 docker run \
-  --interactive --tty --rm \
+  --interactive --rm \
   --env ALT_GET_KEYBOARDS=true \
   --mount type=bind,source="$dirpath/firmware",target="/qmk_firmware/keyboards/$project" \
   --mount type=bind,source="$dirpath/output",target="/output" \
