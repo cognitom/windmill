@@ -35,14 +35,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, THUM_L3, KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, THUM_R3, KC_APP,  KC_LEFT, KC_DOWN
+    KC_LCTL, KC_LGUI, KC_LALT, THUM_L3, THUM_L2, KC_SPC,  KC_SPC,  THUM_R2, THUM_R3, KC_APP,  KC_LEFT, KC_DOWN
   ),
 
   [_KANA] = LAYOUT_ortho_4x12(
     KC_ESC,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_ENT,
     KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC,
     KC_BSPC, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
-    KC_LCTL, KC_Z,    KC_X,    _______, KC_V,    KC_B,    KC_N,    KC_M,    _______, KC_DOT,  KC_SLSH, KC_GRV
+    KC_LCTL, KC_Z,    KC_X,    _______, _______, KC_B,    KC_N,    _______, _______, KC_DOT,  KC_SLSH, KC_GRV
   ),
 
   [_SYM] = LAYOUT_ortho_4x12(
@@ -154,20 +154,26 @@ void process_rgb_matrix_timeout(void) {
  
 static bool is_kana = false;
 
+void send_kana(void) {
+  tap_code(KC_LANG1); // Mac, Microsoft IME
+  tap_code(KC_HENK); // Mozc
+}
+
+void send_alpha(void) {
+  tap_code(KC_LANG2); // Mac, Microsoft IME
+  tap_code(KC_MHEN); // Mozc
+}
+
 void kana_on(void) {
   is_kana = true;
   layer_on(_KANA);
-
-  tap_code(KC_LANG1); // Mac, Microsoft IME
-  tap_code(KC_HENK); // Mozc
+  send_kana();
 }
 
 void kana_off(void) {
   is_kana = false;
   layer_off(_KANA);
-
-  tap_code(KC_LANG2); // Mac, Microsoft IME
-  tap_code(KC_MHEN); // Mozc
+  send_alpha();
 }
 
 /*
@@ -275,6 +281,32 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return false;
       }
       break;
+    case THUM_L2:
+    case THUM_R2:
+      if (pressed) {
+        if (is_kana) send_alpha();
+        layer_on(_SYM);
+        if (keycode == THUM_L2) layer_on(_SYM_L); // sym -> space で「|」を出力するように
+        if (keycode == THUM_R2) layer_on(_SYM_R); // sym -> space で「?」を出力するように
+        sym_counter = 0;
+        sym_timer = timer_read();
+      } else {
+        if (is_kana) send_kana();
+        layer_off(_SYM);
+        layer_off(_SYM_L);
+        layer_off(_SYM_R);
+        if (sym_counter == 0 && timer_elapsed(sym_timer) < TAPPING_TERM) {
+          if (is_kana) {
+            if (keycode == THUM_L2) tap_code(KC_V); // 「ひ」
+            if (keycode == THUM_R2) tap_code(KC_M); // 「も」
+          } else {
+            if (keycode == THUM_L2) tap_code(KC_BSLS); // "\"
+            if (keycode == THUM_R2) tap_code(KC_SLSH); // "/"
+          }
+        }
+      }
+      return false;
+      break;
     case THUM_L3:
     case THUM_R3:
       if (pressed) {
@@ -381,26 +413,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
           }
           if (shift_counter == 0 && timer_elapsed(shift_timer) < TAPPING_TERM) {
             tap_code(KC_SPC);
-          }
-        }
-        return false;
-      }
-      break;
-    case KC_BSLS: // ホールドでSYMキー
-    case KC_SLSH:
-      if (!is_kana) {
-        if (pressed) {
-          layer_on(_SYM);
-          if (keycode == KC_BSLS) layer_on(_SYM_L); // sym -> space で「|」を出力するように
-          if (keycode == KC_SLSH) layer_on(_SYM_R); // sym -> space で「?」を出力するように
-          sym_counter = 0;
-          sym_timer = timer_read();
-        } else {
-          layer_off(_SYM);
-          layer_off(_SYM_L);
-          layer_off(_SYM_R);
-          if (sym_counter == 0 && timer_elapsed(sym_timer) < TAPPING_TERM) {
-            tap_code(keycode);
           }
         }
         return false;
