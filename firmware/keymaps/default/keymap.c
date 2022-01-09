@@ -155,11 +155,13 @@ void process_rgb_matrix_timeout(void) {
 static bool is_kana = false;
 
 void send_kana(void) {
+  clear_keyboard();
   tap_code(KC_LANG1); // Mac, Microsoft IME
   tap_code(KC_HENK); // Mozc
 }
 
 void send_alpha(void) {
+  clear_keyboard();
   tap_code(KC_LANG2); // Mac, Microsoft IME
   tap_code(KC_MHEN); // Mozc
 }
