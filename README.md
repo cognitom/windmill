@@ -20,28 +20,22 @@ Windmill is a keymap for 40% keyboard.
 - BSが最左列
 - 下段中央の6キーは、それぞれホールドでShift/Sym/Fnの割り当て
 
-| 最下段中央 | L3 | L2 | L1 | R1 | R2 | R3 |
-|--|:--:|:--:|:--:|:--:|:--:|:--:|
-| タップ | 英数 | \ | Space | Space | / | かな |
-| ホールド | Fn | Sym | Shift | Shift | Sym | Fn |
-
 ![main](docs/images/layout-main.png)
 
 ### かな入力時
 
 - 英語配列では修飾キーが並ぶ最下段も含めて、フルに4段を使う
 - 「ほ」「へ」「む」「ー」のみシフト側へ
+- 「こ」「み」同時押しでスペースキー
 - ESCで英語配列に戻る
-- 下段中央の6キーは、それぞれホールドでShift/Sym/Fnの割り当て
+
+![kana](docs/images/layout-kana.png)
 
 | 最下段中央 | L3 | L2 | L1 | R1 | R2 | R3 |
 |--|:--:|:--:|:--:|:--:|:--:|:--:|
-| タップ | そ | ひ | こ | み | も | ね |
+| タップ (英数) | 英数 | \ | Space | Space | / | かな |
+| タップ (かな) | そ | ひ | こ | み | も | ね |
 | ホールド | Fn | Sym | Shift | Shift | Sym | Fn |
-
-※L1,R1同時押しでスペースキー
-
-![kana](docs/images/layout-kana.png)
 
 ## ファームウェアの作成
 
