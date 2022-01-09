@@ -27,10 +27,8 @@ enum layers {
 
 enum custom_keycodes {
   KANA = SAFE_RANGE,
+  ALPHA,
 };
-
-// Readability keycodes
-#define FUNC MO(_FN)
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -38,7 +36,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, FUNC,    KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KANA,    KC_APP,  KC_LEFT, KC_DOWN
+    KC_LCTL, KC_LGUI, KC_LALT, ALPHA,   KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KANA,    KC_APP,  KC_LEFT, KC_DOWN
   ),
 
   [_KANA] = LAYOUT_ortho_4x12(
@@ -233,6 +231,8 @@ static uint16_t shift_timer = 0;
 static int shift_mode = 0;
 static int sym_counter = 0;
 static uint16_t sym_timer = 0;
+static int fn_counter = 0;
+static uint16_t fn_timer = 0;
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
   if (pressed) {
@@ -244,6 +244,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
     ++shift_counter;
     ++sym_counter;
+    ++fn_counter;
   }
 
   uint8_t mod_state = get_mods();
@@ -276,14 +277,19 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       }
       break;
     case KANA:
+    case ALPHA:
       if (pressed) {
-        if (is_kana && ctrled) {
-          // かな入力中は修飾キーを無効化
+        layer_on(_FN);
+        fn_counter = 0;
+        fn_timer = timer_read();
+      } else {
+        layer_off(_FN);
+        if (fn_counter == 0 && timer_elapsed(fn_timer) < TAPPING_TERM) {
+          tap_code(KC_SPC);
           del_mods(MOD_MASK_CTRL);
-          kana_on();
+          if (keycode == KANA) kana_on();
+          if (keycode == ALPHA) kana_off();
           set_mods(mod_state);
-        } else {
-          kana_on();
         }
       }
       return false;
