@@ -35,14 +35,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, THUM_L3, THUM_L2, KC_SPC,  KC_SPC,  THUM_R2, THUM_R3, KC_APP,  KC_LEFT, KC_DOWN
+    KC_LCTL, KC_LGUI, KC_LALT, THUM_L3, THUM_L2, THUM_L1, THUM_R1, THUM_R2, THUM_R3, KC_APP,  KC_LEFT, KC_DOWN
   ),
 
   [_KANA] = LAYOUT_ortho_4x12(
     KC_ESC,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_ENT,
     KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC,
     KC_BSPC, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
-    KC_LCTL, KC_Z,    KC_X,    _______, _______, KC_B,    KC_N,    _______, _______, KC_DOT,  KC_SLSH, KC_GRV
+    KC_LCTL, KC_Z,    KC_X,    _______, _______, _______, _______, _______, _______, KC_DOT,  KC_SLSH, KC_GRV
   ),
 
   [_SYM] = LAYOUT_ortho_4x12(
@@ -231,13 +231,14 @@ void rgb_matrix_indicators_user(void) {
   }
 }
 
-static int shift_counter = 0;
+static int shift_counter = 0; // Shift(L1,R1)キーの後にいくつキーが押されたか
 static uint16_t shift_timer = 0;
-static int shift_mode = 0;
-static int sym_counter = 0;
+static int shift_mode = 0; // Shiftキー(L1,R1)自体がいくつ押されているか
+static int sym_counter = 0; // Sym(L2,R2)キーの後にいくつキーが押されたか
 static uint16_t sym_timer = 0;
-static int fn_counter = 0;
+static int fn_counter = 0; // Fn(L3,R3)キーの後にいくつキーが押されたか
 static uint16_t fn_timer = 0;
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
   if (pressed) {
@@ -280,6 +281,53 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
         return false;
       }
+      break;
+    case THUM_L1:
+    case THUM_R1:
+      if (pressed) {
+        ++shift_mode;
+        if (shift_mode > 2) shift_mode = 2;
+        switch (shift_mode) {
+          case 1:
+            register_mods(MOD_MASK_SHIFT);
+            shift_counter = 0;
+            shift_timer = timer_read();
+            break;
+          case 2:
+            if (is_kana) unregister_mods(MOD_MASK_SHIFT);
+            register_code(KC_SPC);
+            break;
+        }
+      } else {
+        switch (shift_mode) {
+          case 1:
+            unregister_mods(MOD_MASK_SHIFT);
+            break;
+          case 2:
+            unregister_code(KC_SPC);
+            if (is_kana) register_mods(MOD_MASK_SHIFT);
+            break;
+        }
+        --shift_mode;
+        if (shift_mode < 0) {
+          shift_mode = 0;
+        }
+        if (shift_counter == 0 && timer_elapsed(shift_timer) < TAPPING_TERM) {
+          if (is_kana) {
+            if (ctrled) {
+              del_mods(MOD_MASK_CTRL); // Ctrlを無効化
+              tap_code(KC_SPC); // スペース
+              set_mods(mod_state);
+            } else {
+              if (keycode == THUM_L1) tap_code(KC_B); // 「こ」
+              if (keycode == THUM_R1) tap_code(KC_N); // 「み」
+            }
+          } else {
+            tap_code(KC_SPC); // スペース
+          }
+        }
+      }
+      return false;
       break;
     case THUM_L2:
     case THUM_R2:
@@ -337,84 +385,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         del_mods(MOD_MASK_CTRL);
         tap_code(keycode);
         set_mods(mod_state);
-        return false;
-      }
-      break;
-    case KC_B:
-    case KC_N:
-      if (is_kana) {
-        if (pressed) {
-          ++shift_mode;
-          if (shift_mode > 2) {
-            shift_mode = 2;
-          }
-          switch (shift_mode) {
-            case 1:
-              register_mods(MOD_MASK_SHIFT);
-              shift_counter = 0;
-              shift_timer = timer_read();
-              break;
-            case 2:
-              unregister_mods(MOD_MASK_SHIFT);
-              register_code(KC_SPC);
-              break;
-          }
-        } else {
-          switch (shift_mode) {
-            case 1:
-              unregister_mods(MOD_MASK_SHIFT);
-              break;
-            case 2:
-              unregister_code(KC_SPC);
-              register_mods(MOD_MASK_SHIFT);
-              break;
-          }
-          --shift_mode;
-          if (shift_mode < 0) {
-            shift_mode = 0;
-          }
-          if (shift_counter == 0 && timer_elapsed(shift_timer) < TAPPING_TERM) {
-            tap_code(keycode);
-          }
-        }
-        return false;
-      }
-      break;
-    case KC_SPC:
-      if (is_kana && ctrled && pressed) {
-        // かな入力中は修飾キーを無効化
-        del_mods(MOD_MASK_CTRL);
-        tap_code(KC_SPC);
-        set_mods(mod_state);
-        return false;
-      } else if (!is_kana) {
-        if (pressed) {
-          ++shift_mode;
-          if (shift_mode > 2) {
-            shift_mode = 2;
-          }
-          switch (shift_mode) {
-            case 1:
-              register_mods(MOD_MASK_SHIFT);
-              shift_counter = 0;
-              shift_timer = timer_read();
-              break;
-            case 2:
-              tap_code(KC_SPC);
-              break;
-          }
-        } else {
-          if (shift_mode == 1) {
-            unregister_mods(MOD_MASK_SHIFT);
-          }
-          --shift_mode;
-          if (shift_mode < 0) {
-            shift_mode = 0;
-          }
-          if (shift_counter == 0 && timer_elapsed(shift_timer) < TAPPING_TERM) {
-            tap_code(KC_SPC);
-          }
-        }
         return false;
       }
       break;
