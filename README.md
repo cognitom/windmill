@@ -10,8 +10,6 @@ Windmill is a keymap for 40% keyboard.
 - SandS (Space and Shift)
 - [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)用のファームウェア作成済み
 
-※実機がなくてPlanck用はまだ作っていません。
-
 ## キー配列
 
 ### 英数入力時
