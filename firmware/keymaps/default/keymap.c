@@ -285,7 +285,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       } else {
         layer_off(_FN);
         if (fn_counter == 0 && timer_elapsed(fn_timer) < TAPPING_TERM) {
-          tap_code(KC_SPC);
           del_mods(MOD_MASK_CTRL);
           if (keycode == KANA) kana_on();
           if (keycode == ALPHA) kana_off();
