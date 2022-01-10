@@ -42,7 +42,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_ENT,
     KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC,
     KC_BSPC, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
-    KC_LCTL, KC_Z,    KC_X,    _______, _______, _______, _______, _______, _______, KC_DOT,  KC_SLSH, KC_GRV
+    KC_LCTL, KC_Z,    _______, _______, _______, _______, _______, _______, _______, KC_DOT,  KC_SLSH, KC_GRV
   ),
 
   [_SYM] = LAYOUT_ortho_4x12(
@@ -252,6 +252,8 @@ static int sym_counter = 0; // Sym(L2,R2)キーの後にいくつキーが押さ
 static uint16_t sym_timer = 0;
 static int fn_counter = 0; // Fn(L3,R3)キーの後にいくつキーが押されたか
 static uint16_t fn_timer = 0;
+static int alt_counter = 0; // Altキーの後にいくつキーが押されたか
+static uint16_t alt_timer = 0;
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
@@ -265,6 +267,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     ++shift_counter;
     ++sym_counter;
     ++fn_counter;
+    ++alt_counter;
   }
 
   uint8_t mod_state = get_mods();
@@ -280,6 +283,24 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         } else {
           layer_on(_KANA);
         }
+      }
+      break;
+    case KC_LALT:
+      // かな入力中にALTキーを押した場合かなレイヤーをオフ
+      if (is_kana) {
+        if (pressed) {
+          layer_off(_KANA);
+          alt_counter = 0;
+          alt_timer = timer_read();
+          register_mods(MOD_MASK_ALT);
+        } else {
+          unregister_mods(MOD_MASK_ALT);
+          layer_on(_KANA);
+          if (alt_counter == 0 && timer_elapsed(alt_timer) < TAPPING_TERM) {
+            tap_code(KC_X);
+          }
+        }
+        return false;
       }
       break;
     case KC_ESC:
