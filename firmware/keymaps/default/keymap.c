@@ -67,7 +67,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   ),
 
   [_FN] = LAYOUT_ortho_4x12(
-    RESET,   _______, _______, _______, _______, _______, _______, _______, _______, _______, RGB_MOD, RGB_TOG,
+    RESET,   _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, RGB_TOG,
     KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
     KC_DEL,  KC_PSCR, KC_INS,  _______, _______, KC_BRID, KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PGUP, KC_END,
     _______, _______, _______, _______, _______, KC_SPC,  KC_SPC,  _______, _______, _______, KC_HOME, KC_PGDN
@@ -86,6 +86,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 #define RGB_BRACKET 0x22, 0x33, 0x00
 #define RGB_FUNCKEY 0x66, 0x66, 0x44
 #define RGB_MEDIA   0x00, 0x33, 0x55
+
+#define HSV_BASE_DARK    0, 0, 0
+#define RGB_SPECIAL_DARK 0x04, 0x03, 0x00
+#define RGB_SYMBOL_DARK  0x02, 0x04, 0x03
+#define RGB_NUMBER_DARK  0x06, 0x06, 0x04
+#define RGB_BRACKET_DARK 0x02, 0x03, 0x00
+#define RGB_FUNCKEY_DARK 0x06, 0x06, 0x04
+#define RGB_MEDIA_DARK   0x00, 0x03, 0x05
 
 enum keyset_types {
   KEYS_ALPHA_SPECIALS,
@@ -124,10 +132,12 @@ const int keysets[][32] = {
 static uint16_t idle_timer = 0;
 static uint8_t halfmin_counter = 0;
 static bool led_on = true;
+static bool led_darkmode = false;
 
 void refresh_rgb_matrix_timeout(void) {
   if (led_on == false) {
-    rgb_matrix_sethsv(HSV_BASE);
+    if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
+    else rgb_matrix_sethsv(HSV_BASE);
     led_on = true;
   }
   idle_timer = timer_read();
@@ -183,10 +193,11 @@ void kana_off(void) {
  * Utility methods
  */
 
-void set_color_to_keyset(uint8_t red, uint8_t green, uint8_t blue, int keyset_type) {
+void set_color_to_keyset(uint8_t red, uint8_t green, uint8_t blue, uint8_t red_d, uint8_t green_d, uint8_t blue_d, int keyset_type) {
   for (int i = 0; i < 32; ++i) {
     if (keysets[keyset_type][i]) {
-      rgb_matrix_set_color(keysets[keyset_type][i], red, green, blue);
+      if (led_darkmode) rgb_matrix_set_color(keysets[keyset_type][i], red_d, green_d, blue_d);
+      else rgb_matrix_set_color(keysets[keyset_type][i], red, green, blue);
     }
   }
 }
@@ -208,28 +219,28 @@ void rgb_matrix_indicators_user(void) {
   bool shifted = (mod_state & MOD_MASK_SHIFT);
   
   if (layer_state_is(_KANA)) {
-    set_color_to_keyset(RGB_SPECIAL, KEYS_KANA_SPECIALS);
-    set_color_to_keyset(RGB_SYMBOL, KEYS_KANA_SYMBOLS);
+    set_color_to_keyset(RGB_SPECIAL, RGB_SPECIAL_DARK, KEYS_KANA_SPECIALS);
+    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_KANA_SYMBOLS);
     if (shifted) {
-      set_color_to_keyset(RGB_SYMBOL, KEYS_KANA_SHIFTED_SYMBOLS);
-      set_color_to_keyset(RGB_BRACKET, KEYS_KANA_BRACKETS);
+      set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_KANA_SHIFTED_SYMBOLS);
+      set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_KANA_BRACKETS);
     }
   } else {
-    set_color_to_keyset(RGB_SPECIAL, KEYS_ALPHA_SPECIALS);
-    set_color_to_keyset(RGB_SYMBOL, KEYS_ALPHA_SYMBOLS);
-    if (shifted) set_color_to_keyset(RGB_BRACKET, KEYS_ALPHA_BRACKETS);
+    set_color_to_keyset(RGB_SPECIAL, RGB_SPECIAL_DARK, KEYS_ALPHA_SPECIALS);
+    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_ALPHA_SYMBOLS);
+    if (shifted) set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_ALPHA_BRACKETS);
   }
 
   if (layer_state_is(_SYM)) {
-    set_color_to_keyset(RGB_NUMBER, KEYS_NUMBERS);
-    set_color_to_keyset(RGB_SYMBOL, KEYS_SYMBOLS);
-    set_color_to_keyset(RGB_BRACKET, KEYS_BRACKETS);
+    set_color_to_keyset(RGB_NUMBER, RGB_NUMBER_DARK, KEYS_NUMBERS);
+    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_SYMBOLS);
+    set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_BRACKETS);
     return;
   }
   
   if (layer_state_is(_FN)) {
-    set_color_to_keyset(RGB_FUNCKEY, KEYS_FUNC);
-    set_color_to_keyset(RGB_MEDIA, KEYS_MEDIA);
+    set_color_to_keyset(RGB_FUNCKEY, RGB_FUNCKEY_DARK, KEYS_FUNC);
+    set_color_to_keyset(RGB_MEDIA, RGB_MEDIA_DARK, KEYS_MEDIA);
     return;
   }
 }
@@ -466,6 +477,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return false;
       }
       break;
+    case RGB_TOG:
+      if (pressed) {
+        led_darkmode = !led_darkmode;
+        if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
+        else rgb_matrix_sethsv(HSV_BASE);
+      }
+      return false;
   }
 
   return true;
