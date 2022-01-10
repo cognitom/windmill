@@ -1,7 +1,7 @@
 ![cover](docs/images/cover.png)
 
 # Windmill
-Windmill is a keymap for 40% keyboard.
+Windmill is a keymap for 40% keyboards.
 
 このキー配列は、40%キーボード向けに作成したものです。
 
@@ -23,7 +23,7 @@ Windmill is a keymap for 40% keyboard.
 
 - ESC(✕)とEnter(○)が対称配置
 - BSが最左列
-- 下段中央の6キーは、それぞれホールドでShift/Sym/Fnの割り当て
+- Fn, Sym, Shiftは、ホールド時に有効
 
 ![main](docs/images/layout-main.png)
 
@@ -32,6 +32,7 @@ Windmill is a keymap for 40% keyboard.
 - 英語配列では修飾キーが並ぶ最下段も含めて、フルに4段を使う
 - 「ほ」「へ」「む」「ー」のみシフト側へ
 - 「こ」「み」同時押しでスペースキー
+- GUI, Alt, Fn, Sym, Shiftは、ホールド時に有効 [※補足](docs/README.md#ALT,GUIは、修飾キーかつ単打である問題)
 - ESCで英語配列に戻る
 
 ![kana](docs/images/layout-kana.png)

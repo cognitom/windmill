@@ -55,3 +55,14 @@ https://docs.qmk.fm/#/feature_rgb_matrix?id=additional-configh-options
 ちなみに、`suspend_power_down_*`と`suspend_wakeup_init_*`を使うと書いている記事が多いが、動作しない。RGB Matrixについてはドキュメントがまだ不足しているのかも。
 
 https://docs.qmk.fm/#/custom_quantum_functions?id=keyboard-idlingwake-code
+
+## ALT,GUIは、修飾キーかつ単打である問題
+
+ALTもGUIも、他のキーと組み合わせで使う場合と、単打で使う場合がありSandS的な使い方では、この点が問題になる。
+
+Windmillでは、かな入力時、修飾キーとしてのみALT/GUIが有効になるようにしている。実装としては、押下時にすぐには`register_mods`せず、以下のようなフラグを用意して`true`にしている。押下したまま次のキーが押されたら、そのキーコードの直前に`register_mods`する。そうすれば、単打であった場合にはALT/GUIを送出せずに済む。
+
+```cpp
+static bool alt_reserved = false;
+static bool gui_reserved = false;
+```
