@@ -10,6 +10,13 @@ Windmill is a keymap for 40% keyboard.
 - SandS (Space and Shift)
 - [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)用の[ファームウェア](https://github.com/cognitom/windmill/releases)作成済み
 
+詳しくは、以下をどうぞ。
+
+- [キー配列 (↓)](#キー配列)
+- [追加機能 (↓)](#追加機能)
+- [導入方法](docs/install.md)
+- [ファームウェアの作成](docs/build.md)
+
 ## キー配列
 
 ### 英字入力時
@@ -31,7 +38,7 @@ Windmill is a keymap for 40% keyboard.
 
 ### 記号とファンクションキー
 
-英字入力、かな入力ともに、最下段中央付近のキーをホールドすると、記号(Sym)またはファンクションキー(Fn)の入力になる。配置については英字配列の図で、各キーの添え字を参照。
+英字入力、かな入力ともに、最下段中央付近のキーをホールドすると、記号(Sym)またはファンクションキー(Fn)の入力になります。配置については英字配列の図で、各キーの添え字を参照。
 
 | 最下段中央 | L3 | L2 | L1 | R1 | R2 | R3 |
 |--|:--:|:--:|:--:|:--:|:--:|:--:|
@@ -39,47 +46,12 @@ Windmill is a keymap for 40% keyboard.
 | タップ (かな) | そ | ひ | こ | み | も | ね |
 | ホールド | Fn | Sym | Shift | Shift | Sym | Fn |
 
-## かな入力のセットアップ
+## 追加機能
 
-IMEの入力方式として「かな入力」を選択しておきます。
+### ダークモード
 
-※以前のバージョンで必要だった、ローマ字変換テーブルの置き換えなどは不要です。
+デフォルトの状態はLEDが明るいので、暗い部屋で使う場合に光量を落として使えるダークモードを用意しています。使い方は、次の通り。
 
-## 導入方法
+- <kbd>Fn</kbd> + <kbd>Enter</kbd> を押す
 
-### 準備
-
-1. [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)を入手
-2. PC/Macに[QMK Toolbox](https://github.com/qmk/qmk_toolbox/releases)をインストール
-3. Windmillの[コンパイル済みファームウェア (windmill.hex)](https://github.com/cognitom/windmill/releases) をダウンロード
-
-### ファームウェアの書き込み
-
-1. QMK Toolboxからファームウェアファイルを指定
-2. キーボードを接続
-3. キーボードのリセットボタンを爪楊枝などで押す
-4. `Flash`実行
-
-![screenshot](docs/images/qmk.png)
-
-※なお、Macについては未検証なので、調整が必要かもしれません。
-
-## ファームウェアの作成
-
-[コンパイルしたもの (windmill.hex)](https://github.com/cognitom/windmill/releases) も用意していますが、自分で作成することも可能です。
-
-必要な環境は以下の通り。
-
-- Windows(WSL2)、または Mac
-- [QMK Toolbox](https://github.com/qmk/qmk_toolbox/releases)
-- Docker
-
-上記整っていれば、QMKのドキュメントにある[セットアップ手順](https://docs.qmk.fm/#/newbs_getting_started)は不要。このリポジトリをクローンして`build.sh`を実行すればOKです。
-
-```bash
-$ git clone https://github.com/cognitom/windmill.git
-$ cd windmill
-$ bash scripts/build.sh
-```
-
-`output`ディレクトリ内にファームウェアが作成されます。
+ダークモードを解除するには、もう一度上記のキーを押します。
