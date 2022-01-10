@@ -32,7 +32,7 @@ Windmill is a keymap for 40% keyboards.
 - 英語配列では修飾キーが並ぶ最下段も含めて、フルに4段を使う
 - 「ほ」「へ」「む」「ー」のみシフト側へ
 - 「こ」「み」同時押しでスペースキー
-- GUI, Alt, Fn, Sym, Shiftは、ホールド時に有効 [※補足](docs/README.md#ALT,GUIは、修飾キーかつ単打である問題)
+- GUI, Alt, Fn, Sym, Shiftは、ホールド時に有効 [※補足](docs/README.md#altguiは修飾キーかつ単打である問題)
 - ESCで英語配列に戻る
 
 ![kana](docs/images/layout-kana.png)
