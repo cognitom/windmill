@@ -79,14 +79,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * Colors
  */
 
-typedef struct {
-  uint8_t red;
-  uint8_t green;
-  uint8_t blue;
-  int len;
-  int ps[32];
-} ColorPos;
-
 #define HSV_BASE    43, 43, 63
 #define RGB_SPECIAL 0x1c, 0x11, 0x00
 #define RGB_SYMBOL  0x11, 0x22, 0x22
@@ -95,24 +87,33 @@ typedef struct {
 #define RGB_FUNCKEY 0x66, 0x66, 0x44
 #define RGB_MEDIA   0x00, 0x33, 0x55
 
-ColorPos colorset[] = {
-  // main
-  {RGB_SPECIAL, 14, {10, 21, 22, 34, 44, 45, 46, 47, 48, 49, 54, 55, 56, 57}},
-  {RGB_SYMBOL,   6, {32, 33, 42, 43, 50, 53}},
-  {RGB_BRACKET,  2, {42, 43}},
-  // sym
-  {RGB_NUMBER,  10, {11, 12, 13, 14, 15, 16, 17, 18, 19, 20}},
-  {RGB_SYMBOL,  16, {23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 37, 38, 41}},
-  {RGB_BRACKET,  6, {31, 32, 39, 40, 42, 43}},
-  // fn
-  {RGB_FUNCKEY, 20, {22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 44, 45, 51, 52, 56, 57}},
-  {RGB_MEDIA,    3, {41, 42, 43}},
-  // kana
-  {RGB_SPECIAL,  5, {10, 21, 22, 34, 46}},
-  {RGB_SYMBOL,   1, {33}},
-  // かな記号
-  {RGB_SYMBOL,   4, {42, 43, 44, 45}},
-  {RGB_BRACKET,  2, {31, 32}},
+enum keyset_types {
+  KEYS_ALPHA_SPECIALS,
+  KEYS_ALPHA_SYMBOLS,
+  KEYS_ALPHA_BRACKETS,
+  KEYS_NUMBERS,
+  KEYS_SYMBOLS,
+  KEYS_BRACKETS,
+  KEYS_FUNC,
+  KEYS_MEDIA,
+  KEYS_KANA_SPECIALS,
+  KEYS_KANA_SYMBOLS,
+  KEYS_KANA_SHIFTED_SYMBOLS,
+  KEYS_KANA_BRACKETS,
+};
+const int keysets[][32] = {
+  [KEYS_ALPHA_SPECIALS]       = {10, 21, 22, 34, 44, 45, 46, 47, 48, 49, 54, 55, 56, 57},
+  [KEYS_ALPHA_SYMBOLS]        = {32, 33, 42, 43, 50, 53},
+  [KEYS_ALPHA_BRACKETS]       = {42, 43},
+  [KEYS_NUMBERS]              = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+  [KEYS_SYMBOLS]              = {23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 37, 38, 41},
+  [KEYS_BRACKETS]             = {31, 32, 39, 40, 42, 43},
+  [KEYS_FUNC]                 = {22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 44, 45, 51, 52, 56, 57},
+  [KEYS_MEDIA]                = {41, 42, 43},
+  [KEYS_KANA_SPECIALS]        = {10, 21, 22, 34, 46},
+  [KEYS_KANA_SYMBOLS]         = {33},
+  [KEYS_KANA_SHIFTED_SYMBOLS] = {42, 43, 44, 45},
+  [KEYS_KANA_BRACKETS]        = {31, 32},
 };
 
 /*
@@ -182,9 +183,11 @@ void kana_off(void) {
  * Utility methods
  */
 
-void set_color_range(ColorPos cp) {
-  for (int i = 0; i < cp.len; ++i) {
-    rgb_matrix_set_color(cp.ps[i], cp.red, cp.green, cp.blue);
+void set_color_to_keyset(uint8_t red, uint8_t green, uint8_t blue, int keyset_type) {
+  for (int i = 0; i < 32; ++i) {
+    if (keysets[keyset_type][i]) {
+      rgb_matrix_set_color(keysets[keyset_type][i], red, green, blue);
+    }
   }
 }
 
@@ -205,30 +208,28 @@ void rgb_matrix_indicators_user(void) {
   bool shifted = (mod_state & MOD_MASK_SHIFT);
   
   if (layer_state_is(_KANA)) {
-    set_color_range(colorset[8]);
-    set_color_range(colorset[9]);
+    set_color_to_keyset(RGB_SPECIAL, KEYS_KANA_SPECIALS);
+    set_color_to_keyset(RGB_SYMBOL, KEYS_KANA_SYMBOLS);
     if (shifted) {
-      set_color_range(colorset[10]);
-      set_color_range(colorset[11]);
+      set_color_to_keyset(RGB_SYMBOL, KEYS_KANA_SHIFTED_SYMBOLS);
+      set_color_to_keyset(RGB_BRACKET, KEYS_KANA_BRACKETS);
     }
   } else {
-    set_color_range(colorset[0]);
-    set_color_range(colorset[1]);
-    if (shifted) {
-      set_color_range(colorset[2]);
-    }
+    set_color_to_keyset(RGB_SPECIAL, KEYS_ALPHA_SPECIALS);
+    set_color_to_keyset(RGB_SYMBOL, KEYS_ALPHA_SYMBOLS);
+    if (shifted) set_color_to_keyset(RGB_BRACKET, KEYS_ALPHA_BRACKETS);
   }
 
   if (layer_state_is(_SYM)) {
-    set_color_range(colorset[3]);
-    set_color_range(colorset[4]);
-    set_color_range(colorset[5]);
+    set_color_to_keyset(RGB_NUMBER, KEYS_NUMBERS);
+    set_color_to_keyset(RGB_SYMBOL, KEYS_SYMBOLS);
+    set_color_to_keyset(RGB_BRACKET, KEYS_BRACKETS);
     return;
   }
   
   if (layer_state_is(_FN)) {
-    set_color_range(colorset[6]);
-    set_color_range(colorset[7]);
+    set_color_to_keyset(RGB_FUNCKEY, KEYS_FUNC);
+    set_color_to_keyset(RGB_MEDIA, KEYS_MEDIA);
     return;
   }
 }
