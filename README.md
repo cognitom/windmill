@@ -12,7 +12,7 @@ Windmill is a keymap for 40% keyboard.
 
 ## キー配列
 
-### 英数入力時
+### 英字入力時
 
 - ESC(✕)とEnter(○)が対称配置
 - BSが最左列
@@ -29,13 +29,44 @@ Windmill is a keymap for 40% keyboard.
 
 ![kana](docs/images/layout-kana.png)
 
+### 記号とファンクションキー
+
+英字入力、かな入力ともに、最下段中央付近のキーをホールドすると、記号(Sym)またはファンクションキー(Fn)の入力になる。配置については英字配列の図で、各キーの添え字を参照。
+
 | 最下段中央 | L3 | L2 | L1 | R1 | R2 | R3 |
 |--|:--:|:--:|:--:|:--:|:--:|:--:|
 | タップ (英数) | 英数 | \ | Space | Space | / | かな |
 | タップ (かな) | そ | ひ | こ | み | も | ね |
 | ホールド | Fn | Sym | Shift | Shift | Sym | Fn |
 
+## かな入力のセットアップ
+
+IMEの入力方式として「かな入力」を選択しておきます。
+
+※以前のバージョンで必要だった、ローマ字変換テーブルの置き換えなどは不要です。
+
+## 導入方法
+
+### 準備
+
+1. [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)を入手
+2. PC/Macに[QMK Toolbox](https://github.com/qmk/qmk_toolbox/releases)をインストール
+3. Windmillの[コンパイル済みファームウェア](https://github.com/cognitom/windmill/releases)をダウンロード
+
+### ファームウェアの書き込み
+
+1. QMK Toolboxからファームウェアファイルを指定
+2. キーボードを接続
+3. キーボードのリセットボタンを爪楊枝などで押す
+4. `Flash`実行
+
+![screenshot](docs/images/qmk.png)
+
+※なお、Macについては未検証なので、調整が必要かもしれません。
+
 ## ファームウェアの作成
+
+[コンパイルしたもの](https://github.com/cognitom/windmill/releases)も用意していますが、自分で作成することも可能です。
 
 必要な環境は以下の通り。
 
@@ -52,18 +83,3 @@ $ bash scripts/build.sh
 ```
 
 `output`ディレクトリ内にファームウェアが作成されます。
-
-1. QMK Toolboxから作成されたファイルを指定
-2. キーボードを接続
-3. キーボードのリセットボタンを爪楊枝などで押す
-4. `Flash`実行
-
-![screenshot](docs/images/qmk.png)
-
-※なお、Macについては未検証なので、調整が必要かもしれません。
-
-## かな入力のセットアップ
-
-IMEの入力方式として「かな入力」を選択しておきます。
-
-※以前のバージョンで必要だった、ローマ字変換テーブルの置き換えなどは不要です。
