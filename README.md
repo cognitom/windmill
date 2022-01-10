@@ -8,7 +8,7 @@ Windmill is a keymap for 40% keyboard.
 - 風車状のカーソル配置
 - かな入力対応 (ほぼJISかな配列)
 - SandS (Space and Shift)
-- [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)用のファームウェア作成済み
+- [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)用の[ファームウェア](https://github.com/cognitom/windmill/releases)作成済み
 
 ## キー配列
 
@@ -51,7 +51,7 @@ IMEの入力方式として「かな入力」を選択しておきます。
 
 1. [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)を入手
 2. PC/Macに[QMK Toolbox](https://github.com/qmk/qmk_toolbox/releases)をインストール
-3. Windmillの[コンパイル済みファームウェア](https://github.com/cognitom/windmill/releases)をダウンロード
+3. Windmillの[コンパイル済みファームウェア (windmill.hex)](https://github.com/cognitom/windmill/releases) をダウンロード
 
 ### ファームウェアの書き込み
 
@@ -66,7 +66,7 @@ IMEの入力方式として「かな入力」を選択しておきます。
 
 ## ファームウェアの作成
 
-[コンパイルしたもの](https://github.com/cognitom/windmill/releases)も用意していますが、自分で作成することも可能です。
+[コンパイルしたもの (windmill.hex)](https://github.com/cognitom/windmill/releases) も用意していますが、自分で作成することも可能です。
 
 必要な環境は以下の通り。
 
