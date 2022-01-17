@@ -57,6 +57,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define NO_ACTION_MACRO
 #define NO_ACTION_FUNCTION
 
-/* Dual-role keys setting; see https://docs.qmk.fm/#/tap_hold?id=permissive-hold */
+/* Dual-role keys setting */
 #define TAPPING_TERM 250
-//#define PERMISSIVE_HOLD
+
+/* To reduce its footprint */
+#define NO_ACTION_TAPPING
+#define NO_ACTION_ONESHOT
