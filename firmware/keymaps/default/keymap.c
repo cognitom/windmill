@@ -15,29 +15,18 @@
  */
 
 #include QMK_KEYBOARD_H
-#include "kana_keycodes.h"
-
-#ifdef CONSOLE_ENABLE
-  #include "print.h"
-#endif
 
 enum layers {
-    _MAIN,
+    _ALPHA,
     _KANA,
     _KANA_SHIFTED,
     _SYM,
-    _SYM_L,
-    _SYM_R,
     _FN,
 };
 
-// TODO: QMKのバージョンを上げて、以下2行を削除
-#define KC_LNG1 KC_LANG1
-#define KC_LNG2 KC_LANG2
-
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
-  [_MAIN] = LAYOUT_ortho_4x12(
+  [_ALPHA] = LAYOUT_ortho_4x12(
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
@@ -55,7 +44,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______, _______, _______, KA_XA,   KA_XU,   KA_XE,   KA_XO,   KA_XYA,  KA_XYU,  KA_XYO,  KA_WO,   _______,
     _______, _______, KA_HE,   KA_XI,   KA_MU,   _______, _______, KA_HO,   _______, KA_LKAK, KA_RKAK, KA_HAN,
     _______, KA_XTSU, _______, _______, _______, _______, _______, _______, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU,
-    _______, KA_XTSU, _______, _______, _______, KC_SPC,  KC_SPC,  _______, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU
+    _______, KA_XTSU, _______, _______, _______, KA_SPC,  KA_SPC,  _______, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU
   ),
 
 
@@ -63,21 +52,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______, KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    _______,
     _______, KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_AMPR, KC_ASTR, KC_LPRN, KC_RPRN, KC_GRV,
     _______, KC_EQL,  KC_PLUS, KC_MINS, KC_UNDS, KC_LBRC, KC_RBRC, KC_TILD, KC_LCBR, KC_RCBR, _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
-  ),
-
-  [_SYM_L] = LAYOUT_ortho_4x12(
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-    _______, _______, _______, _______, _______, KC_PIPE, KC_PIPE, _______, _______, _______, _______, _______
-  ),
-
-  [_SYM_R] = LAYOUT_ortho_4x12(
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-    _______, _______, _______, _______, _______, KC_QUES, KC_QUES, _______, _______, _______, _______, _______
+    _______, _______, _______, _______, _______, KC_PIPE, KC_QUES, _______, _______, _______, _______, _______
   ),
 
   [_FN] = LAYOUT_ortho_4x12(
@@ -93,146 +68,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * Colors
  */
 
-#define HSV_BASE    43, 43, 63
-#define RGB_SPECIAL 0x1c, 0x11, 0x00
-#define RGB_SYMBOL  0x11, 0x22, 0x22
-#define RGB_NUMBER  0x66, 0x66, 0x44
-#define RGB_BRACKET 0x22, 0x33, 0x00
-#define RGB_FUNCKEY 0x66, 0x66, 0x44
-#define RGB_MEDIA   0x00, 0x33, 0x55
-
-#define HSV_BASE_DARK    0, 0, 0
-#define RGB_SPECIAL_DARK 0x04, 0x03, 0x00
-#define RGB_SYMBOL_DARK  0x02, 0x04, 0x03
-#define RGB_NUMBER_DARK  0x06, 0x06, 0x04
-#define RGB_BRACKET_DARK 0x02, 0x03, 0x00
-#define RGB_FUNCKEY_DARK 0x06, 0x06, 0x04
-#define RGB_MEDIA_DARK   0x00, 0x03, 0x05
-
-enum keyset_types {
-  KEYS_ALPHA_SPECIALS,
-  KEYS_ALPHA_SYMBOLS,
-  KEYS_ALPHA_BRACKETS,
-  KEYS_NUMBERS,
-  KEYS_SYMBOLS,
-  KEYS_BRACKETS,
-  KEYS_FUNC,
-  KEYS_MEDIA,
-  KEYS_KANA_SPECIALS,
-  KEYS_KANA_SYMBOLS,
-  KEYS_KANA_SHIFTED_SYMBOLS,
-  KEYS_KANA_BRACKETS,
-};
-const int keysets[][32] = {
-  [KEYS_ALPHA_SPECIALS]       = {10, 21, 22, 34, 44, 45, 46, 47, 48, 49, 54, 55, 56, 57},
-  [KEYS_ALPHA_SYMBOLS]        = {32, 33, 42, 43, 50, 53},
-  [KEYS_ALPHA_BRACKETS]       = {42, 43},
-  [KEYS_NUMBERS]              = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
-  [KEYS_SYMBOLS]              = {23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 37, 38, 41},
-  [KEYS_BRACKETS]             = {31, 32, 39, 40, 42, 43},
-  [KEYS_FUNC]                 = {22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 44, 45, 51, 52, 56, 57},
-  [KEYS_MEDIA]                = {41, 42, 43},
-  [KEYS_KANA_SPECIALS]        = {10, 21, 22, 34, 46},
-  [KEYS_KANA_SYMBOLS]         = {33},
-  [KEYS_KANA_SHIFTED_SYMBOLS] = {42, 43, 44, 45},
-  [KEYS_KANA_BRACKETS]        = {31, 32},
-};
-
-/*
- * RGB Matrix Timeout
- */
-
-#define RGBMATRIX_TIMEOUT 3 // in minutes
-static uint16_t idle_timer = 0;
-static uint8_t halfmin_counter = 0;
-static bool led_on = true;
-static bool led_darkmode = false;
-
-void refresh_rgb_matrix_timeout(void) {
-  if (led_on == false) {
-    if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
-    else rgb_matrix_sethsv(HSV_BASE);
-    led_on = true;
-  }
-  idle_timer = timer_read();
-  halfmin_counter = 0;
-}
-void update_rgb_matrix_timeout(void) {
-  if (idle_timer == 0) idle_timer = timer_read();
-
-  if (led_on && timer_elapsed(idle_timer) > 30000) {
-    halfmin_counter++;
-    idle_timer = timer_read();
-  }
-
-  if (led_on && halfmin_counter >= RGBMATRIX_TIMEOUT * 2) {
-    rgb_matrix_sethsv(HSV_OFF);
-    rgb_matrix_set_color_all(RGB_OFF);
-    led_on = false;
-    halfmin_counter = 0;
-  }
-}
-
-bool process_rgb_matrix_timeout(uint16_t keycode, keyrecord_t *record) {
-  if (record->event.pressed) {
-    if (!led_on) {
-      refresh_rgb_matrix_timeout();
-      return false;
-    } else {
-      refresh_rgb_matrix_timeout();
-    }
-  }
-  return true;
-}
-
-/*
- * Kana
- */
- 
-static bool is_kana = false;
-
-void send_kana(void) {
-  clear_keyboard();
-  tap_code(KC_LNG1); // Mac, Microsoft IME
-  tap_code(KC_INT4); // Mozc
-}
-
-void send_alpha(void) {
-  clear_keyboard();
-  tap_code(KC_LNG2); // Mac, Microsoft IME
-  tap_code(KC_INT5); // Mozc
-}
-
-void kana_on(void) {
-  is_kana = true;
-  layer_on(_KANA);
-  send_kana();
-}
-
-void kana_off(void) {
-  is_kana = false;
-  layer_off(_KANA);
-  send_alpha();
-}
 
 /*
  * Utility methods
  */
-
-void toggle_darkmode(void) {
-  led_darkmode = !led_darkmode;
-  if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
-  else rgb_matrix_sethsv(HSV_BASE);
-}
-
-void set_color_to_keyset(uint8_t red, uint8_t green, uint8_t blue, uint8_t red_d, uint8_t green_d, uint8_t blue_d, int keyset_type) {
-  for (int i = 0; i < 32; ++i) {
-    if (keysets[keyset_type][i]) {
-      if (led_darkmode) rgb_matrix_set_color(keysets[keyset_type][i], red_d, green_d, blue_d);
-      else rgb_matrix_set_color(keysets[keyset_type][i], red, green, blue);
-    }
-  }
-}
 
 // 一時的に修飾キーを外した状態で、tap_codeする
 void tap_code_wo_mod(uint16_t keycode, uint8_t mod_mask) {
@@ -242,72 +81,13 @@ void tap_code_wo_mod(uint16_t keycode, uint8_t mod_mask) {
   set_mods(mod_state);
 }
 
-// Mod Seq
-static uint16_t first_mod_keycode = 0; //
-static int first_mod_row = 0;
-static int first_mod_col = 0;
-static int mod_follower_counter = 0;
-static uint16_t mod_timer = 0;
-void start_mod_sequence(uint16_t keycode, keyrecord_t *record) {
-  first_mod_keycode = keycode;
-  first_mod_row = record->event.key.row;
-  first_mod_col = record->event.key.col;
-  mod_follower_counter = 0;
-  mod_timer = timer_read();
-}
-void end_mod_sequence(void) {
-  first_mod_keycode = 0;
-  mod_follower_counter = 0;
-}
-bool is_mod_seq_first(uint16_t keycode, keyrecord_t *record) {
-  return keycode == first_mod_keycode
-    && first_mod_row == record->event.key.row
-    && first_mod_col == record->event.key.col;
-}
-bool is_mod_seq_started(void) {
-  return !!first_mod_keycode;
-}
-bool is_mod_pressed_within(uint16_t ms) {
-  if (!first_mod_keycode) return false;
-  return timer_elapsed(mod_timer) < ms;
-}
-int get_mod_follower(void) {
-  return mod_follower_counter;
-}
-bool process_mod_sequence(uint16_t keycode, keyrecord_t *record) {
-  if (record->event.pressed && first_mod_keycode) ++mod_follower_counter;
-  return true;
-}
-
-// かな入力時のシフト側の処理
-bool process_kana_shifted(uint16_t keycode, keyrecord_t *record) {
-  uint8_t mod_state = get_mods();
-  bool shifted = (mod_state & MOD_MASK_SHIFT);
-  if (!is_kana) return true;
-
-  // TODO: シフト側のキーコードを動的にレイヤー設定から取得して、以下のハードコードをやめる
-  switch (keycode) {
-    case KA_XA: case KA_XU: case KA_XE: case KA_XO: case KA_XYA: case KA_XYU: case KA_XYO: case KA_WO:
-    case KA_HE: case KA_XI: case KA_MU: case KA_HO: case KA_LKAK: case KA_RKAK: case KA_HAN:
-    case KA_XTSU: case KA_TEN: case KA_MARU: case KA_NAKA: case KA_CHOU:
-      break;
-    default: return true;
-  }
-  
-  if (shifted) unregister_mods(MOD_MASK_SHIFT);
-  tap_code16(keycode);
-  if (shifted) register_mods(MOD_MASK_SHIFT);
-  return false;
-}
-
 // かな入力時のみ必要な処理
 bool process_kana(uint16_t keycode, keyrecord_t *record) {
   uint8_t mod_state = get_mods();
   bool ctrled = (mod_state & MOD_MASK_CTRL);
-  bool shifted = (mod_state & MOD_MASK_SHIFT);
   bool pressed = record->event.pressed;
 
-  if (!is_kana) return true;
+  if (!is_kana()) return true;
 
   switch (keycode) {
     // Shift
@@ -322,7 +102,7 @@ bool process_kana(uint16_t keycode, keyrecord_t *record) {
           layer_on(_KANA_SHIFTED);
           return false;
         }
-        return process_kana_shifted(keycode, record);
+        return process_kana_keycode(keycode, record);
       }
       if (!is_mod_seq_first(keycode, record)) return false;
 
@@ -332,9 +112,9 @@ bool process_kana(uint16_t keycode, keyrecord_t *record) {
         // 時間内に単独でタップされた
         // 例. み(press)
         //     み(release) <-- イマココ
-        tap_code(keycode);
+        (void)process_kana_keycode(keycode, record);
       }
-      end_mod_sequence();
+      stop_mod_sequence();
       return false;
 
     case KC_LCTL:
@@ -362,9 +142,9 @@ bool process_kana(uint16_t keycode, keyrecord_t *record) {
       }
       break;
   }
-  // シフト側の処理
-  if (shifted && pressed) {
-    if (!process_kana_shifted(keycode, record)) return false;
+  
+  if (pressed) {
+    if (!process_kana_keycode(keycode, record)) return false;
   }
 
   return true;
@@ -374,7 +154,7 @@ bool process_kana(uint16_t keycode, keyrecord_t *record) {
 bool process_alpha(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
 
-  if (is_kana) return true;
+  if (is_kana()) return true;
   
   switch (keycode) {
     // Shift
@@ -398,7 +178,7 @@ bool process_alpha(uint16_t keycode, keyrecord_t *record) {
         //     Space(release) <-- イマココ
         tap_code(keycode);
       }
-      end_mod_sequence();
+      stop_mod_sequence();
       return false;
 
     // Sym
@@ -410,8 +190,6 @@ bool process_alpha(uint16_t keycode, keyrecord_t *record) {
           // 例. / (press) <-- イマココ
           start_mod_sequence(keycode, record);
           layer_on(_SYM);
-          if (keycode == KC_BSLS) layer_on(_SYM_L); // sym -> space で「|」を出力するように
-          if (keycode == KC_SLSH) layer_on(_SYM_R); // sym -> space で「?」を出力するように
           return false;
         }
         return true;
@@ -419,15 +197,13 @@ bool process_alpha(uint16_t keycode, keyrecord_t *record) {
       if (!is_mod_seq_first(keycode, record)) return true;
 
       layer_off(_SYM);
-      layer_off(_SYM_L);
-      layer_off(_SYM_R);
       if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
         // 時間内に単独でタップされた
         // 例. / (press)
         //     / (release) <-- イマココ
         tap_code(keycode);
       }
-      end_mod_sequence();
+      stop_mod_sequence();
       return false;
   }
 
@@ -452,7 +228,7 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
       }
       // ただし、後続が2つ以上押された時点で、STICKY_TERM内でもキューをクリア
       if (get_mod_follower() == 2) {
-        if (process_kana_shifted(queued_keycode, record)) tap_code16(queued_keycode);
+        if (process_kana_keycode(queued_keycode, record)) tap_code16(queued_keycode);
       }
     }
     queued_keycode = 0;
@@ -470,27 +246,38 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
   //     わ(release) <-- イマココ
   //     み(release)
   if (keycode == queued) {
-    if (process_kana_shifted(keycode, record)) tap_code16(keycode);
+    if (process_kana_keycode(keycode, record)) tap_code16(keycode);
     return false;
   }
 
   // ダブルロールキーがリリースされた場合
   switch (keycode) {
-    // Shift
-    case KA_KO: // かな配列の場合
+    // Shift (かな配列の場合)
+    case KA_KO:
     case KA_MI:
-    case KC_SPC: // 英字配列の場合
       // 例. み(press)
       //     わ(press)
       //     み(release) <-- イマココ
       //     わ(release)
       if (is_mod_pressed_within(STICKY_TERM)) {
         unregister_mods(MOD_MASK_SHIFT);
-        tap_code(keycode); // 例.「み」
-        tap_code(keymap_key_to_keycode(_KANA, queued_key)); // 例.「わ」
+        (void)process_kana_keycode(keycode, record); // 例.「み」
+        uint16_t translated = keymap_key_to_keycode(_KANA, queued_key);
+        (void)process_kana_keycode(translated, record); // 例.「わ」
         return true;
       }
-      if (process_kana_shifted(queued, record)) register_code(queued); // 例.「を」
+      (void)process_kana_keycode(queued, record); // 例.「を」
+      return true;
+
+    // Shift (英字配列の場合)
+    case KC_SPC:
+      if (is_mod_pressed_within(STICKY_TERM)) {
+        unregister_mods(MOD_MASK_SHIFT);
+        tap_code(keycode);
+        tap_code(queued);
+        return true;
+      }
+      register_code(queued);
       return true;
 
     // Sym
@@ -502,7 +289,7 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
       //     p (release)
       if (is_mod_pressed_within(STICKY_TERM)) {
         tap_code(keycode); // 例. "/"
-        tap_code16(keymap_key_to_keycode(_MAIN, queued_key)); // 例. "p"
+        tap_code16(keymap_key_to_keycode(_ALPHA, queued_key)); // 例. "p"
         return true;
       }
       register_code(queued); // 例. "0"
@@ -523,7 +310,7 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
         }
         if (keycode == KC_LNG2) {
           kana_off();
-          tap_code(keymap_key_to_keycode(_MAIN, queued_key)); // 例. ";"
+          tap_code(keymap_key_to_keycode(_ALPHA, queued_key)); // 例. ";"
         }
         return true;
       }
@@ -538,17 +325,10 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
  */
 
 void keyboard_post_init_user(void) {
-#ifdef CONSOLE_ENABLE
-  debug_enable=true;
-#endif
-  rgb_matrix_mode(RGB_MATRIX_NONE);
-  rgb_matrix_sethsv(HSV_BASE);
+  init_windmill_layers(_ALPHA, _KANA, _KANA_SHIFTED, _SYM, _FN);
 }
 
 void rgb_matrix_indicators_user(void) {
-  if (led_on == false) {
-    return;
-  }
   uint8_t mod_state = get_mods();
   bool shifted = (mod_state & MOD_MASK_SHIFT);
   
@@ -577,11 +357,6 @@ void rgb_matrix_indicators_user(void) {
     set_color_to_keyset(RGB_MEDIA, RGB_MEDIA_DARK, KEYS_MEDIA);
     return;
   }
-  /*
-  if (debug_digit) {
-    rgb_matrix_set_color(10 + debug_digit, RGB_RED);
-  }
-  */
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
@@ -621,7 +396,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         if (keycode == KC_LNG1) kana_on();
         if (keycode == KC_LNG2) kana_off();
       }
-      end_mod_sequence();
+      stop_mod_sequence();
       return false;
 
     case RGB_TOG:
@@ -631,8 +406,3 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
   return true;
 }
-
-void matrix_scan_user(void) {
-  update_rgb_matrix_timeout();
-}
-
