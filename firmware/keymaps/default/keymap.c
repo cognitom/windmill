@@ -15,7 +15,11 @@
  */
 
 #include QMK_KEYBOARD_H
-//#include "print.h"
+#include "kana_keycodes.h"
+
+#ifdef CONSOLE_ENABLE
+  #include "print.h"
+#endif
 
 enum layers {
     _MAIN,
@@ -26,9 +30,9 @@ enum layers {
     _FN,
 };
 
-enum custom_keycodes {
-  THUM_L3 = SAFE_RANGE, THUM_L2, THUM_L1, THUM_R1, THUM_R2, THUM_R3,
-};
+// TODO: QMKのバージョンを上げて、以下2行を削除
+#define KC_LNG1 KC_LANG1
+#define KC_LNG2 KC_LANG2
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -36,15 +40,16 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, THUM_L3, THUM_L2, THUM_L1, THUM_R1, THUM_R2, THUM_R3, KC_APP,  KC_LEFT, KC_DOWN
+    KC_LCTL, KC_LGUI, KC_LALT, KC_LNG2, KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KC_LNG1, KC_APP,  KC_LEFT, KC_DOWN
   ),
 
   [_KANA] = LAYOUT_ortho_4x12(
-    KC_ESC,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_ENT,
-    KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC,
-    KC_BSPC, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
-    KC_LCTL, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_GRV
+    _______, KA_NU,   KA_FU,   KA_A,    KA_U,    KA_E,    KA_O,    KA_YA,   KA_YU,   KA_YO,   KA_WA,   _______,
+    _______, KA_TA,   KA_TE,   KA_I,    KA_SU,   KA_KA,   KA_N,    KA_NA,   KA_NI,   KA_RA,   KA_SE,   KA_DAKU,
+    _______, KA_CHI,  KA_TO,   KA_SHI,  KA_HA,   KA_KI,   KA_KU,   KA_MA,   KA_NO,   KA_RI,   KA_RE,   KA_KE,
+    _______, KA_TSU,  KA_SA,   KA_SO,   KA_HI,   KA_KO,   KA_MI,   KA_MO,   KA_NE,   KA_RU,   KA_ME,   KA_RO
   ),
+
 
   [_SYM] = LAYOUT_ortho_4x12(
     _______, KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    _______,
@@ -126,26 +131,6 @@ const int keysets[][32] = {
 };
 
 /*
- * Counters and timers
- */
-
-static int shift_counter = 0; // Shift(L1,R1)キーの後にいくつキーが押されたか
-static uint16_t shift_timer = 0;
-static int shift_mode = 0; // Shiftキー(L1,R1)自体がいくつ押されているか
-static int sym_counter = 0; // Sym(L2,R2)キーの後にいくつキーが押されたか
-static uint16_t sym_timer = 0;
-static int fn_counter = 0; // Fn(L3,R3)キーの後にいくつキーが押されたか
-static uint16_t fn_timer = 0;
-/*
-static int alt_counter = 0; // Altキーの後にいくつキーが押されたか
-static uint16_t alt_timer = 0;
-static bool alt_reserved = false; // trueのとき、次のキーが押されたらaltをregister_modsする
-static int gui_counter = 0; // Altキーの後にいくつキーが押されたか
-static uint16_t gui_timer = 0;
-static bool gui_reserved = false; // trueのとき、次のキーが押されたらguiをregister_modsする
-*/
-
-/*
  * RGB Matrix Timeout
  */
 
@@ -154,7 +139,6 @@ static uint16_t idle_timer = 0;
 static uint8_t halfmin_counter = 0;
 static bool led_on = true;
 static bool led_darkmode = false;
-//static int debug_digit = 0;
 
 void refresh_rgb_matrix_timeout(void) {
   if (led_on == false) {
@@ -165,7 +149,7 @@ void refresh_rgb_matrix_timeout(void) {
   idle_timer = timer_read();
   halfmin_counter = 0;
 }
-void process_rgb_matrix_timeout(void) {
+void update_rgb_matrix_timeout(void) {
   if (idle_timer == 0) idle_timer = timer_read();
 
   if (led_on && timer_elapsed(idle_timer) > 30000) {
@@ -181,6 +165,18 @@ void process_rgb_matrix_timeout(void) {
   }
 }
 
+bool process_rgb_matrix_timeout(uint16_t keycode, keyrecord_t *record) {
+  if (record->event.pressed) {
+    if (!led_on) {
+      refresh_rgb_matrix_timeout();
+      return false;
+    } else {
+      refresh_rgb_matrix_timeout();
+    }
+  }
+  return true;
+}
+
 /*
  * Kana
  */
@@ -189,14 +185,14 @@ static bool is_kana = false;
 
 void send_kana(void) {
   clear_keyboard();
-  tap_code(KC_LANG1); // Mac, Microsoft IME
-  tap_code(KC_HENK); // Mozc
+  tap_code(KC_LNG1); // Mac, Microsoft IME
+  tap_code(KC_INT4); // Mozc
 }
 
 void send_alpha(void) {
   clear_keyboard();
-  tap_code(KC_LANG2); // Mac, Microsoft IME
-  tap_code(KC_MHEN); // Mozc
+  tap_code(KC_LNG2); // Mac, Microsoft IME
+  tap_code(KC_INT5); // Mozc
 }
 
 void kana_on(void) {
@@ -215,6 +211,12 @@ void kana_off(void) {
  * Utility methods
  */
 
+void toggle_darkmode(void) {
+  led_darkmode = !led_darkmode;
+  if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
+  else rgb_matrix_sethsv(HSV_BASE);
+}
+
 void set_color_to_keyset(uint8_t red, uint8_t green, uint8_t blue, uint8_t red_d, uint8_t green_d, uint8_t blue_d, int keyset_type) {
   for (int i = 0; i < 32; ++i) {
     if (keysets[keyset_type][i]) {
@@ -232,35 +234,129 @@ void tap_code_wo_mod(uint16_t keycode, uint8_t mod_mask) {
   set_mods(mod_state);
 }
 
-// かな入力時のシフト側の変則的な処理
-// Shiftキーそのものの処理との兼ね合いで、別レイヤーにすることが難しく、
-// キーごとのアドホックな処理になっている。
-bool process_kana_shifted(uint16_t keycode) {
-  switch (keycode) {
-    case KC_W:    tap_code_wo_mod(KC_EQL, MOD_MASK_SHIFT);  return false; // へ
-    case KC_R:    tap_code_wo_mod(KC_BSLS, MOD_MASK_SHIFT); return false; // む
-    case KC_U:    tap_code_wo_mod(KC_MINS, MOD_MASK_SHIFT); return false; // ほ
-    case KC_O:    tap_code(KC_LBRC);                        return false; // 「
-    case KC_P:    tap_code(KC_RBRC);                        return false; // 」
-    case KC_LBRC: tap_code_wo_mod(KC_RBRC, MOD_MASK_SHIFT); return false; // ゜
-    case KC_A:    tap_code(KC_Z);                           return false; // っ
-    case KC_K:    tap_code(KC_COMM);                        return false; // 、
-    case KC_L:    tap_code(KC_DOT);                         return false; // 。
-    case KC_SCLN: tap_code(KC_SLSH);                        return false; // ・
-    case KC_QUOT:
-    case KC_GRV:  tap_code(KC_MINS);                        return false; // ー
-  }
+// Mod Seq
+static uint16_t first_mod_keycode = 0; //
+static int first_mod_row = 0;
+static int first_mod_col = 0;
+static int mod_follower_counter = 0;
+static uint16_t mod_timer = 0;
+void start_mod_sequence(uint16_t keycode, keyrecord_t *record) {
+  first_mod_keycode = keycode;
+  first_mod_row = record->event.key.row;
+  first_mod_col = record->event.key.col;
+  mod_follower_counter = 0;
+  mod_timer = timer_read();
+}
+void end_mod_sequence(void) {
+  first_mod_keycode = 0;
+  mod_follower_counter = 0;
+}
+bool is_mod_seq_first(uint16_t keycode, keyrecord_t *record) {
+  return keycode == first_mod_keycode
+    && first_mod_row == record->event.key.row
+    && first_mod_col == record->event.key.col;
+}
+bool is_mod_seq_started(void) {
+  return !!first_mod_keycode;
+}
+bool is_mod_pressed_within(uint16_t ms) {
+  if (!first_mod_keycode) return false;
+  return timer_elapsed(mod_timer) < ms;
+}
+int get_mod_follower(void) {
+  return mod_follower_counter;
+}
+bool process_mod_sequence(uint16_t keycode, keyrecord_t *record) {
+  if (record->event.pressed && first_mod_keycode) ++mod_follower_counter;
   return true;
 }
 
-// かな入力時のみ必要な処理
-bool process_kana(uint16_t keycode, bool ctrled, bool shifted, bool pressed) {
+// かな入力時のシフト側の変則的な処理
+// Shiftキーそのものの処理との兼ね合いで、別レイヤーにすることが難しく、
+// キーごとのアドホックな処理になっている。
+// TODO: 別レイヤーにして、プログラム的に抽出するハックを追加して、この関数からキー定義を追い出すこと。
+bool process_kana_shifted(uint16_t keycode, keyrecord_t *record) {
+  uint8_t mod_state = get_mods();
+  bool shifted = (mod_state & MOD_MASK_SHIFT);
+  if (!is_kana) return true;
+  if (shifted) unregister_mods(MOD_MASK_SHIFT);
   switch (keycode) {
+    case KA_A:    tap_code16(KA_XA);   break; // ぁ
+    case KA_U:    tap_code16(KA_XU);   break; // ぅ
+    case KA_E:    tap_code16(KA_XE);   break; // ぇ
+    case KA_O:    tap_code16(KA_XO);   break; // ぉ
+    case KA_YA:   tap_code16(KA_XYA);  break; // ゃ
+    case KA_YU:   tap_code16(KA_XYU);  break; // ゅ
+    case KA_YO:   tap_code16(KA_XYO);  break; // ょ
+    case KA_WA:   tap_code16(KA_WO);   break; // を
+    case KA_TE:   tap_code16(KA_HE);   break; // へ
+    case KA_I:    tap_code16(KA_XI);   break; // ぃ
+    case KA_SU:   tap_code16(KA_MU);   break; // む
+    case KA_NA:   tap_code16(KA_HO);   break; // ほ
+    case KA_RA:   tap_code16(KA_LKAK); break; // 「
+    case KA_SE:   tap_code16(KA_RKAK); break; // 」
+    case KA_DAKU: tap_code16(KA_HAN);  break; // ゜
+    case KA_CHI:
+    case KA_TSU:  tap_code16(KA_XTSU); break; // っ
+    case KA_NO:
+    case KA_NE:   tap_code16(KA_TEN);  break; // 、
+    case KA_RI:
+    case KA_RU:   tap_code16(KA_MARU); break; // 。
+    case KA_RE:
+    case KA_ME:   tap_code16(KA_NAKA); break; // ・
+    case KA_KE:
+    case KA_RO:   tap_code16(KA_CHOU); break; // ー
+    case KA_KO:
+    case KA_MI:   tap_code16(KC_SPC);  break; // スペース
+    default:
+      if (shifted) register_mods(MOD_MASK_SHIFT);
+      return true;
+  }
+  if (shifted) register_mods(MOD_MASK_SHIFT);
+  return false;
+}
+
+// かな入力時のみ必要な処理
+bool process_kana(uint16_t keycode, keyrecord_t *record) {
+  uint8_t mod_state = get_mods();
+  bool ctrled = (mod_state & MOD_MASK_CTRL);
+  bool shifted = (mod_state & MOD_MASK_SHIFT);
+  bool pressed = record->event.pressed;
+
+  if (!is_kana) return true;
+
+  switch (keycode) {
+    // Shift
+    case KA_KO:
+    case KA_MI:
+      if (pressed) {
+        if (!is_mod_seq_started()) {
+          // 修飾キー(dual role)が最初に押された
+          // 例. み(press) <-- イマココ
+          start_mod_sequence(keycode, record);
+          register_mods(MOD_MASK_SHIFT);
+          return false;
+        }
+        return process_kana_shifted(keycode, record);
+      }
+      if (!is_mod_seq_first(keycode, record)) return false;
+
+      unregister_mods(MOD_MASK_SHIFT);
+      if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
+        // 時間内に単独でタップされた
+        // 例. み(press)
+        //     み(release) <-- イマココ
+        tap_code(keycode);
+      }
+      end_mod_sequence();
+      return false;
+
     case KC_LCTL:
       // CTRLキーを押した場合かなレイヤーをオフ
       if (pressed) layer_off(_KANA);
       else layer_on(_KANA);
       break;
+
     case KC_ESC:
       if (pressed) {
         // ESCでかな入力をオフに ※ただし、Ctrl押下中はプレーンなESCを送出 
@@ -269,6 +365,7 @@ bool process_kana(uint16_t keycode, bool ctrled, bool shifted, bool pressed) {
         return false;
       }
       break;
+
     case KC_UP:
     case KC_DOWN:
     case KC_LEFT:
@@ -278,81 +375,174 @@ bool process_kana(uint16_t keycode, bool ctrled, bool shifted, bool pressed) {
         return false;
       }
       break;
-    /*
-    case KC_LALT:
-      // ALTキーを押した場合かなレイヤーをオフ
-      if (pressed) {
-        layer_off(_KANA);
-        alt_counter = 0;
-        alt_timer = timer_read();
-        alt_reserved = true;
-      } else {
-        alt_reserved = false;
-        unregister_mods(MOD_MASK_ALT);
-        layer_on(_KANA);
-        if (alt_counter == 0 && timer_elapsed(alt_timer) < TAPPING_TERM) tap_code(KC_X);
-      }
-      return false;
-    case KC_LGUI:
-      // GUIキーを押した場合かなレイヤーをオフ
-      if (pressed) {
-        layer_off(_KANA);
-        gui_counter = 0;
-        gui_timer = timer_read();
-        gui_reserved = true;
-      } else {
-        gui_reserved = false;
-        unregister_mods(MOD_MASK_GUI);
-        layer_on(_KANA);
-        if (gui_counter == 0 && timer_elapsed(gui_timer) < TAPPING_TERM) tap_code(KC_Z);
-      }
-      return false;
-    */
   }
   // シフト側の処理
-  if (shifted && pressed) return process_kana_shifted(keycode);
+  if (shifted && pressed) {
+    if (!process_kana_shifted(keycode, record)) return false;
+  }
+
+  return true;
+}
+
+// 英字入力時のみ必要な処理
+bool process_alpha(uint16_t keycode, keyrecord_t *record) {
+  bool pressed = record->event.pressed;
+
+  if (is_kana) return true;
+  
+  switch (keycode) {
+    // Shift
+    case KC_SPC:
+      if (pressed) {
+        if (!is_mod_seq_started()) {
+          // 修飾キー(dual role)が最初に押された
+          // 例. Space(press) <-- イマココ
+          start_mod_sequence(keycode, record);
+          register_mods(MOD_MASK_SHIFT);
+          return false;
+        }
+        return true;
+      }
+      if (!is_mod_seq_first(keycode, record)) return true;
+
+      unregister_mods(MOD_MASK_SHIFT);
+      if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
+        // 時間内に単独でタップされた
+        // 例. Space(press)
+        //     Space(release) <-- イマココ
+        tap_code(keycode);
+      }
+      end_mod_sequence();
+      return false;
+
+    // Sym
+    case KC_BSLS:
+    case KC_SLSH:
+      if (pressed) {
+        if (!is_mod_seq_started()) {
+          // 修飾キー(dual role)が最初に押された
+          // 例. / (press) <-- イマココ
+          start_mod_sequence(keycode, record);
+          layer_on(_SYM);
+          if (keycode == KC_BSLS) layer_on(_SYM_L); // sym -> space で「|」を出力するように
+          if (keycode == KC_SLSH) layer_on(_SYM_R); // sym -> space で「?」を出力するように
+          return false;
+        }
+        return true;
+      }
+      if (!is_mod_seq_first(keycode, record)) return true;
+
+      layer_off(_SYM);
+      layer_off(_SYM_L);
+      layer_off(_SYM_R);
+      if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
+        // 時間内に単独でタップされた
+        // 例. / (press)
+        //     / (release) <-- イマココ
+        tap_code(keycode);
+      }
+      end_mod_sequence();
+      return false;
+  }
 
   return true;
 }
 
 #define STICKY_TERM 150
-static uint16_t reserved_keycode = 0;
-bool process_stickey_term(uint16_t keycode) {
-  if (!is_kana) return true;
-  if (keycode == reserved_keycode) {
-    if (keycode == THUM_L1 || keycode == THUM_R1) {
-      tap_code_wo_mod(KC_SPC, MOD_MASK_SHIFT);
-      return false;
+static uint16_t queued_keycode = 0;
+static keypos_t queued_key = { .row = 0, .col = 0 };
+bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
+  bool pressed = record->event.pressed;
+
+  // 修飾キーが押されたのち、STICKY_TERM時間内であればキーを送出せずqueued_keycodeに入れて待つ
+  // 例. み(press)
+  //     わ(press) <-- イマココ
+  if (pressed) {
+    if (is_mod_pressed_within(STICKY_TERM)) {
+      if (get_mod_follower() == 1) {
+        queued_keycode = keycode;
+        queued_key = record->event.key;
+        return false;
+      }
+      // ただし、後続が2つ以上押された時点で、STICKY_TERM内でもキューをクリア
+      if (get_mod_follower() == 2) {
+        if (process_kana_shifted(queued_keycode, record)) tap_code16(queued_keycode);
+      }
     }
-    if (!process_kana_shifted(keycode)) return false;
-    tap_code(keycode);
+    queued_keycode = 0;
+    return true;
+  }
+  if (!queued_keycode) return true;
+
+  // ここから、queued_keycodeがある場合の処理
+  uint16_t queued = queued_keycode;
+  queued_keycode = 0;
+
+  // キューに入れたキーがリリースされた場合 
+  // 例. み(press)
+  //     わ(press)
+  //     わ(release) <-- イマココ
+  //     み(release)
+  if (keycode == queued) {
+    if (process_kana_shifted(keycode, record)) tap_code16(keycode);
     return false;
   }
+
+  // ダブルロールキーがリリースされた場合
   switch (keycode) {
-    case THUM_L1:
-      if (timer_elapsed(shift_timer) < STICKY_TERM) {
+    // Shift
+    case KA_KO:
+    case KA_MI:
+    case KC_SPC: // 英字配列の場合
+      // 例. み(press)
+      //     わ(press)
+      //     み(release) <-- イマココ
+      //     わ(release)
+      if (is_mod_pressed_within(STICKY_TERM)) {
         unregister_mods(MOD_MASK_SHIFT);
-        shift_mode = 0;
-        tap_code(KC_B);
-        if (reserved_keycode == THUM_R1) tap_code(KC_N);
-        else register_code(reserved_keycode);
-        return false;
+        tap_code(keycode); // 例.「み」
+        tap_code(queued); // 例.「わ」
+        return true;
       }
-      if (reserved_keycode == THUM_R1) tap_code_wo_mod(KC_SPC, MOD_MASK_SHIFT);
-      else if (process_kana_shifted(reserved_keycode)) register_code(reserved_keycode);
-      break;
-    case THUM_R1:
-      if (timer_elapsed(shift_timer) < STICKY_TERM) {
-        unregister_mods(MOD_MASK_SHIFT);
-        shift_mode = 0;
-        tap_code(KC_N);
-        if (reserved_keycode == THUM_L1) tap_code(KC_B);
-        else register_code(reserved_keycode);
-        return false;
+      if (process_kana_shifted(queued, record)) register_code(queued); // 例.「を」
+      return true;
+
+    // Sym
+    case KC_BSLS:
+    case KC_SLSH:
+      // 例. / (press)
+      //     p (press)
+      //     / (release) <-- イマココ
+      //     p (release)
+      if (is_mod_pressed_within(STICKY_TERM)) {
+        tap_code(keycode); // 例. "/"
+        tap_code16(keymap_key_to_keycode(_MAIN, queued_key)); // 例. "p"
+        return true;
       }
-      if (reserved_keycode == THUM_L1) tap_code_wo_mod(KC_SPC, MOD_MASK_SHIFT);
-      else if (process_kana_shifted(reserved_keycode)) register_code(reserved_keycode);
-      break;
+      register_code(queued); // 例. "0"
+      return true;
+
+    // Fn
+    case KC_LNG1:
+    case KC_LNG2:
+      // 例. かな (press)
+      //     ; (press)
+      //     かな (release) <-- イマココ
+      //     ; (release)
+      if (is_mod_pressed_within(STICKY_TERM)) {
+        // STICKY_TERMに満たなかった場合、言語切り替えののちそのレイヤーの文字を送出
+        if (keycode == KC_LNG1) {
+          kana_on();
+          tap_code(keymap_key_to_keycode(_KANA, queued_key)); // 例. "せ"
+        }
+        if (keycode == KC_LNG2) {
+          kana_off();
+          tap_code(keymap_key_to_keycode(_MAIN, queued_key)); // 例. ";"
+        }
+        return true;
+      }
+      register_code(queued); // 例. "F11"
+      return true;
   }
   return true;
 }
@@ -362,6 +552,9 @@ bool process_stickey_term(uint16_t keycode) {
  */
 
 void keyboard_post_init_user(void) {
+#ifdef CONSOLE_ENABLE
+  debug_enable=true;
+#endif
   rgb_matrix_mode(RGB_MATRIX_NONE);
   rgb_matrix_sethsv(HSV_BASE);
 }
@@ -406,166 +599,54 @@ void rgb_matrix_indicators_user(void) {
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-  uint8_t mod_state = get_mods();
-  bool ctrled = (mod_state & MOD_MASK_CTRL);
-  bool shifted = (mod_state & MOD_MASK_SHIFT);
   bool pressed = record->event.pressed;
-  bool go_flag = true;
 
-  if (pressed) {
-    if (led_on == false) {
-      refresh_rgb_matrix_timeout();
-      return false;
-    } else {
-      refresh_rgb_matrix_timeout();
-    }
-    ++shift_counter;
-    ++sym_counter;
-    ++fn_counter;
-    /*
-    if (alt_reserved && keycode != KC_LALT) {
-      register_mods(MOD_MASK_ALT);
-      alt_reserved = false;
-    }
-    if (gui_reserved && keycode != KC_LGUI) {
-      register_mods(MOD_MASK_GUI);
-      gui_reserved = false;
-    }
-    ++alt_counter;
-    ++gui_counter;
-    */
+  if (!process_rgb_matrix_timeout(keycode, record)) return false;
+  if (!process_mod_sequence(keycode, record)) return false;
+  if (!process_sticky_term(keycode, record)) return false;
 
-    if (is_kana && shifted && timer_elapsed(shift_timer) < STICKY_TERM) {
-      reserved_keycode = keycode;
-      return false;
-    }
-  } else if (reserved_keycode) {
-    go_flag = process_stickey_term(keycode);
-    reserved_keycode = 0;
-    if (!go_flag) return false;
-  }
+  // 英字入力
+  if (!process_alpha(keycode, record)) return false;
 
+  // かな入力
+  if (!process_kana(keycode, record)) return false;
+  
+  // その他
   switch (keycode) {
-    case THUM_L1:
-    case THUM_R1:
+    // Fn
+    case KC_LNG1:
+    case KC_LNG2:
       if (pressed) {
-        ++shift_mode;
-        if (shift_mode > 2) shift_mode = 2;
-        switch (shift_mode) {
-          case 1:
-            register_mods(MOD_MASK_SHIFT);
-            shift_counter = 0;
-            shift_timer = timer_read();
-            break;
-          case 2:
-            if (is_kana) unregister_mods(MOD_MASK_SHIFT);
-            register_code(KC_SPC);
-            break;
+        if (!is_mod_seq_started()) {
+          // 修飾キー(dual role)が最初に押された
+          // 例. 英数 (press) <-- イマココ
+          start_mod_sequence(keycode, record);
+          layer_on(_FN);
         }
-      } else {
-        switch (shift_mode) {
-          case 1:
-            unregister_mods(MOD_MASK_SHIFT);
-            break;
-          case 2:
-            unregister_code(KC_SPC);
-            if (is_kana) register_mods(MOD_MASK_SHIFT);
-            break;
-        }
-        --shift_mode;
-        if (shift_mode < 0) {
-          shift_mode = 0;
-        }
-        if (shift_counter == 0 && timer_elapsed(shift_timer) < TAPPING_TERM) {
-          if (is_kana) {
-            if (ctrled) {
-              tap_code_wo_mod(KC_SPC, MOD_MASK_CTRL); // プレーンなスペース
-            } else {
-              if (keycode == THUM_L1) tap_code(KC_B); // 「こ」
-              if (keycode == THUM_R1) tap_code(KC_N); // 「み」
-            }
-          } else {
-            tap_code(KC_SPC); // スペース
-          }
-        }
+        return false;
       }
-      return false;
-      break;
-    case THUM_L2:
-    case THUM_R2:
-      if (pressed) {
-        /*
-        if (is_kana) send_alpha();
-        */
-        layer_on(_SYM);
-        if (keycode == THUM_L2) layer_on(_SYM_L); // sym -> space で「|」を出力するように
-        if (keycode == THUM_R2) layer_on(_SYM_R); // sym -> space で「?」を出力するように
-        sym_counter = 0;
-        sym_timer = timer_read();
-      } else {
-        /*
-        if (is_kana) send_kana();
-        */
-        layer_off(_SYM);
-        layer_off(_SYM_L);
-        layer_off(_SYM_R);
-        if (sym_counter == 0 && timer_elapsed(sym_timer) < TAPPING_TERM) {
-          /*
-          if (is_kana) {
-            if (keycode == THUM_L2) tap_code(KC_V); // 「ひ」
-            if (keycode == THUM_R2) tap_code(KC_M); // 「も」
-          } else {
-          */
-            if (keycode == THUM_L2) tap_code(KC_BSLS); // "\"
-            if (keycode == THUM_R2) tap_code(KC_SLSH); // "/"
-          /*
-          }
-          */
-        }
+      if (!is_mod_seq_first(keycode, record)) return false;
+
+      layer_off(_FN);
+      if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
+        // 時間内に単独でタップされた
+        // 例. 英数 (press)
+        //     英数 (release) <-- イマココ
+        if (keycode == KC_LNG1) kana_on();
+        if (keycode == KC_LNG2) kana_off();
       }
+      end_mod_sequence();
       return false;
-      break;
-    case THUM_L3:
-    case THUM_R3:
-      if (pressed) {
-        layer_on(_FN);
-        fn_counter = 0;
-        fn_timer = timer_read();
-      } else {
-        layer_off(_FN);
-        if (fn_counter == 0 && timer_elapsed(fn_timer) < TAPPING_TERM) {
-          /*
-          if (is_kana && !ctrled) {
-            if (keycode == THUM_L3) tap_code(KC_C); // 「そ」
-            if (keycode == THUM_R3) tap_code(KC_COMM); // 「ね」
-          } else {
-          */
-            del_mods(MOD_MASK_CTRL); // 常にCtrlを無効化
-            if (keycode == THUM_L3) kana_off();
-            if (keycode == THUM_R3) kana_on();
-            set_mods(mod_state);
-          /*
-          }
-          */
-        }
-      }
-      return false;
+
     case RGB_TOG:
-      if (pressed) {
-        led_darkmode = !led_darkmode;
-        if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
-        else rgb_matrix_sethsv(HSV_BASE);
-      }
+      if (pressed) toggle_darkmode();
       return false;
   }
-
-  // かな入力時のみ必要な処理
-  if (is_kana) return process_kana(keycode, ctrled, shifted, pressed);
 
   return true;
 }
 
 void matrix_scan_user(void) {
-  process_rgb_matrix_timeout();
+  update_rgb_matrix_timeout();
 }
 
