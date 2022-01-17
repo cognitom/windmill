@@ -24,6 +24,7 @@
 enum layers {
     _MAIN,
     _KANA,
+    _KANA_SHIFTED,
     _SYM,
     _SYM_L,
     _SYM_R,
@@ -48,6 +49,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______, KA_TA,   KA_TE,   KA_I,    KA_SU,   KA_KA,   KA_N,    KA_NA,   KA_NI,   KA_RA,   KA_SE,   KA_DAKU,
     _______, KA_CHI,  KA_TO,   KA_SHI,  KA_HA,   KA_KI,   KA_KU,   KA_MA,   KA_NO,   KA_RI,   KA_RE,   KA_KE,
     _______, KA_TSU,  KA_SA,   KA_SO,   KA_HI,   KA_KO,   KA_MI,   KA_MO,   KA_NE,   KA_RU,   KA_ME,   KA_RO
+  ),
+
+  [_KANA_SHIFTED] = LAYOUT_ortho_4x12(
+    _______, _______, _______, KA_XA,   KA_XU,   KA_XE,   KA_XO,   KA_XYA,  KA_XYU,  KA_XYO,  KA_WO,   _______,
+    _______, _______, KA_HE,   KA_XI,   KA_MU,   _______, _______, KA_HO,   _______, KA_LKAK, KA_RKAK, KA_HAN,
+    _______, KA_XTSU, _______, _______, _______, _______, _______, _______, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU,
+    _______, KA_XTSU, _______, _______, _______, KC_SPC,  KC_SPC,  _______, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU
   ),
 
 
@@ -271,47 +279,23 @@ bool process_mod_sequence(uint16_t keycode, keyrecord_t *record) {
   return true;
 }
 
-// かな入力時のシフト側の変則的な処理
-// Shiftキーそのものの処理との兼ね合いで、別レイヤーにすることが難しく、
-// キーごとのアドホックな処理になっている。
-// TODO: 別レイヤーにして、プログラム的に抽出するハックを追加して、この関数からキー定義を追い出すこと。
+// かな入力時のシフト側の処理
 bool process_kana_shifted(uint16_t keycode, keyrecord_t *record) {
   uint8_t mod_state = get_mods();
   bool shifted = (mod_state & MOD_MASK_SHIFT);
   if (!is_kana) return true;
-  if (shifted) unregister_mods(MOD_MASK_SHIFT);
+
+  // TODO: シフト側のキーコードを動的にレイヤー設定から取得して、以下のハードコードをやめる
   switch (keycode) {
-    case KA_A:    tap_code16(KA_XA);   break; // ぁ
-    case KA_U:    tap_code16(KA_XU);   break; // ぅ
-    case KA_E:    tap_code16(KA_XE);   break; // ぇ
-    case KA_O:    tap_code16(KA_XO);   break; // ぉ
-    case KA_YA:   tap_code16(KA_XYA);  break; // ゃ
-    case KA_YU:   tap_code16(KA_XYU);  break; // ゅ
-    case KA_YO:   tap_code16(KA_XYO);  break; // ょ
-    case KA_WA:   tap_code16(KA_WO);   break; // を
-    case KA_TE:   tap_code16(KA_HE);   break; // へ
-    case KA_I:    tap_code16(KA_XI);   break; // ぃ
-    case KA_SU:   tap_code16(KA_MU);   break; // む
-    case KA_NA:   tap_code16(KA_HO);   break; // ほ
-    case KA_RA:   tap_code16(KA_LKAK); break; // 「
-    case KA_SE:   tap_code16(KA_RKAK); break; // 」
-    case KA_DAKU: tap_code16(KA_HAN);  break; // ゜
-    case KA_CHI:
-    case KA_TSU:  tap_code16(KA_XTSU); break; // っ
-    case KA_NO:
-    case KA_NE:   tap_code16(KA_TEN);  break; // 、
-    case KA_RI:
-    case KA_RU:   tap_code16(KA_MARU); break; // 。
-    case KA_RE:
-    case KA_ME:   tap_code16(KA_NAKA); break; // ・
-    case KA_KE:
-    case KA_RO:   tap_code16(KA_CHOU); break; // ー
-    case KA_KO:
-    case KA_MI:   tap_code16(KC_SPC);  break; // スペース
-    default:
-      if (shifted) register_mods(MOD_MASK_SHIFT);
-      return true;
+    case KA_XA: case KA_XU: case KA_XE: case KA_XO: case KA_XYA: case KA_XYU: case KA_XYO: case KA_WO:
+    case KA_HE: case KA_XI: case KA_MU: case KA_HO: case KA_LKAK: case KA_RKAK: case KA_HAN:
+    case KA_XTSU: case KA_TEN: case KA_MARU: case KA_NAKA: case KA_CHOU:
+      break;
+    default: return true;
   }
+  
+  if (shifted) unregister_mods(MOD_MASK_SHIFT);
+  tap_code16(keycode);
   if (shifted) register_mods(MOD_MASK_SHIFT);
   return false;
 }
@@ -335,12 +319,14 @@ bool process_kana(uint16_t keycode, keyrecord_t *record) {
           // 例. み(press) <-- イマココ
           start_mod_sequence(keycode, record);
           register_mods(MOD_MASK_SHIFT);
+          layer_on(_KANA_SHIFTED);
           return false;
         }
         return process_kana_shifted(keycode, record);
       }
       if (!is_mod_seq_first(keycode, record)) return false;
 
+      layer_off(_KANA_SHIFTED);
       unregister_mods(MOD_MASK_SHIFT);
       if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
         // 時間内に単独でタップされた
@@ -491,7 +477,7 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
   // ダブルロールキーがリリースされた場合
   switch (keycode) {
     // Shift
-    case KA_KO:
+    case KA_KO: // かな配列の場合
     case KA_MI:
     case KC_SPC: // 英字配列の場合
       // 例. み(press)
@@ -501,7 +487,7 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
       if (is_mod_pressed_within(STICKY_TERM)) {
         unregister_mods(MOD_MASK_SHIFT);
         tap_code(keycode); // 例.「み」
-        tap_code(queued); // 例.「わ」
+        tap_code(keymap_key_to_keycode(_KANA, queued_key)); // 例.「わ」
         return true;
       }
       if (process_kana_shifted(queued, record)) register_code(queued); // 例.「を」
