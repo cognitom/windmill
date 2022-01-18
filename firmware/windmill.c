@@ -78,6 +78,7 @@ static int first_mod_row = 0;
 static int first_mod_col = 0;
 static int mod_follower_counter = 0;
 static uint16_t mod_timer = 0;
+uint8_t mod_base_layer = 0;
 void start_mod_sequence(uint16_t keycode, keyrecord_t *record) {
   first_mod_keycode = keycode;
   first_mod_row = record->event.key.row;
@@ -108,6 +109,131 @@ bool process_mod_sequence(uint16_t keycode, keyrecord_t *record) {
   if (record->event.pressed && first_mod_keycode) ++mod_follower_counter;
   return true;
 }
+bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate) {
+  bool pressed = record->event.pressed;
+  if (pressed) {
+    if (!is_mod_seq_started()) {
+      // 修飾キー(dual role)が最初に押された
+      // 例. 英数 (press) <-- イマココ
+      start_mod_sequence(keycode, record);
+      if (mod_mask) register_mods(mod_mask);
+      mod_base_layer = is_kana() ? _KANA : _ALPHA;
+      if (layer_to_activate) layer_on(layer_to_activate);
+    }
+    return false;
+  }
+  if (!is_mod_seq_first(keycode, record)) return true;
+
+  if (layer_to_activate) layer_off(layer_to_activate);
+  if (mod_mask) unregister_mods(mod_mask);
+  if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
+    // 時間内に単独でタップされた
+    // 例. 英数 (press)
+    //     英数 (release) <-- イマココ
+    windmill_tap_code(keycode);
+  }
+  stop_mod_sequence();
+  return false;
+}
+bool windmill_layertap(uint16_t keycode, keyrecord_t *record, uint8_t layer_to_activate) {
+  return windmill_modlayertap(keycode, record, MOD_MASK_NONE, layer_to_activate);
+}
+bool windmill_modtap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask) {
+  return windmill_modlayertap(keycode, record, mod_mask, 0);
+}
+
+/*
+ * Sticky Term
+ */
+
+static uint16_t queued_keycode = 0;
+static keypos_t queued_key = { .row = 0, .col = 0 };
+bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
+  bool pressed = record->event.pressed;
+
+  // 修飾キーが押されたのち、STICKY_TERM時間内であればキーを送出せずqueued_keycodeに入れて待つ
+  // 例. み(press)
+  //     わ(press) <-- イマココ
+  if (pressed) {
+    if (is_mod_pressed_within(STICKY_TERM)) {
+      if (get_mod_follower() == 1) {
+        queued_keycode = keycode;
+        queued_key = record->event.key;
+        return false;
+      }
+      // ただし、後続が2つ以上押された時点で、STICKY_TERM内でもキューをクリア
+      if (get_mod_follower() == 2) {
+        windmill_tap_code(queued_keycode);
+      }
+    }
+    queued_keycode = 0;
+    return true;
+  }
+  if (!queued_keycode) return true;
+
+  // ここから、queued_keycodeがある場合の処理
+  uint16_t queued = queued_keycode;
+  queued_keycode = 0;
+
+  // キューに入れたキーがリリースされた場合 
+  // 例. み(press)
+  //     わ(press)
+  //     わ(release) <-- イマココ
+  //     み(release)
+  if (keycode == queued) {
+    windmill_tap_code(keycode);
+    return false;
+  }
+
+  // ダブルロールキーがリリースされた場合
+  switch (keycode) {
+    // Shift (かな配列の場合)
+    case KA_KO:
+    case KA_MI:
+      // 例. み(press)
+      //     わ(press)
+      //     み(release) <-- イマココ
+      //     わ(release)
+      if (is_mod_pressed_within(STICKY_TERM)) {
+        unregister_mods(MOD_MASK_SHIFT);
+        windmill_tap_code(keycode); // 例.「み」
+        windmill_tap_code(keymap_key_to_keycode(_KANA, queued_key)); // 例.「わ」
+        return true;
+      }
+      windmill_tap_code(queued); // 例.「を」
+      return true;
+
+    // Shift (英字配列の場合)
+    case KC_SPC:
+      if (is_mod_pressed_within(STICKY_TERM)) {
+        unregister_mods(MOD_MASK_SHIFT);
+        windmill_tap_code(keycode);
+        windmill_tap_code(queued);
+        return true;
+      }
+      register_code(queued);
+      return true;
+
+    // Sym, Fn
+    case KC_BSLS:
+    case KC_SLSH:
+    case KC_LNG1:
+    case KC_LNG2:
+      // 例. / (press)
+      //     p (press)
+      //     / (release) <-- イマココ
+      //     p (release)
+      if (is_mod_pressed_within(STICKY_TERM)) {
+        windmill_tap_code(keycode); // 例. "/"
+        windmill_tap_code(keymap_key_to_keycode(_ALPHA, queued_key)); // 例. "p"
+        return true;
+      }
+      windmill_tap_code(queued); // 例. "0"
+      return true;
+  }
+  return true;
+}
+
 
 /*
  * Kana
@@ -389,6 +515,7 @@ void matrix_scan_kb(void) {
 bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
   if (!process_rgb_matrix_timeout(keycode, record)) return false;
   if (!process_mod_sequence(keycode, record)) return false;
+  if (!process_sticky_term(keycode, record)) return false;
   
   // keymap.c
   if (!process_record_user(keycode, record)) return false;

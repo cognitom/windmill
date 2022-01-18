@@ -64,193 +64,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 };
 
-// かな入力時のみ必要な処理
-bool process_kana(uint16_t keycode, keyrecord_t *record) {
-  bool pressed = record->event.pressed;
-
-  if (!is_kana()) return true;
-
-  switch (keycode) {
-    // Shift
-    case KA_KO:
-    case KA_MI:
-      if (pressed) {
-        if (!is_mod_seq_started()) {
-          // 修飾キー(dual role)が最初に押された
-          // 例. み(press) <-- イマココ
-          start_mod_sequence(keycode, record);
-          register_mods(MOD_MASK_SHIFT);
-          layer_on(_KANA_SHIFTED);
-          return false;
-        }
-        return true;
-      }
-      if (!is_mod_seq_first(keycode, record)) return false;
-
-      layer_off(_KANA_SHIFTED);
-      unregister_mods(MOD_MASK_SHIFT);
-      if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
-        // 時間内に単独でタップされた
-        // 例. み(press)
-        //     み(release) <-- イマココ
-        windmill_tap_code(keycode);
-      }
-      stop_mod_sequence();
-      return false;
-  }
-
-  return true;
-}
-
-// 英字入力時のみ必要な処理
-bool process_alpha(uint16_t keycode, keyrecord_t *record) {
-  bool pressed = record->event.pressed;
-
-  if (is_kana()) return true;
-  
-  switch (keycode) {
-    // Shift
-    case KC_SPC:
-      if (pressed) {
-        if (!is_mod_seq_started()) {
-          // 修飾キー(dual role)が最初に押された
-          // 例. Space(press) <-- イマココ
-          start_mod_sequence(keycode, record);
-          register_mods(MOD_MASK_SHIFT);
-          return false;
-        }
-        return true;
-      }
-      if (!is_mod_seq_first(keycode, record)) return true;
-
-      unregister_mods(MOD_MASK_SHIFT);
-      if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
-        // 時間内に単独でタップされた
-        // 例. Space(press)
-        //     Space(release) <-- イマココ
-        windmill_tap_code(keycode);
-      }
-      stop_mod_sequence();
-      return false;
-
-    // Sym
-    case KC_BSLS:
-    case KC_SLSH:
-      if (pressed) {
-        if (!is_mod_seq_started()) {
-          // 修飾キー(dual role)が最初に押された
-          // 例. / (press) <-- イマココ
-          start_mod_sequence(keycode, record);
-          layer_on(_SYM);
-          return false;
-        }
-        return true;
-      }
-      if (!is_mod_seq_first(keycode, record)) return true;
-
-      layer_off(_SYM);
-      if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
-        // 時間内に単独でタップされた
-        // 例. / (press)
-        //     / (release) <-- イマココ
-        windmill_tap_code(keycode);
-      }
-      stop_mod_sequence();
-      return false;
-  }
-
-  return true;
-}
-
-#define STICKY_TERM 150
-static uint16_t queued_keycode = 0;
-static keypos_t queued_key = { .row = 0, .col = 0 };
-bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
-  bool pressed = record->event.pressed;
-
-  // 修飾キーが押されたのち、STICKY_TERM時間内であればキーを送出せずqueued_keycodeに入れて待つ
-  // 例. み(press)
-  //     わ(press) <-- イマココ
-  if (pressed) {
-    if (is_mod_pressed_within(STICKY_TERM)) {
-      if (get_mod_follower() == 1) {
-        queued_keycode = keycode;
-        queued_key = record->event.key;
-        return false;
-      }
-      // ただし、後続が2つ以上押された時点で、STICKY_TERM内でもキューをクリア
-      if (get_mod_follower() == 2) {
-        windmill_tap_code(queued_keycode);
-      }
-    }
-    queued_keycode = 0;
-    return true;
-  }
-  if (!queued_keycode) return true;
-
-  // ここから、queued_keycodeがある場合の処理
-  uint16_t queued = queued_keycode;
-  queued_keycode = 0;
-
-  // キューに入れたキーがリリースされた場合 
-  // 例. み(press)
-  //     わ(press)
-  //     わ(release) <-- イマココ
-  //     み(release)
-  if (keycode == queued) {
-    windmill_tap_code(keycode);
-    return false;
-  }
-
-  // ダブルロールキーがリリースされた場合
-  switch (keycode) {
-    // Shift (かな配列の場合)
-    case KA_KO:
-    case KA_MI:
-      // 例. み(press)
-      //     わ(press)
-      //     み(release) <-- イマココ
-      //     わ(release)
-      if (is_mod_pressed_within(STICKY_TERM)) {
-        unregister_mods(MOD_MASK_SHIFT);
-        windmill_tap_code(keycode); // 例.「み」
-        windmill_tap_code(keymap_key_to_keycode(_KANA, queued_key)); // 例.「わ」
-        return true;
-      }
-      windmill_tap_code(queued); // 例.「を」
-      return true;
-
-    // Shift (英字配列の場合)
-    case KC_SPC:
-      if (is_mod_pressed_within(STICKY_TERM)) {
-        unregister_mods(MOD_MASK_SHIFT);
-        windmill_tap_code(keycode);
-        windmill_tap_code(queued);
-        return true;
-      }
-      register_code(queued);
-      return true;
-
-    // Sym, Fn
-    case KC_BSLS:
-    case KC_SLSH:
-    case KC_LNG1:
-    case KC_LNG2:
-      // 例. / (press)
-      //     p (press)
-      //     / (release) <-- イマココ
-      //     p (release)
-      if (is_mod_pressed_within(STICKY_TERM)) {
-        windmill_tap_code(keycode); // 例. "/"
-        windmill_tap_code(keymap_key_to_keycode(_ALPHA, queued_key)); // 例. "p"
-        return true;
-      }
-      windmill_tap_code(queued); // 例. "0"
-      return true;
-  }
-  return true;
-}
-
 /*
  * QMK callbacks
  */
@@ -262,40 +75,24 @@ void keyboard_post_init_user(void) {
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
   bool ctrled = (get_mods() & MOD_MASK_CTRL);
-  if (!process_sticky_term(keycode, record)) return false;
-
-  // 英字入力
-  if (!process_alpha(keycode, record)) return false;
-
-  // かな入力
-  if (!process_kana(keycode, record)) return false;
   
   // その他
   switch (keycode) {
+    // Shift
+    case KC_SPC:
+      return windmill_modtap(keycode, record, MOD_MASK_SHIFT);
+    case KA_KO:
+    case KA_MI:
+      return windmill_layertap(keycode, record, _KANA_SHIFTED);
+    // Sym
+    case KC_BSLS:
+    case KC_SLSH:
+      return windmill_layertap(keycode, record, _SYM);
     // Fn
     case KC_LNG1:
     case KC_LNG2:
-      if (pressed) {
-        if (!is_mod_seq_started()) {
-          // 修飾キー(dual role)が最初に押された
-          // 例. 英数 (press) <-- イマココ
-          start_mod_sequence(keycode, record);
-          layer_on(_FN);
-        }
-        return false;
-      }
-      if (!is_mod_seq_first(keycode, record)) return false;
-
-      layer_off(_FN);
-      if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
-        // 時間内に単独でタップされた
-        // 例. 英数 (press)
-        //     英数 (release) <-- イマココ
-        windmill_tap_code(keycode);
-      }
-      stop_mod_sequence();
-      return false;
-      
+      return windmill_layertap(keycode, record, _FN);
+    // その他
     case KC_LCTL:
       if (is_kana()) {
         // CTRLキーを押した場合かなレイヤーをオフ
@@ -303,13 +100,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         else layer_on(_KANA);
       }
       break;
-
     case KC_ESC:
       if (is_kana() && pressed) {
         // ESCでかな入力をオフに ※ただし、Ctrl押下中はプレーンなESCを送出 
         if (ctrled) {
           unregister_mods(MOD_MASK_CTRL);
-          windmill_tap_code(keycode);
+          tap_code(keycode);
           register_mods(MOD_MASK_CTRL);
           return false;
         }
@@ -317,22 +113,17 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return false;
       }
       break;
-
     case KC_UP:
     case KC_DOWN:
     case KC_LEFT:
     case KC_RIGHT:
       if (is_kana() && ctrled && pressed) {
         unregister_mods(MOD_MASK_CTRL);
-        windmill_tap_code(keycode);
+        tap_code(keycode);
         register_mods(MOD_MASK_CTRL);
         return false;
       }
       break;
-
-    case RGB_TOG:
-      if (pressed) toggle_darkmode();
-      return false;
   }
 
   return true;
