@@ -64,6 +64,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 };
 
+// 一時的に修飾キーを外した状態で、tap_codeする
+void tap_code_wo_mod(uint16_t keycode, uint8_t mod_mask) {
+  uint8_t mod_state = get_mods();
+  del_mods(mod_mask);
+  tap_code(keycode);
+  set_mods(mod_state);
+}
+
 /*
  * QMK callbacks
  */
@@ -104,9 +112,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       if (is_kana() && pressed) {
         // ESCでかな入力をオフに ※ただし、Ctrl押下中はプレーンなESCを送出 
         if (ctrled) {
-          unregister_mods(MOD_MASK_CTRL);
-          tap_code(keycode);
-          register_mods(MOD_MASK_CTRL);
+          tap_code_wo_mod(keycode, MOD_MASK_CTRL);
           return false;
         }
         kana_off();
@@ -118,9 +124,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     case KC_LEFT:
     case KC_RIGHT:
       if (is_kana() && ctrled && pressed) {
-        unregister_mods(MOD_MASK_CTRL);
-        tap_code(keycode);
-        register_mods(MOD_MASK_CTRL);
+        tap_code_wo_mod(keycode, MOD_MASK_CTRL);
         return false;
       }
       break;
