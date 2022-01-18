@@ -95,6 +95,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     // Sym
     case KC_BSLS:
     case KC_SLSH:
+    case KA_HI:
+    case KA_MO:
       return windmill_layertap(keycode, record, _SYM);
     // Fn
     case KC_LNG1:

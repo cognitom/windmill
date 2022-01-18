@@ -280,6 +280,16 @@ bool process_keycode_fn(uint16_t keycode) {
   return false;
 }
 
+bool process_keycode_sym(uint16_t keycode) {
+  if (layer_state_is(_SYM) && is_kana()) {
+    send_alpha();
+    tap_code16(keycode);
+    send_kana();
+    return false;
+  }
+  return true;
+}
+
 /*
  * 拡張版 tap_code
  */
@@ -287,6 +297,7 @@ bool process_keycode_fn(uint16_t keycode) {
 void windmill_tap_code(uint16_t keycode) {
   if (!process_keycode_kana(keycode)) return;
   if (!process_keycode_fn(keycode)) return;
+  if (!process_keycode_sym(keycode)) return;
   tap_code16(keycode);
 }
 
@@ -304,6 +315,13 @@ bool process_record_kana(uint16_t keycode, keyrecord_t *record) {
 bool process_record_fn(uint16_t keycode, keyrecord_t *record) {
   if (record->event.pressed) {
     if (!process_keycode_fn(keycode)) return false;
+  }
+  return true;
+}
+
+bool process_record_sym(uint16_t keycode, keyrecord_t *record) {
+  if (record->event.pressed) {
+    if (!process_keycode_sym(keycode)) return false;
   }
   return true;
 }
@@ -362,7 +380,7 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
     windmill_tap_code(keymap_key_to_keycode(mod_base_layer, queued_key)); // 例.「わ」
     return true;
   }
-  
+
   windmill_tap_code(queued); // 例.「を」
   return true;
 }
@@ -491,6 +509,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
   
   if (!process_record_kana(keycode, record)) return false;
   if (!process_record_fn(keycode, record)) return false;
-
+  if (!process_record_sym(keycode, record)) return false;
   return true;
 }
