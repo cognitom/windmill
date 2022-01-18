@@ -101,6 +101,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     // Fn
     case KC_LNG1:
     case KC_LNG2:
+    case KA_SO:
+    case KA_NE:
       return windmill_layertap(keycode, record, _FN);
     // その他
     case KC_LCTL:
