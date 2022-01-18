@@ -53,6 +53,8 @@ enum kana_keycodes {
   KA_LKAK, KA_RKAK, KA_DAKU, KA_HAN, KA_TEN, KA_MARU, KA_NAKA, KA_CHOU,
   // 半角スペース
   KA_SPC,
+  // 半角記号
+  KA_QUES, KA_PIPE,
 
   WINDMILL_SAFE_RANGE
 };

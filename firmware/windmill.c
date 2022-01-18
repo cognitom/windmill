@@ -304,12 +304,27 @@ bool process_keycode_fn(uint16_t keycode) {
 }
 
 bool process_keycode_sym(uint16_t keycode) {
-  if (layer_state_is(_SYM) && is_kana()) {
-    send_alpha();
-    tap_code16(keycode);
-    send_kana();
-    return false;
+  if (is_kana()) {
+    if (layer_state_is(_SYM)) {
+      send_alpha();
+      tap_code16(keycode);
+      send_kana();
+      return false;
+    }
+    switch (keycode) {
+      case KA_QUES:
+        send_alpha();
+        tap_code16(KC_QUES);
+        send_kana();
+        return false;
+      case KA_PIPE:
+        send_alpha();
+        tap_code16(KC_PIPE);
+        send_kana();
+        return false;
+    }
   }
+
   return true;
 }
 
