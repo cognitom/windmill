@@ -80,6 +80,8 @@ static int mod_follower_counter = 0;
 static uint16_t mod_timer = 0;
 uint8_t mod_base_layer = 0;
 uint8_t mod_mask_target = MOD_MASK_NONE;
+bool weakmod_alt = false;
+bool weakmod_gui = false;
 void start_mod_sequence(uint16_t keycode, keyrecord_t *record) {
   first_mod_keycode = keycode;
   first_mod_row = record->event.key.row;
@@ -90,6 +92,8 @@ void start_mod_sequence(uint16_t keycode, keyrecord_t *record) {
 void stop_mod_sequence(void) {
   first_mod_keycode = 0;
   mod_follower_counter = 0;
+  weakmod_alt = false;
+  weakmod_gui = false;
 }
 bool is_mod_seq_first(uint16_t keycode, keyrecord_t *record) {
   return keycode == first_mod_keycode
@@ -110,6 +114,18 @@ bool process_mod_sequence(uint16_t keycode, keyrecord_t *record) {
   if (record->event.pressed && first_mod_keycode) ++mod_follower_counter;
   return true;
 }
+bool process_weakmod_activation(uint16_t keycode) {
+  if (weakmod_alt) register_mods(MOD_MASK_ALT);
+  if (weakmod_gui) register_mods(MOD_MASK_GUI);
+  return true;
+}
+bool process_weakmod(uint16_t keycode, keyrecord_t *record) {
+  if (record->event.pressed) {
+    if (!process_weakmod_activation(keycode)) return false;
+  }
+  return true;
+}
+
 bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate) {
   bool pressed = record->event.pressed;
   if (pressed) {
@@ -118,14 +134,21 @@ bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mas
       // 例. 英数 (press) <-- イマココ
       start_mod_sequence(keycode, record);
       mod_mask_target = mod_mask;
-      if (mod_mask) register_mods(mod_mask);
+      switch (mod_mask) {
+        case MOD_MASK_NONE: break;
+        case MOD_MASK_ALT: weakmod_alt = true; break;
+        case MOD_MASK_GUI: weakmod_gui = true; break;
+        default: register_mods(mod_mask); break;
+      }
       mod_base_layer = is_kana() ? _KANA : _ALPHA;
+      if ((weakmod_alt || weakmod_gui) && is_kana()) layer_off(_KANA);
       if (layer_to_activate) layer_on(layer_to_activate);
     }
     return false;
   }
   if (!is_mod_seq_first(keycode, record)) return true;
 
+  if ((weakmod_alt || weakmod_gui) && is_kana()) layer_on(_KANA);
   if (layer_to_activate) layer_off(layer_to_activate);
   if (mod_mask) unregister_mods(mod_mask);
   if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
@@ -298,6 +321,7 @@ void windmill_tap_code(uint16_t keycode) {
   if (!process_keycode_kana(keycode)) return;
   if (!process_keycode_fn(keycode)) return;
   if (!process_keycode_sym(keycode)) return;
+  if (!process_weakmod_activation(keycode)) return;
   tap_code16(keycode);
 }
 
@@ -510,5 +534,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
   if (!process_record_kana(keycode, record)) return false;
   if (!process_record_fn(keycode, record)) return false;
   if (!process_record_sym(keycode, record)) return false;
+  if (!process_weakmod(keycode, record)) return false;
   return true;
 }

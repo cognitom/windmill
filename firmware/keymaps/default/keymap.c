@@ -104,6 +104,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     case KA_SO:
     case KA_NE:
       return windmill_layertap(keycode, record, _FN);
+    // Alt
+    case KA_SA:
+      return windmill_modtap(keycode, record, MOD_MASK_ALT);
+    // GUI
+    case KA_TSU:
+      return windmill_modtap(keycode, record, MOD_MASK_GUI);
     // その他
     case KC_LCTL:
       if (is_kana()) {
