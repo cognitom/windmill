@@ -54,7 +54,7 @@ enum kana_keycodes {
   // 半角スペース
   KA_SPC,
   // 半角記号
-  KA_QUES, KA_PIPE,
+  KA_QUES, KA_PIPE, KA_SLSH, KA_BSLS,
 
   WINDMILL_SAFE_RANGE
 };

@@ -52,7 +52,7 @@ const int keysets[][32] = {
   [KEYS_MEDIA]                = {41, 42, 43},
   [KEYS_KANA_SPECIALS]        = {10, 21, 22, 34, 46},
   [KEYS_KANA_SYMBOLS]         = {33},
-  [KEYS_KANA_SHIFTED_SYMBOLS] = {42, 43, 44, 45},
+  [KEYS_KANA_SHIFTED_SYMBOLS] = {42, 43, 44, 45, 53},
   [KEYS_KANA_BRACKETS]        = {31, 32},
 };
 
@@ -271,6 +271,16 @@ uint16_t translate_kana_to_ascii(uint16_t keycode) {
   return KC_NO;
 }
 
+uint16_t translate_special_to_ascii(uint16_t keycode) {
+  switch (keycode) {
+    case KA_QUES: return KC_QUES; // ?
+    case KA_PIPE: return KC_PIPE; // |
+    case KA_SLSH: return KC_SLSH; // /
+    case KA_BSLS: return KC_BSLS; // ￥
+  }
+  return KC_NO;
+}
+
 /*
  * process_keycord_*
  */
@@ -313,13 +323,11 @@ bool process_keycode_sym(uint16_t keycode) {
     }
     switch (keycode) {
       case KA_QUES:
-        send_alpha();
-        tap_code16(KC_QUES);
-        send_kana();
-        return false;
       case KA_PIPE:
+      case KA_SLSH:
+      case KA_BSLS:
         send_alpha();
-        tap_code16(KC_PIPE);
+        tap_code16(translate_special_to_ascii(keycode));
         send_kana();
         return false;
     }

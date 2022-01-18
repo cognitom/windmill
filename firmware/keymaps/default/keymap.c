@@ -43,7 +43,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   [_KANA_SHIFTED] = LAYOUT_ortho_4x12(
     _______, _______, _______, KA_XA,   KA_XU,   KA_XE,   KA_XO,   KA_XYA,  KA_XYU,  KA_XYO,  KA_WO,   _______,
     _______, _______, KA_HE,   KA_XI,   KA_MU,   _______, _______, KA_HO,   _______, KA_LKAK, KA_RKAK, KA_HAN,
-    _______, KA_XTSU, _______, _______, _______, _______, _______, _______, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU,
+    _______, KA_XTSU, _______, _______, KA_PIPE, KA_BSLS, KA_SLSH, KA_QUES, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU,
     _______, KA_XTSU, _______, _______, KA_PIPE, KA_SPC,  KA_SPC,  KA_QUES, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU
   ),
 
