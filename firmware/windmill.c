@@ -212,16 +212,64 @@ uint16_t translate_kana_to_ascii(uint16_t keycode) {
   return KC_NO;
 }
 
-bool process_kana_keycode(uint16_t keycode, keyrecord_t *record) {
-  uint8_t mod_state = get_mods();
-  bool shifted = (mod_state & MOD_MASK_SHIFT);
+/*
+ * process_keycord_*
+ */
+
+bool process_keycode_kana(uint16_t keycode) {
   uint16_t translated = translate_kana_to_ascii(keycode);
   if (translated == KC_NO) return true;
-  
+
+  bool shifted = (get_mods() & MOD_MASK_SHIFT);
   if (shifted) unregister_mods(MOD_MASK_SHIFT);
   tap_code16(translated);
   if (shifted) register_mods(MOD_MASK_SHIFT);
   return false;
+}
+
+bool process_keycode_fn(uint16_t keycode) {
+  switch (keycode) {
+    case RGB_TOG:
+      toggle_darkmode();
+      break;
+    case KC_LNG1:
+      kana_on();
+      break;
+    case KC_LNG2:
+      kana_off();
+      break;
+    default: 
+      return true;
+  }
+  return false;
+}
+
+/*
+ * 拡張版 tap_code
+ */
+
+void windmill_tap_code(uint16_t keycode) {
+  if (!process_keycode_kana(keycode)) return;
+  if (!process_keycode_fn(keycode)) return;
+  tap_code16(keycode);
+}
+
+/*
+ * process_record_*
+ */
+
+bool process_record_kana(uint16_t keycode, keyrecord_t *record) {
+  if (record->event.pressed) {
+    if (!process_keycode_kana(keycode)) return false;
+  }
+  return true;
+}
+
+bool process_record_fn(uint16_t keycode, keyrecord_t *record) {
+  if (record->event.pressed) {
+    if (!process_keycode_fn(keycode)) return false;
+  }
+  return true;
 }
 
 /*
@@ -287,7 +335,9 @@ bool process_rgb_matrix_timeout(uint16_t keycode, keyrecord_t *record) {
   return true;
 }
 
-
+/*
+ * QMK callbacks
+ */
 
 void keyboard_post_init_kb(void) {
 #ifdef CONSOLE_ENABLE
@@ -300,13 +350,51 @@ void keyboard_post_init_kb(void) {
 }
 
 void rgb_matrix_indicators_kb(void) {
-  if (led_on == false) return;
+  if (!led_on) return;
+  bool shifted = (get_mods() & MOD_MASK_SHIFT);
+  
+  if (layer_state_is(_KANA)) {
+    set_color_to_keyset(RGB_SPECIAL, RGB_SPECIAL_DARK, KEYS_KANA_SPECIALS);
+    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_KANA_SYMBOLS);
+    if (shifted) {
+      set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_KANA_SHIFTED_SYMBOLS);
+      set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_KANA_BRACKETS);
+    }
+  } else {
+    set_color_to_keyset(RGB_SPECIAL, RGB_SPECIAL_DARK, KEYS_ALPHA_SPECIALS);
+    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_ALPHA_SYMBOLS);
+    if (shifted) set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_ALPHA_BRACKETS);
+  }
 
-  rgb_matrix_indicators_user();
+  if (layer_state_is(_SYM)) {
+    set_color_to_keyset(RGB_NUMBER, RGB_NUMBER_DARK, KEYS_NUMBERS);
+    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_SYMBOLS);
+    set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_BRACKETS);
+    return;
+  }
+  
+  if (layer_state_is(_FN)) {
+    set_color_to_keyset(RGB_FUNCKEY, RGB_FUNCKEY_DARK, KEYS_FUNC);
+    set_color_to_keyset(RGB_MEDIA, RGB_MEDIA_DARK, KEYS_MEDIA);
+    return;
+  }
 }
 
 void matrix_scan_kb(void) {
   update_rgb_matrix_timeout();
 
   matrix_scan_user();
+}
+
+bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
+  if (!process_rgb_matrix_timeout(keycode, record)) return false;
+  if (!process_mod_sequence(keycode, record)) return false;
+  
+  // keymap.c
+  if (!process_record_user(keycode, record)) return false;
+  
+  if (!process_record_kana(keycode, record)) return false;
+  if (!process_record_fn(keycode, record)) return false;
+
+  return true;
 }

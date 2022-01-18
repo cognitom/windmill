@@ -64,27 +64,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 };
 
-/*
- * Colors
- */
-
-
-/*
- * Utility methods
- */
-
-// 一時的に修飾キーを外した状態で、tap_codeする
-void tap_code_wo_mod(uint16_t keycode, uint8_t mod_mask) {
-  uint8_t mod_state = get_mods();
-  del_mods(mod_mask);
-  tap_code(keycode);
-  set_mods(mod_state);
-}
-
 // かな入力時のみ必要な処理
 bool process_kana(uint16_t keycode, keyrecord_t *record) {
-  uint8_t mod_state = get_mods();
-  bool ctrled = (mod_state & MOD_MASK_CTRL);
   bool pressed = record->event.pressed;
 
   if (!is_kana()) return true;
@@ -102,7 +83,7 @@ bool process_kana(uint16_t keycode, keyrecord_t *record) {
           layer_on(_KANA_SHIFTED);
           return false;
         }
-        return process_kana_keycode(keycode, record);
+        return true;
       }
       if (!is_mod_seq_first(keycode, record)) return false;
 
@@ -112,39 +93,10 @@ bool process_kana(uint16_t keycode, keyrecord_t *record) {
         // 時間内に単独でタップされた
         // 例. み(press)
         //     み(release) <-- イマココ
-        (void)process_kana_keycode(keycode, record);
+        windmill_tap_code(keycode);
       }
       stop_mod_sequence();
       return false;
-
-    case KC_LCTL:
-      // CTRLキーを押した場合かなレイヤーをオフ
-      if (pressed) layer_off(_KANA);
-      else layer_on(_KANA);
-      break;
-
-    case KC_ESC:
-      if (pressed) {
-        // ESCでかな入力をオフに ※ただし、Ctrl押下中はプレーンなESCを送出 
-        if (ctrled) tap_code_wo_mod(KC_ESC, MOD_MASK_CTRL);
-        else kana_off();
-        return false;
-      }
-      break;
-
-    case KC_UP:
-    case KC_DOWN:
-    case KC_LEFT:
-    case KC_RIGHT:
-      if (ctrled && pressed) {
-        tap_code_wo_mod(keycode, MOD_MASK_CTRL); // 修飾キーを無効化
-        return false;
-      }
-      break;
-  }
-  
-  if (pressed) {
-    if (!process_kana_keycode(keycode, record)) return false;
   }
 
   return true;
@@ -176,7 +128,7 @@ bool process_alpha(uint16_t keycode, keyrecord_t *record) {
         // 時間内に単独でタップされた
         // 例. Space(press)
         //     Space(release) <-- イマココ
-        tap_code(keycode);
+        windmill_tap_code(keycode);
       }
       stop_mod_sequence();
       return false;
@@ -201,7 +153,7 @@ bool process_alpha(uint16_t keycode, keyrecord_t *record) {
         // 時間内に単独でタップされた
         // 例. / (press)
         //     / (release) <-- イマココ
-        tap_code(keycode);
+        windmill_tap_code(keycode);
       }
       stop_mod_sequence();
       return false;
@@ -228,7 +180,7 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
       }
       // ただし、後続が2つ以上押された時点で、STICKY_TERM内でもキューをクリア
       if (get_mod_follower() == 2) {
-        if (process_kana_keycode(queued_keycode, record)) tap_code16(queued_keycode);
+        windmill_tap_code(queued_keycode);
       }
     }
     queued_keycode = 0;
@@ -246,7 +198,7 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
   //     わ(release) <-- イマココ
   //     み(release)
   if (keycode == queued) {
-    if (process_kana_keycode(keycode, record)) tap_code16(keycode);
+    windmill_tap_code(keycode);
     return false;
   }
 
@@ -261,60 +213,39 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
       //     わ(release)
       if (is_mod_pressed_within(STICKY_TERM)) {
         unregister_mods(MOD_MASK_SHIFT);
-        (void)process_kana_keycode(keycode, record); // 例.「み」
-        uint16_t translated = keymap_key_to_keycode(_KANA, queued_key);
-        (void)process_kana_keycode(translated, record); // 例.「わ」
+        windmill_tap_code(keycode); // 例.「み」
+        windmill_tap_code(keymap_key_to_keycode(_KANA, queued_key)); // 例.「わ」
         return true;
       }
-      (void)process_kana_keycode(queued, record); // 例.「を」
+      windmill_tap_code(queued); // 例.「を」
       return true;
 
     // Shift (英字配列の場合)
     case KC_SPC:
       if (is_mod_pressed_within(STICKY_TERM)) {
         unregister_mods(MOD_MASK_SHIFT);
-        tap_code(keycode);
-        tap_code(queued);
+        windmill_tap_code(keycode);
+        windmill_tap_code(queued);
         return true;
       }
       register_code(queued);
       return true;
 
-    // Sym
+    // Sym, Fn
     case KC_BSLS:
     case KC_SLSH:
+    case KC_LNG1:
+    case KC_LNG2:
       // 例. / (press)
       //     p (press)
       //     / (release) <-- イマココ
       //     p (release)
       if (is_mod_pressed_within(STICKY_TERM)) {
-        tap_code(keycode); // 例. "/"
-        tap_code16(keymap_key_to_keycode(_ALPHA, queued_key)); // 例. "p"
+        windmill_tap_code(keycode); // 例. "/"
+        windmill_tap_code(keymap_key_to_keycode(_ALPHA, queued_key)); // 例. "p"
         return true;
       }
-      register_code(queued); // 例. "0"
-      return true;
-
-    // Fn
-    case KC_LNG1:
-    case KC_LNG2:
-      // 例. かな (press)
-      //     ; (press)
-      //     かな (release) <-- イマココ
-      //     ; (release)
-      if (is_mod_pressed_within(STICKY_TERM)) {
-        // STICKY_TERMに満たなかった場合、言語切り替えののちそのレイヤーの文字を送出
-        if (keycode == KC_LNG1) {
-          kana_on();
-          tap_code(keymap_key_to_keycode(_KANA, queued_key)); // 例. "せ"
-        }
-        if (keycode == KC_LNG2) {
-          kana_off();
-          tap_code(keymap_key_to_keycode(_ALPHA, queued_key)); // 例. ";"
-        }
-        return true;
-      }
-      register_code(queued); // 例. "F11"
+      windmill_tap_code(queued); // 例. "0"
       return true;
   }
   return true;
@@ -328,42 +259,9 @@ void keyboard_post_init_user(void) {
   init_windmill_layers(_ALPHA, _KANA, _KANA_SHIFTED, _SYM, _FN);
 }
 
-void rgb_matrix_indicators_user(void) {
-  uint8_t mod_state = get_mods();
-  bool shifted = (mod_state & MOD_MASK_SHIFT);
-  
-  if (layer_state_is(_KANA)) {
-    set_color_to_keyset(RGB_SPECIAL, RGB_SPECIAL_DARK, KEYS_KANA_SPECIALS);
-    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_KANA_SYMBOLS);
-    if (shifted) {
-      set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_KANA_SHIFTED_SYMBOLS);
-      set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_KANA_BRACKETS);
-    }
-  } else {
-    set_color_to_keyset(RGB_SPECIAL, RGB_SPECIAL_DARK, KEYS_ALPHA_SPECIALS);
-    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_ALPHA_SYMBOLS);
-    if (shifted) set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_ALPHA_BRACKETS);
-  }
-
-  if (layer_state_is(_SYM)) {
-    set_color_to_keyset(RGB_NUMBER, RGB_NUMBER_DARK, KEYS_NUMBERS);
-    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_SYMBOLS);
-    set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_BRACKETS);
-    return;
-  }
-  
-  if (layer_state_is(_FN)) {
-    set_color_to_keyset(RGB_FUNCKEY, RGB_FUNCKEY_DARK, KEYS_FUNC);
-    set_color_to_keyset(RGB_MEDIA, RGB_MEDIA_DARK, KEYS_MEDIA);
-    return;
-  }
-}
-
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
-
-  if (!process_rgb_matrix_timeout(keycode, record)) return false;
-  if (!process_mod_sequence(keycode, record)) return false;
+  bool ctrled = (get_mods() & MOD_MASK_CTRL);
   if (!process_sticky_term(keycode, record)) return false;
 
   // 英字入力
@@ -393,11 +291,44 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         // 時間内に単独でタップされた
         // 例. 英数 (press)
         //     英数 (release) <-- イマココ
-        if (keycode == KC_LNG1) kana_on();
-        if (keycode == KC_LNG2) kana_off();
+        windmill_tap_code(keycode);
       }
       stop_mod_sequence();
       return false;
+      
+    case KC_LCTL:
+      if (is_kana()) {
+        // CTRLキーを押した場合かなレイヤーをオフ
+        if (pressed) layer_off(_KANA);
+        else layer_on(_KANA);
+      }
+      break;
+
+    case KC_ESC:
+      if (is_kana() && pressed) {
+        // ESCでかな入力をオフに ※ただし、Ctrl押下中はプレーンなESCを送出 
+        if (ctrled) {
+          unregister_mods(MOD_MASK_CTRL);
+          windmill_tap_code(keycode);
+          register_mods(MOD_MASK_CTRL);
+          return false;
+        }
+        kana_off();
+        return false;
+      }
+      break;
+
+    case KC_UP:
+    case KC_DOWN:
+    case KC_LEFT:
+    case KC_RIGHT:
+      if (is_kana() && ctrled && pressed) {
+        unregister_mods(MOD_MASK_CTRL);
+        windmill_tap_code(keycode);
+        register_mods(MOD_MASK_CTRL);
+        return false;
+      }
+      break;
 
     case RGB_TOG:
       if (pressed) toggle_darkmode();

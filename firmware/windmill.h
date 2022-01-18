@@ -95,7 +95,6 @@ bool is_mod_seq_first(uint16_t keycode, keyrecord_t *record);
 bool is_mod_seq_started(void);
 bool is_mod_pressed_within(uint16_t ms);
 int get_mod_follower(void);
-bool process_mod_sequence(uint16_t keycode, keyrecord_t *record);
 
 bool is_kana(void);
 void send_kana(void);
@@ -104,8 +103,7 @@ void kana_on(void);
 void kana_off(void);
 
 uint16_t translate_kana_to_ascii(uint16_t keycode);
-bool process_kana_keycode(uint16_t keycode, keyrecord_t *record);
+void windmill_tap_code(uint16_t keycode);
 
 void toggle_darkmode(void);
 void set_color_to_keyset(uint8_t red, uint8_t green, uint8_t blue, uint8_t red_d, uint8_t green_d, uint8_t blue_d, int keyset_type);
-bool process_rgb_matrix_timeout(uint16_t keycode, keyrecord_t *record);
