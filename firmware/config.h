@@ -59,6 +59,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 /* Dual-role keys setting */
 #define TAPPING_TERM 250
+#define STICKY_TERM 150
 
 /* To reduce its footprint */
 #define NO_ACTION_TAPPING
