@@ -143,8 +143,9 @@ bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mas
       mod_base_layer = is_kana() ? _KANA : _ALPHA;
       if ((weakmod_alt || weakmod_gui) && is_kana()) layer_off(_KANA);
       if (layer_to_activate) layer_on(layer_to_activate);
+      return false;
     }
-    return false;
+    return true;
   }
   if (!is_mod_seq_first(keycode, record)) return true;
 
@@ -166,7 +167,6 @@ bool windmill_layertap(uint16_t keycode, keyrecord_t *record, uint8_t layer_to_a
 bool windmill_modtap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask) {
   return windmill_modlayertap(keycode, record, mod_mask, 0);
 }
-
 
 /*
  * Kana
