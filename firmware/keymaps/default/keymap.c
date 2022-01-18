@@ -83,7 +83,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       return windmill_modtap(keycode, record, MOD_MASK_SHIFT);
     case KA_KO:
     case KA_MI:
-      return windmill_layertap(keycode, record, _KANA_SHIFTED);
+      return windmill_modlayertap(keycode, record, MOD_MASK_SHIFT, _KANA_SHIFTED);
     // Sym
     case KC_BSLS:
     case KC_SLSH:
