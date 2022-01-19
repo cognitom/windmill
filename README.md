@@ -33,7 +33,6 @@ Windmill is a keymap for 40% keyboards.
 - 「ほ」「へ」「む」「ー」のみシフト側へ
 - 「こ」「み」同時押しでスペースキー
 - GUI, Alt, Fn, Sym, Shiftは、ホールド時に有効 [※補足](docs/README.md#altguiは修飾キーかつ単打である問題)
-- ESCで英語配列に戻る
 
 ![kana](docs/images/layout-kana.png)
 
@@ -41,11 +40,11 @@ Windmill is a keymap for 40% keyboards.
 
 英字入力、かな入力ともに、最下段中央付近のキーをホールドすると、記号(Sym)またはファンクションキー(Fn)の入力になります。配置については英字配列の図で、各キーの添え字を参照。
 
-| 最下段中央 | L3 | L2 | L1 | R1 | R2 | R3 |
-|--|:--:|:--:|:--:|:--:|:--:|:--:|
-| タップ (英数) | 英数 | \ | Space | Space | / | かな |
-| タップ (かな) | そ | ひ | こ | み | も | ね |
-| ホールド | Fn | Sym | Shift | Shift | Sym | Fn |
+|  | L5 | L4| L3 | L2 | L1 | L0 | R0 | R1 | R2 |
+|--|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| ホールド | Ctrl | GUI | Alt | Fn | Sym | Shift | Shift | Sym | Fn |
+| タップ (英数) | 英数 | GUI | Alt | NumLock | \ | Space | Space | / | かな |
+| タップ (かな) | 英数 | つ | さ | そ | ひ | こ | み | も | ね |
 
 ## 追加機能
 
