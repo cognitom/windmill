@@ -43,7 +43,7 @@ Windmill is a keymap for 40% keyboards.
 |  | L5 | L4| L3 | L2 | L1 | L0 | R0 | R1 | R2 |
 |--|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
 | ホールド | Ctrl | GUI | Alt | Fn | Sym | Shift | Shift | Sym | Fn |
-| タップ (英数) | 英数 | GUI | Alt | NumLock | \ | Space | Space | / | かな |
+| タップ (英数) | 英数 | GUI | Alt | Num | \ | Space | Space | / | かな |
 | タップ (かな) | 英数 | つ | さ | そ | ひ | こ | み | も | ね |
 
 ## 追加機能
