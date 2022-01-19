@@ -45,6 +45,7 @@ const int keysets[][32] = {
   [KEYS_ALPHA_SPECIALS]       = {10, 21, 22, 34, 44, 45, 46, 47, 48, 49, 54, 55, 56, 57},
   [KEYS_ALPHA_SYMBOLS]        = {32, 33, 42, 43, 50, 53},
   [KEYS_ALPHA_BRACKETS]       = {42, 43},
+  [KEYS_NUMPAD]               = {17, 18, 19, 29, 30, 31, 41, 42, 43, 53},
   [KEYS_NUMBERS]              = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
   [KEYS_SYMBOLS]              = {23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 37, 38, 41},
   [KEYS_BRACKETS]             = {31, 32, 39, 40, 42, 43},
@@ -57,12 +58,14 @@ const int keysets[][32] = {
 };
 
 static int _ALPHA;
+static int _NUMPAD;
 static int _KANA;
 static int _KANA_SHIFTED;
 static int _SYM;
 static int _FN;
-void init_windmill_layers(int alpha_layer, int kana_layer, int kana_shifted_layer, int sym_layer, int fn_layer) {
+void init_windmill_layers(int alpha_layer, int numpad_layer, int kana_layer, int kana_shifted_layer, int sym_layer, int fn_layer) {
   _ALPHA = alpha_layer;
+  _NUMPAD = numpad_layer;
   _KANA = kana_layer;
   _KANA_SHIFTED = kana_shifted_layer;
   _SYM = sym_layer;
@@ -141,7 +144,7 @@ bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mas
         default: register_mods(mod_mask); break;
       }
       mod_base_layer = is_kana() ? _KANA : _ALPHA;
-      if ((weakmod_alt || weakmod_gui) && is_kana()) layer_off(_KANA);
+      if (is_kana() && mod_mask != MOD_MASK_SHIFT) layer_off(_KANA);
       if (layer_to_activate) layer_on(layer_to_activate);
       return false;
     }
@@ -149,7 +152,7 @@ bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mas
   }
   if (!is_mod_seq_first(keycode, record)) return true;
 
-  if ((weakmod_alt || weakmod_gui) && is_kana()) layer_on(_KANA);
+  if (is_kana() && mod_mask != MOD_MASK_SHIFT) layer_on(_KANA);
   if (layer_to_activate) layer_off(layer_to_activate);
   if (mod_mask) unregister_mods(mod_mask);
   if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
@@ -191,13 +194,13 @@ void send_alpha(void) {
 
 void kana_on(void) {
   _is_kana = true;
-  layer_on(_KANA);
+  layer_move(_KANA);
   send_kana();
 }
 
 void kana_off(void) {
   _is_kana = false;
-  layer_off(_KANA);
+  layer_move(_ALPHA);
   send_alpha();
 }
 
@@ -309,6 +312,9 @@ bool process_keycode_fn(uint16_t keycode) {
       break;
     default: 
       return true;
+    case KC_NUM:
+      layer_invert(_NUMPAD);
+      return false;
   }
   return false;
 }
@@ -522,8 +528,14 @@ void rgb_matrix_indicators_kb(void) {
     }
   } else {
     set_color_to_keyset(RGB_SPECIAL, RGB_SPECIAL_DARK, KEYS_ALPHA_SPECIALS);
-    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_ALPHA_SYMBOLS);
-    if (shifted) set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_ALPHA_BRACKETS);
+    if (!layer_state_is(_NUMPAD) && !layer_state_is(_FN)) {
+      set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_ALPHA_SYMBOLS);
+      if (shifted) set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_ALPHA_BRACKETS);
+    }
+  }
+
+  if (layer_state_is(_NUMPAD)) {
+    set_color_to_keyset(RGB_NUMBER, RGB_NUMBER_DARK, KEYS_NUMPAD);
   }
 
   if (layer_state_is(_SYM)) {

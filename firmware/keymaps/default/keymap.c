@@ -17,11 +17,16 @@
 #include QMK_KEYBOARD_H
 
 enum layers {
-    _ALPHA,
-    _KANA,
-    _KANA_SHIFTED,
-    _SYM,
-    _FN,
+  _ALPHA,
+  _NUMPAD,
+  _KANA,
+  _KANA_SHIFTED,
+  _SYM,
+  _FN,
+};
+
+enum custom_keycodes {
+  NUMPAD = WINDMILL_SAFE_RANGE,
 };
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -30,7 +35,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LCTL, KC_LGUI, KC_LALT, KC_LNG2, KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KC_LNG1, KC_APP,  KC_LEFT, KC_DOWN
+    KC_LNG2, KC_LGUI, KC_LALT, KC_NUM,  KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KC_LNG1, KC_APP,  KC_LEFT, KC_DOWN
+  ),
+
+  [_NUMPAD] = LAYOUT_ortho_4x12(
+    _______, _______, _______, _______, _______, _______, _______, KC_7,    KC_8,    KC_9,    _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, KC_4,    KC_5,    KC_6,    _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, KC_1,    KC_2,    KC_3,    _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, KC_0,    _______, _______, _______, _______
   ),
 
   [_KANA] = LAYOUT_ortho_4x12(
@@ -77,7 +89,7 @@ void tap_code_wo_mod(uint16_t keycode, uint8_t mod_mask) {
  */
 
 void keyboard_post_init_user(void) {
-  init_windmill_layers(_ALPHA, _KANA, _KANA_SHIFTED, _SYM, _FN);
+  init_windmill_layers(_ALPHA, _NUMPAD, _KANA, _KANA_SHIFTED, _SYM, _FN);
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
@@ -100,7 +112,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       return windmill_layertap(keycode, record, _SYM);
     // Fn
     case KC_LNG1:
-    case KC_LNG2:
+    case KC_NUM:
     case KA_SO:
     case KA_NE:
       return windmill_layertap(keycode, record, _FN);
@@ -111,24 +123,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     case KA_TSU:
       return windmill_modtap(keycode, record, MOD_MASK_GUI);
     // その他
-    case KC_LCTL:
-      if (is_kana()) {
-        // CTRLキーを押した場合かなレイヤーをオフ
-        if (pressed) layer_off(_KANA);
-        else layer_on(_KANA);
-      }
-      break;
-    case KC_ESC:
-      if (is_kana() && pressed) {
-        // ESCでかな入力をオフに ※ただし、Ctrl押下中はプレーンなESCを送出 
-        if (ctrled) {
-          tap_code_wo_mod(keycode, MOD_MASK_CTRL);
-          return false;
-        }
-        kana_off();
-        return false;
-      }
-      break;
+    case KC_LNG2:
+      return windmill_modtap(keycode, record, MOD_MASK_CTRL);
     case KC_UP:
     case KC_DOWN:
     case KC_LEFT:

@@ -29,14 +29,16 @@
         {K36, K37, K38, K39, K40, K41, K42, K43, K44, K45, K46, K47} \
     }
 
-// TODO: QMKのバージョンを上げて、以下2行を削除
+// TODO: QMKのバージョンを上げて、以下3行を削除
 #define KC_LNG1 KC_LANG1
 #define KC_LNG2 KC_LANG2
+#define KC_NUM  0x53
 
 #define MOD_MASK_NONE 0x00
 
 // 各キーの対応は translate_kana_to_ascii() 関数の内容を参照のこと
-enum kana_keycodes {
+enum windmill_keycodes {
+  // かな
   KA_A = SAFE_RANGE, KA_I, KA_U, KA_E, KA_O,
   KA_KA, KA_KI, KA_KU, KA_KE, KA_KO,
   KA_SA, KA_SHI, KA_SU, KA_SE, KA_SO,
@@ -80,6 +82,7 @@ enum keyset_types {
   KEYS_ALPHA_SPECIALS,
   KEYS_ALPHA_SYMBOLS,
   KEYS_ALPHA_BRACKETS,
+  KEYS_NUMPAD,
   KEYS_NUMBERS,
   KEYS_SYMBOLS,
   KEYS_BRACKETS,
@@ -91,7 +94,7 @@ enum keyset_types {
   KEYS_KANA_BRACKETS,
 };
 
-void init_windmill_layers(int alpha_layer, int kana_layer, int kana_shifted_layer, int sym_layer, int fn_layer);
+void init_windmill_layers(int alpha_layer, int numpad_layer, int kana_layer, int kana_shifted_layer, int sym_layer, int fn_layer);
 
 bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate);
 bool windmill_modtap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask);
