@@ -26,10 +26,6 @@ enum layers {
   _FN,
 };
 
-enum custom_keycodes {
-  NUMPAD = WINDMILL_SAFE_RANGE,
-};
-
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [_ALPHA] = LAYOUT_ortho_4x12(
@@ -131,14 +127,6 @@ uint8_t windmill_process_keycolor_user(uint16_t keycode) {
   return CL_BASE;
 }
 
-// 一時的に修飾キーを外した状態で、tap_codeする
-void tap_code_wo_mod(uint16_t keycode, uint8_t mod_mask) {
-  uint8_t mod_state = get_mods();
-  del_mods(mod_mask);
-  tap_code(keycode);
-  set_mods(mod_state);
-}
-
 /*
  * QMK callbacks
  */
@@ -178,15 +166,18 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     // GUI
     case KA_TSU:
       return windmill_modtap(keycode, record, MOD_MASK_GUI);
-    // その他
+    // Ctrl
     case KC_LNG2:
       return windmill_modtap(keycode, record, MOD_MASK_CTRL);
+    // その他
     case KC_UP:
     case KC_DOWN:
     case KC_LEFT:
     case KC_RIGHT:
       if (is_kana() && ctrled && pressed) {
-        tap_code_wo_mod(keycode, MOD_MASK_CTRL);
+        unregister_mods(MOD_MASK_CTRL);
+        tap_code(keycode);
+        register_mods(MOD_MASK_CTRL);
         return false;
       }
       break;
