@@ -80,6 +80,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 };
 
+/*
+ * Color settings
+ */
+
 enum keycolors {
   CL_BASE,
   CL_SPECIAL,
@@ -121,7 +125,7 @@ uint8_t windmill_process_keycolor_user(uint16_t keycode) {
       return CL_BRACKET;
     case KC_F1 ... KC_PGUP: case KC_END ... KC_PGDN:
       return CL_FUNC;
-    case KC_MUTE ... KC_VOLD:
+    case KC_MUTE ... KC_VOLD: case KC_BRIU ... KC_BRID:
       return CL_MEDIA;
   }
   return CL_BASE;
@@ -140,7 +144,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
   bool ctrled = (get_mods() & MOD_MASK_CTRL);
   
-  // その他
   switch (keycode) {
     // Shift
     case KC_SPC:
@@ -169,7 +172,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     // Ctrl
     case KC_LNG2:
       return windmill_modtap(keycode, record, MOD_MASK_CTRL);
-    // その他
+    // Others
     case KC_UP:
     case KC_DOWN:
     case KC_LEFT:
