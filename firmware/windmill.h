@@ -61,40 +61,9 @@ enum windmill_keycodes {
   WINDMILL_SAFE_RANGE
 };
 
-// for RGB matrix
-#define HSV_BASE    43, 43, 63
-#define RGB_SPECIAL 0x1c, 0x11, 0x00
-#define RGB_SYMBOL  0x11, 0x22, 0x22
-#define RGB_NUMBER  0x66, 0x66, 0x44
-#define RGB_BRACKET 0x22, 0x33, 0x00
-#define RGB_FUNCKEY 0x66, 0x66, 0x44
-#define RGB_MEDIA   0x00, 0x33, 0x55
-
-#define HSV_BASE_DARK    0, 0, 0
-#define RGB_SPECIAL_DARK 0x04, 0x03, 0x00
-#define RGB_SYMBOL_DARK  0x02, 0x04, 0x03
-#define RGB_NUMBER_DARK  0x06, 0x06, 0x04
-#define RGB_BRACKET_DARK 0x02, 0x03, 0x00
-#define RGB_FUNCKEY_DARK 0x06, 0x06, 0x04
-#define RGB_MEDIA_DARK   0x00, 0x03, 0x05
-
-enum keyset_types {
-  KEYS_ALPHA_SPECIALS,
-  KEYS_ALPHA_SYMBOLS,
-  KEYS_ALPHA_BRACKETS,
-  KEYS_NUMPAD,
-  KEYS_NUMBERS,
-  KEYS_SYMBOLS,
-  KEYS_BRACKETS,
-  KEYS_FUNC,
-  KEYS_MEDIA,
-  KEYS_KANA_SPECIALS,
-  KEYS_KANA_SYMBOLS,
-  KEYS_KANA_SHIFTED_SYMBOLS,
-  KEYS_KANA_BRACKETS,
-};
-
-void init_windmill_layers(int alpha_layer, int numpad_layer, int kana_layer, int kana_shifted_layer, int sym_layer, int fn_layer);
+void windmill_init_layers(int alpha_layer, int numpad_layer, int kana_layer, int sym_layer);
+void windmill_init_keycolors(uint8_t* user_colorset);
+uint8_t windmill_process_keycolor_user(uint16_t keycode);
 
 bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate);
 bool windmill_modtap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask);
@@ -106,7 +75,4 @@ void send_alpha(void);
 void kana_on(void);
 void kana_off(void);
 
-uint16_t translate_kana_to_ascii(uint16_t keycode);
 void windmill_tap_code(uint16_t keycode);
-
-void toggle_darkmode(void);

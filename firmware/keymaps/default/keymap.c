@@ -18,6 +18,7 @@
 
 enum layers {
   _ALPHA,
+  _ALPHA_SHIFTED,
   _NUMPAD,
   _KANA,
   _KANA_SHIFTED,
@@ -38,6 +39,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_LNG2, KC_LGUI, KC_LALT, KC_NUM,  KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KC_LNG1, KC_APP,  KC_LEFT, KC_DOWN
   ),
 
+  [_ALPHA_SHIFTED] = LAYOUT_ortho_4x12(
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_COLN, KC_DQUO,
+    _______, _______, _______, _______, _______, _______, _______, _______, KC_LT,   KC_GT,   _______, _______,
+    _______, _______, _______, _______, KC_PIPE, _______, _______, KC_QUES, _______, _______, _______, _______
+  ),
+
   [_NUMPAD] = LAYOUT_ortho_4x12(
     _______, _______, _______, _______, _______, _______, _______, KC_7,    KC_8,    KC_9,    _______, _______,
     _______, _______, _______, _______, _______, _______, _______, KC_4,    KC_5,    KC_6,    _______, _______,
@@ -55,8 +63,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   [_KANA_SHIFTED] = LAYOUT_ortho_4x12(
     _______, _______, _______, KA_XA,   KA_XU,   KA_XE,   KA_XO,   KA_XYA,  KA_XYU,  KA_XYO,  KA_WO,   _______,
     _______, _______, KA_HE,   KA_XI,   KA_MU,   _______, _______, KA_HO,   _______, KA_LKAK, KA_RKAK, KA_HAN,
-    _______, KA_XTSU, _______, _______, KA_PIPE, KA_BSLS, KA_SLSH, KA_QUES, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU,
-    _______, KA_XTSU, _______, _______, KA_PIPE, KA_SPC,  KA_SPC,  KA_QUES, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU
+    _______, KA_XTSU, _______, _______, _______, KA_BSLS, KA_SLSH, _______, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU,
+    _______, KA_XTSU, _______, _______, KA_PIPE, KA_SPC,  KA_SPC,  KA_QUES, _______, _______, _______, _______
   ),
 
 
@@ -76,6 +84,53 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 };
 
+enum keycolors {
+  CL_BASE,
+  CL_SPECIAL,
+  CL_SYMBOL,
+  CL_NUMBER,
+  CL_BRACKET,
+  CL_FUNC,
+  CL_MEDIA,
+};
+
+const uint8_t colorset[][6] = {
+  //             Light              Dark
+  //             (R,    G,    B   ) (H,    S,    V   )
+  [CL_BASE]    = {0x07, 0x07, 0x05,  0x00, 0x00, 0x00},
+  [CL_SPECIAL] = {0x1c, 0x11, 0x00,  0x04, 0x03, 0x00},
+  [CL_SYMBOL]  = {0x11, 0x22, 0x22,  0x02, 0x04, 0x03},
+  [CL_NUMBER]  = {0x66, 0x66, 0x44,  0x06, 0x06, 0x04},
+  [CL_BRACKET] = {0x22, 0x33, 0x00,  0x02, 0x03, 0x00},
+  [CL_FUNC]    = {0x66, 0x66, 0x44,  0x06, 0x06, 0x04},
+  [CL_MEDIA]   = {0x00, 0x33, 0x55,  0x00, 0x03, 0x05},
+};
+
+uint8_t windmill_process_keycolor_user(uint16_t keycode) {
+  switch (keycode) {
+    case KC_ENT ... KC_TAB: case KC_DEL: case KC_RGHT ... KC_NUM:
+    case KC_APP: case KC_INT1 ... KC_LNG2: case KC_LCTL ... KC_RGUI:
+    case RGB_TOG: case RESET:
+      return CL_SPECIAL;
+    case KC_MINS ... KC_EQL: case KC_BSLS ... KC_SLSH:
+    case KC_EXLM ... KC_ASTR: case KC_UNDS ... KC_PLUS:
+    case KC_PIPE ... KC_TILD: case KC_QUES:
+    case KA_DAKU ... KA_CHOU: case KA_QUES:
+      return CL_SYMBOL;
+    case KC_1 ... KC_0:
+      return CL_NUMBER;
+    case KC_LT ... KC_GT: case KC_LPRN ... KC_RPRN:
+    case KC_LBRC ... KC_RBRC: case KC_LCBR ... KC_RCBR:
+    case KA_LKAK ... KA_RKAK:
+      return CL_BRACKET;
+    case KC_F1 ... KC_PGUP: case KC_END ... KC_PGDN:
+      return CL_FUNC;
+    case KC_MUTE ... KC_VOLD:
+      return CL_MEDIA;
+  }
+  return CL_BASE;
+}
+
 // 一時的に修飾キーを外した状態で、tap_codeする
 void tap_code_wo_mod(uint16_t keycode, uint8_t mod_mask) {
   uint8_t mod_state = get_mods();
@@ -89,7 +144,8 @@ void tap_code_wo_mod(uint16_t keycode, uint8_t mod_mask) {
  */
 
 void keyboard_post_init_user(void) {
-  init_windmill_layers(_ALPHA, _NUMPAD, _KANA, _KANA_SHIFTED, _SYM, _FN);
+  windmill_init_layers(_ALPHA, _NUMPAD, _KANA, _SYM);
+  windmill_init_keycolors((uint8_t*)colorset);
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
@@ -100,7 +156,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   switch (keycode) {
     // Shift
     case KC_SPC:
-      return windmill_modtap(keycode, record, MOD_MASK_SHIFT);
+      return windmill_modlayertap(keycode, record, MOD_MASK_SHIFT, _ALPHA_SHIFTED);
     case KA_KO:
     case KA_MI:
       return windmill_modlayertap(keycode, record, MOD_MASK_SHIFT, _KANA_SHIFTED);

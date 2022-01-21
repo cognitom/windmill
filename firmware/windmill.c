@@ -41,35 +41,92 @@ led_config_t g_led_config = { {
 } };
 #endif
 
-const int keysets[][32] = {
-  [KEYS_ALPHA_SPECIALS]       = {10, 21, 22, 34, 44, 45, 46, 47, 48, 49, 54, 55, 56, 57},
-  [KEYS_ALPHA_SYMBOLS]        = {32, 33, 42, 43, 50, 53},
-  [KEYS_ALPHA_BRACKETS]       = {42, 43},
-  [KEYS_NUMPAD]               = {17, 18, 19, 29, 30, 31, 41, 42, 43, 53},
-  [KEYS_NUMBERS]              = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
-  [KEYS_SYMBOLS]              = {23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 37, 38, 41},
-  [KEYS_BRACKETS]             = {31, 32, 39, 40, 42, 43},
-  [KEYS_FUNC]                 = {22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35, 36, 44, 45, 51, 52, 56, 57},
-  [KEYS_MEDIA]                = {41, 42, 43},
-  [KEYS_KANA_SPECIALS]        = {10, 21, 22, 34, 46},
-  [KEYS_KANA_SYMBOLS]         = {33},
-  [KEYS_KANA_SHIFTED_SYMBOLS] = {42, 43, 44, 45, 53},
-  [KEYS_KANA_BRACKETS]        = {31, 32},
-};
-
 static int _ALPHA;
 static int _NUMPAD;
 static int _KANA;
-static int _KANA_SHIFTED;
 static int _SYM;
-static int _FN;
-void init_windmill_layers(int alpha_layer, int numpad_layer, int kana_layer, int kana_shifted_layer, int sym_layer, int fn_layer) {
+void windmill_init_layers(int alpha_layer, int numpad_layer, int kana_layer, int sym_layer) {
   _ALPHA = alpha_layer;
   _NUMPAD = numpad_layer;
   _KANA = kana_layer;
-  _KANA_SHIFTED = kana_shifted_layer;
   _SYM = sym_layer;
-  _FN = fn_layer;
+}
+
+uint8_t *colorsetPtr;
+int colorsetSize;
+void windmill_init_keycolors(uint8_t* user_colorset) {  
+  colorsetPtr = user_colorset;
+}
+
+/*
+ * RGB Matrix
+ */
+
+#define RGBMATRIX_TIMEOUT 3 // in minutes
+#define CL_TRANS 0xFF
+#define LAYER_SIZE 8 // 最大設定可能なレイヤー数
+#define RGB_STARTING_INDEX 10 // 最初の10個は底面のLEDなので、それを除外するための設定
+
+uint8_t cached_keycolormap[LAYER_SIZE][MATRIX_ROWS * MATRIX_COLS];
+static uint16_t idle_timer = 0;
+static uint8_t halfmin_counter = 0;
+static bool led_initialized = false;
+static bool led_on = true;
+static bool led_darkmode = false;
+
+void toggle_darkmode(void) {
+  led_darkmode = !led_darkmode;
+  //if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
+  //else rgb_matrix_sethsv(HSV_BASE);
+}
+
+void refresh_rgb_matrix_timeout(void) {
+  if (led_on == false) {
+    //if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
+    //else rgb_matrix_sethsv(HSV_BASE);
+    led_on = true;
+  }
+  idle_timer = timer_read();
+  halfmin_counter = 0;
+}
+
+void update_rgb_matrix_timeout(void) {
+  if (idle_timer == 0) idle_timer = timer_read();
+
+  if (led_on && timer_elapsed(idle_timer) > 30000) {
+    halfmin_counter++;
+    idle_timer = timer_read();
+  }
+
+  if (led_on && halfmin_counter >= RGBMATRIX_TIMEOUT * 2) {
+    rgb_matrix_sethsv(HSV_OFF);
+    rgb_matrix_set_color_all(RGB_OFF);
+    led_on = false;
+    halfmin_counter = 0;
+  }
+}
+
+bool process_rgb_matrix_timeout(uint16_t keycode, keyrecord_t *record) {
+  if (record->event.pressed) {
+    if (!led_on) {
+      refresh_rgb_matrix_timeout();
+      return false;
+    } else {
+      refresh_rgb_matrix_timeout();
+    }
+  }
+  return true;
+}
+
+void cache_keycolors(void) {
+  for (int layer = 0; layer < LAYER_SIZE; ++layer) {
+    for (int row = 0; row < MATRIX_ROWS; ++row) {
+      for (int col = 0; col < MATRIX_COLS; ++col) {
+        uint16_t keycode = keymap_key_to_keycode(layer, (keypos_t){.row = row, .col = col});
+        cached_keycolormap[layer][row * 12 + col] = (keycode == _______) ? CL_TRANS : windmill_process_keycolor_user(keycode);
+      }
+    }
+  }
 }
 
 /*
@@ -194,7 +251,8 @@ void send_alpha(void) {
 
 void kana_on(void) {
   _is_kana = true;
-  layer_move(_KANA);
+  layer_move(_ALPHA);
+  layer_on(_KANA);
   send_kana();
 }
 
@@ -439,69 +497,6 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
 }
 
 /*
- * RGB Matrix Timeout
- */
-
-#define RGBMATRIX_TIMEOUT 3 // in minutes
-static uint16_t idle_timer = 0;
-static uint8_t halfmin_counter = 0;
-static bool led_on = true;
-static bool led_darkmode = false;
-
-void toggle_darkmode(void) {
-  led_darkmode = !led_darkmode;
-  if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
-  else rgb_matrix_sethsv(HSV_BASE);
-}
-
-void set_color_to_keyset(uint8_t red, uint8_t green, uint8_t blue, uint8_t red_d, uint8_t green_d, uint8_t blue_d, int keyset_type) {
-  for (int i = 0; i < 32; ++i) {
-    if (keysets[keyset_type][i]) {
-      if (led_darkmode) rgb_matrix_set_color(keysets[keyset_type][i], red_d, green_d, blue_d);
-      else rgb_matrix_set_color(keysets[keyset_type][i], red, green, blue);
-    }
-  }
-}
-
-void refresh_rgb_matrix_timeout(void) {
-  if (led_on == false) {
-    if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
-    else rgb_matrix_sethsv(HSV_BASE);
-    led_on = true;
-  }
-  idle_timer = timer_read();
-  halfmin_counter = 0;
-}
-
-void update_rgb_matrix_timeout(void) {
-  if (idle_timer == 0) idle_timer = timer_read();
-
-  if (led_on && timer_elapsed(idle_timer) > 30000) {
-    halfmin_counter++;
-    idle_timer = timer_read();
-  }
-
-  if (led_on && halfmin_counter >= RGBMATRIX_TIMEOUT * 2) {
-    rgb_matrix_sethsv(HSV_OFF);
-    rgb_matrix_set_color_all(RGB_OFF);
-    led_on = false;
-    halfmin_counter = 0;
-  }
-}
-
-bool process_rgb_matrix_timeout(uint16_t keycode, keyrecord_t *record) {
-  if (record->event.pressed) {
-    if (!led_on) {
-      refresh_rgb_matrix_timeout();
-      return false;
-    } else {
-      refresh_rgb_matrix_timeout();
-    }
-  }
-  return true;
-}
-
-/*
  * QMK callbacks
  */
 
@@ -509,47 +504,55 @@ void keyboard_post_init_kb(void) {
 #ifdef CONSOLE_ENABLE
   debug_enable = true;
 #endif
-  rgb_matrix_mode(RGB_MATRIX_NONE);
-  rgb_matrix_sethsv(HSV_BASE);
 
   keyboard_post_init_user();
+  rgb_matrix_mode(RGB_MATRIX_NONE);
+  rgb_matrix_sethsv(HSV_OFF);
+  cache_keycolors();
+  led_initialized = true;
+  layer_move(_ALPHA);
+}
+
+uint8_t cached_keycolors[48];
+layer_state_t layer_state_set_kb(layer_state_t state) {
+  bool layer_states[LAYER_SIZE];
+  for (int layer = 0; layer < LAYER_SIZE; ++layer) {
+    layer_states[layer] = layer_state_cmp(state, layer);
+  }
+
+  for (int i = 0; i < MATRIX_ROWS * MATRIX_COLS; ++i) {
+    for (int layer = LAYER_SIZE - 1; layer >= 0 ; --layer) {
+      if (!layer_states[layer]) continue;
+      uint8_t keycolor = cached_keycolormap[layer][i];
+      if (keycolor == CL_TRANS) continue;
+      cached_keycolors[i] = keycolor;
+      break;
+    }
+  }
+  return state;
 }
 
 void rgb_matrix_indicators_kb(void) {
-  if (!led_on) return;
-  bool shifted = (get_mods() & MOD_MASK_SHIFT);
-  
-  if (layer_state_is(_KANA)) {
-    set_color_to_keyset(RGB_SPECIAL, RGB_SPECIAL_DARK, KEYS_KANA_SPECIALS);
-    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_KANA_SYMBOLS);
-    if (shifted) {
-      set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_KANA_SHIFTED_SYMBOLS);
-      set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_KANA_BRACKETS);
-    }
-  } else {
-    set_color_to_keyset(RGB_SPECIAL, RGB_SPECIAL_DARK, KEYS_ALPHA_SPECIALS);
-    if (!layer_state_is(_NUMPAD) && !layer_state_is(_FN)) {
-      set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_ALPHA_SYMBOLS);
-      if (shifted) set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_ALPHA_BRACKETS);
-    }
-  }
+  if (!led_on || !led_initialized) return;
 
-  if (layer_state_is(_NUMPAD)) {
-    set_color_to_keyset(RGB_NUMBER, RGB_NUMBER_DARK, KEYS_NUMPAD);
-  }
-
-  if (layer_state_is(_SYM)) {
-    set_color_to_keyset(RGB_NUMBER, RGB_NUMBER_DARK, KEYS_NUMBERS);
-    set_color_to_keyset(RGB_SYMBOL, RGB_SYMBOL_DARK, KEYS_SYMBOLS);
-    set_color_to_keyset(RGB_BRACKET, RGB_BRACKET_DARK, KEYS_BRACKETS);
+  if (!led_darkmode) {
+    for (int i = 0; i < MATRIX_ROWS * MATRIX_COLS; ++i)
+      rgb_matrix_set_color(
+        RGB_STARTING_INDEX + i,
+        *(colorsetPtr + cached_keycolors[i] * 6 + 0),
+        *(colorsetPtr + cached_keycolors[i] * 6 + 1),
+        *(colorsetPtr + cached_keycolors[i] * 6 + 2)
+      );
     return;
   }
-  
-  if (layer_state_is(_FN)) {
-    set_color_to_keyset(RGB_FUNCKEY, RGB_FUNCKEY_DARK, KEYS_FUNC);
-    set_color_to_keyset(RGB_MEDIA, RGB_MEDIA_DARK, KEYS_MEDIA);
-    return;
-  }
+
+  for (int i = 0; i < MATRIX_ROWS * MATRIX_COLS; ++i)
+    rgb_matrix_set_color(
+      RGB_STARTING_INDEX + i,
+      *(colorsetPtr + cached_keycolors[i] * 6 + 3),
+      *(colorsetPtr + cached_keycolors[i] * 6 + 4),
+      *(colorsetPtr + cached_keycolors[i] * 6 + 5)
+    );
 }
 
 void matrix_scan_kb(void) {
