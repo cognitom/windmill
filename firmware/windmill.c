@@ -76,14 +76,10 @@ static bool led_darkmode = false;
 
 void toggle_darkmode(void) {
   led_darkmode = !led_darkmode;
-  //if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
-  //else rgb_matrix_sethsv(HSV_BASE);
 }
 
 void refresh_rgb_matrix_timeout(void) {
   if (led_on == false) {
-    //if (led_darkmode) rgb_matrix_sethsv(HSV_BASE_DARK);
-    //else rgb_matrix_sethsv(HSV_BASE);
     led_on = true;
   }
   idle_timer = timer_read();
