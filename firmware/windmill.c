@@ -52,8 +52,7 @@ void windmill_init_layers(int alpha_layer, int numpad_layer, int kana_layer, int
   _SYM = sym_layer;
 }
 
-uint8_t *colorsetPtr;
-int colorsetSize;
+static uint8_t *colorsetPtr;
 void windmill_init_keycolors(uint8_t* user_colorset) {  
   colorsetPtr = user_colorset;
 }
@@ -67,7 +66,7 @@ void windmill_init_keycolors(uint8_t* user_colorset) {
 #define LAYER_SIZE 8 // 最大設定可能なレイヤー数
 #define RGB_STARTING_INDEX 10 // 最初の10個は底面のLEDなので、それを除外するための設定
 
-uint8_t cached_keycolormap[LAYER_SIZE][MATRIX_ROWS * MATRIX_COLS];
+static uint8_t cached_keycolormap[LAYER_SIZE][MATRIX_ROWS * MATRIX_COLS];
 static uint16_t idle_timer = 0;
 static uint8_t halfmin_counter = 0;
 static bool led_initialized = false;
@@ -134,10 +133,10 @@ static int first_mod_row = 0;
 static int first_mod_col = 0;
 static int mod_follower_counter = 0;
 static uint16_t mod_timer = 0;
-uint8_t mod_base_layer = 0;
-uint8_t mod_mask_target = MOD_MASK_NONE;
-bool weakmod_alt = false;
-bool weakmod_gui = false;
+static uint8_t mod_base_layer = 0;
+static uint8_t mod_mask_target = MOD_MASK_NONE;
+static bool weakmod_alt = false;
+static bool weakmod_gui = false;
 void start_mod_sequence(uint16_t keycode, keyrecord_t *record) {
   first_mod_keycode = keycode;
   first_mod_row = record->event.key.row;
@@ -509,7 +508,7 @@ void keyboard_post_init_kb(void) {
   layer_move(_ALPHA);
 }
 
-uint8_t cached_keycolors[48];
+static uint8_t cached_keycolors[48];
 layer_state_t layer_state_set_kb(layer_state_t state) {
   bool layer_states[LAYER_SIZE];
   for (int layer = 0; layer < LAYER_SIZE; ++layer) {
