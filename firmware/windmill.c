@@ -128,45 +128,115 @@ void cache_keycolors(void) {
  * Mod Seq
  */
 
-static uint16_t first_mod_keycode = 0;
-static int first_mod_row = 0;
-static int first_mod_col = 0;
-static int mod_follower_counter = 0;
-static uint16_t mod_timer = 0;
-static uint8_t mod_base_layer = 0;
-static uint8_t mod_mask_target = MOD_MASK_NONE;
+#define MOD_POOL_MAX 8
+
+struct mod_sequence {
+  bool is_active;
+  keypos_t key;
+  uint8_t mod_mask;
+  uint8_t layer;
+  uint16_t timer;
+  int followers;
+};
+
+static int mod_sequence_count = 0;
 static bool weakmod_alt = false;
 static bool weakmod_gui = false;
-void start_mod_sequence(uint16_t keycode, keyrecord_t *record) {
-  first_mod_keycode = keycode;
-  first_mod_row = record->event.key.row;
-  first_mod_col = record->event.key.col;
-  mod_follower_counter = 0;
-  mod_timer = timer_read();
+static uint8_t last_mod_state = 0;
+static uint16_t last_layer_state = 0;
+static struct mod_sequence mod_pool[MOD_POOL_MAX];
+void update_mod_state(void) {
+  uint8_t next_mod_state = 0;
+  uint8_t mod_to_add = 0;
+  uint8_t mod_to_del = 0;
+  uint8_t target_mod_state = 0;
+  uint16_t next_layer_state = 0;
+  uint16_t layer_to_add = 0;
+  uint16_t layer_to_del = 0;
+  uint16_t target_layer_state = 0;
+
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (mod_pool[i].is_active) {
+      next_mod_state = next_mod_state | mod_pool[i].mod_mask;
+      next_layer_state = next_layer_state | ((layer_state_t)1 << mod_pool[i].layer);
+    }
+
+  // 前回の状況との差分計算 (mod_seqを使っているもののみ)
+  mod_to_del = last_mod_state & (last_mod_state ^ next_mod_state);
+  mod_to_add = next_mod_state & (last_mod_state ^ next_mod_state);
+  layer_to_del = last_layer_state & (last_layer_state ^ next_layer_state);
+  layer_to_add = next_layer_state & (last_layer_state ^ next_layer_state);
+  
+  // weakmodを除外
+  mod_to_del = mod_to_del ^ (mod_to_del & (MOD_MASK_ALT | MOD_MASK_GUI));
+  mod_to_add = mod_to_add ^ (mod_to_add & (MOD_MASK_ALT | MOD_MASK_GUI));
+
+  // 現在の状況との差分計算 (mod_seq以外も含む)
+  target_mod_state = get_mods() | mod_to_add;
+  target_mod_state = target_mod_state & (target_mod_state ^ mod_to_del);
+  target_layer_state = layer_state | layer_to_add;
+  target_layer_state = target_layer_state & (target_layer_state ^ layer_to_del);
+
+  // シフト以外の修飾が指定されている場合、_KANAレイヤーをオフにする
+  if (is_kana()) {
+    target_layer_state = target_layer_state | ((layer_state_t)1 << _KANA);
+    if (next_mod_state && next_mod_state != MOD_MASK_SHIFT)
+      target_layer_state = target_layer_state ^ ((layer_state_t)1 << _KANA);
+  }
+
+  // 適用
+  set_mods(target_mod_state);
+  layer_state_set(target_layer_state);
+  weakmod_alt = next_mod_state & MOD_MASK_ALT;
+  weakmod_gui = next_mod_state & MOD_MASK_GUI;
+  if (!weakmod_alt) unregister_mods(MOD_MASK_ALT);
+  if (!weakmod_gui) unregister_mods(MOD_MASK_GUI);
+
+  last_mod_state = next_mod_state;
+  last_layer_state = next_layer_state;
 }
-void stop_mod_sequence(void) {
-  first_mod_keycode = 0;
-  mod_follower_counter = 0;
-  weakmod_alt = false;
-  weakmod_gui = false;
+void add_mod_sequence(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate) {
+  // 空いているところに追加
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (!mod_pool[i].is_active) {
+      mod_pool[i].is_active = true;
+      mod_pool[i].key = record->event.key;
+      mod_pool[i].mod_mask = mod_mask;
+      mod_pool[i].layer = layer_to_activate;
+      mod_pool[i].timer = timer_read();
+      mod_pool[i].followers = 0;
+      break;
+    }
+  ++mod_sequence_count;
+  update_mod_state();
 }
-bool is_mod_seq_first(uint16_t keycode, keyrecord_t *record) {
-  return keycode == first_mod_keycode
-    && first_mod_row == record->event.key.row
-    && first_mod_col == record->event.key.col;
+void del_mod_sequence(uint16_t keycode, keyrecord_t *record) {
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (mod_pool[i].is_active && mod_pool[i].key.row == record->event.key.row && mod_pool[i].key.col == record->event.key.col) {
+      mod_pool[i].is_active = false;
+      break;
+    }
+  --mod_sequence_count;
+  update_mod_state();
 }
-bool is_mod_seq_started(void) {
-  return !!first_mod_keycode;
+bool is_mod_single_tap(keyrecord_t *record) {
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (mod_pool[i].is_active && mod_pool[i].key.row == record->event.key.row && mod_pool[i].key.col == record->event.key.col) {
+      return !mod_pool[i].followers && timer_elapsed(mod_pool[i].timer) < TAPPING_TERM;
+    }
+  return false;
 }
-bool is_mod_pressed_within(uint16_t ms) {
-  if (!first_mod_keycode) return false;
-  return timer_elapsed(mod_timer) < ms;
-}
-int get_mod_follower(void) {
-  return mod_follower_counter;
+bool is_mod_sticky(void) {
+  if (mod_sequence_count != 1) return false;
+  if (!mod_pool[0].is_active) return false;
+  if (mod_pool[0].followers != 1) return false;
+  return timer_elapsed(mod_pool[0].timer) < STICKY_TERM;
+  return false;
 }
 bool process_mod_sequence(uint16_t keycode, keyrecord_t *record) {
-  if (record->event.pressed && first_mod_keycode) ++mod_follower_counter;
+  if (record->event.pressed && mod_sequence_count)
+    for (int i = 0; i < MOD_POOL_MAX; ++i)
+      if (mod_pool[i].is_active) mod_pool[i].followers += 1;
   return true;
 }
 bool process_weakmod_activation(uint16_t keycode) {
@@ -182,38 +252,21 @@ bool process_weakmod(uint16_t keycode, keyrecord_t *record) {
 }
 
 bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate) {
-  bool pressed = record->event.pressed;
-  if (pressed) {
-    if (!is_mod_seq_started()) {
-      // 修飾キー(dual role)が最初に押された
-      // 例. 英数 (press) <-- イマココ
-      start_mod_sequence(keycode, record);
-      mod_mask_target = mod_mask;
-      switch (mod_mask) {
-        case MOD_MASK_NONE: break;
-        case MOD_MASK_ALT: weakmod_alt = true; break;
-        case MOD_MASK_GUI: weakmod_gui = true; break;
-        default: register_mods(mod_mask); break;
-      }
-      mod_base_layer = is_kana() ? _KANA : _ALPHA;
-      if (is_kana() && mod_mask != MOD_MASK_SHIFT) layer_off(_KANA);
-      if (layer_to_activate) layer_on(layer_to_activate);
-      return false;
-    }
-    return true;
+  if (record->event.pressed) {
+    // 修飾キー(dual role)が押された
+    // 例. 英数 (press) <-- イマココ
+    add_mod_sequence(keycode, record, mod_mask, layer_to_activate);
+    return false;
   }
-  if (!is_mod_seq_first(keycode, record)) return true;
 
-  if (is_kana() && mod_mask != MOD_MASK_SHIFT) layer_on(_KANA);
-  if (layer_to_activate) layer_off(layer_to_activate);
-  if (mod_mask) unregister_mods(mod_mask);
-  if (get_mod_follower() == 0 && is_mod_pressed_within(TAPPING_TERM)) {
+  bool single_tap = is_mod_single_tap(record);
+  del_mod_sequence(keycode, record);
+  if (single_tap) {
     // 時間内に単独でタップされた
     // 例. 英数 (press)
     //     英数 (release) <-- イマココ
     windmill_tap_code(keycode);
   }
-  stop_mod_sequence();
   return false;
 }
 bool windmill_layertap(uint16_t keycode, keyrecord_t *record, uint8_t layer_to_activate) {
@@ -445,16 +498,13 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
   // 例. み(press)
   //     わ(press) <-- イマココ
   if (pressed) {
-    if (is_mod_pressed_within(STICKY_TERM)) {
-      if (get_mod_follower() == 1) {
-        queued_keycode = keycode;
-        queued_key = record->event.key;
-        return false;
-      }
-      // ただし、後続が2つ以上押された時点で、STICKY_TERM内でもキューをクリア
-      if (get_mod_follower() == 2) {
-        windmill_tap_code(queued_keycode);
-      }
+    if (is_mod_sticky()) {
+      queued_keycode = keycode;
+      queued_key = record->event.key;
+      return false;
+    }
+    if (queued_keycode) {
+      windmill_tap_code(queued_keycode);
     }
     queued_keycode = 0;
     return true;
@@ -480,15 +530,15 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
   //     わ(press)
   //     み(release) <-- イマココ
   //     わ(release)
-  if (is_mod_pressed_within(STICKY_TERM)) {
-    if (mod_mask_target) unregister_mods(mod_mask_target);
+  if (is_mod_sticky()) {
+    del_mod_sequence(keycode, record);
     windmill_tap_code(keycode); // 例.「み」
-    windmill_tap_code(keymap_key_to_keycode(mod_base_layer, queued_key)); // 例.「わ」
-    return true;
+    windmill_tap_code(keymap_key_to_keycode(is_kana() ? _KANA : _ALPHA, queued_key)); // 例.「わ」
+    return false;
   }
-
   windmill_tap_code(queued); // 例.「を」
-  return true;
+  del_mod_sequence(keycode, record);
+  return false;
 }
 
 /*
