@@ -154,6 +154,8 @@ void update_mod_state(void) {
   uint16_t layer_to_add = 0;
   uint16_t layer_to_del = 0;
   uint16_t target_layer_state = 0;
+  bool should_remove_alt = false;
+  bool should_remove_gui = false;
 
   for (int i = 0; i < MOD_POOL_MAX; ++i)
     if (mod_pool[i].is_active) {
@@ -167,6 +169,9 @@ void update_mod_state(void) {
   layer_to_del = last_layer_state & (last_layer_state ^ next_layer_state);
   layer_to_add = next_layer_state & (last_layer_state ^ next_layer_state);
   
+  should_remove_alt = mod_to_del & MOD_MASK_ALT;
+  should_remove_gui = mod_to_del & MOD_MASK_GUI;
+
   // weakmodを除外
   mod_to_del = mod_to_del ^ (mod_to_del & (MOD_MASK_ALT | MOD_MASK_GUI));
   mod_to_add = mod_to_add ^ (mod_to_add & (MOD_MASK_ALT | MOD_MASK_GUI));
@@ -189,8 +194,8 @@ void update_mod_state(void) {
   layer_state_set(target_layer_state);
   weakmod_alt = next_mod_state & MOD_MASK_ALT;
   weakmod_gui = next_mod_state & MOD_MASK_GUI;
-  if (!weakmod_alt) unregister_mods(MOD_MASK_ALT);
-  if (!weakmod_gui) unregister_mods(MOD_MASK_GUI);
+  if (should_remove_alt) unregister_mods(MOD_MASK_ALT);
+  if (should_remove_gui) unregister_mods(MOD_MASK_GUI);
 
   last_mod_state = next_mod_state;
   last_layer_state = next_layer_state;
