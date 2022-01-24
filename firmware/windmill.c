@@ -145,6 +145,17 @@ static bool weakmod_gui = false;
 static uint8_t last_mod_state = 0;
 static uint16_t last_layer_state = 0;
 static struct mod_sequence mod_pool[MOD_POOL_MAX];
+void keep_clean(void) {
+  mod_sequence_count = 0;
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (mod_pool[i].is_active) {
+      if (matrix_is_on(mod_pool[i].key.row, mod_pool[i].key.col)) {
+        mod_pool[i].is_active = false;
+      } else {
+        ++mod_sequence_count;
+      }
+    }
+}
 void update_mod_state(void) {
   uint8_t next_mod_state = 0;
   uint8_t mod_to_add = 0;
@@ -223,6 +234,7 @@ void del_mod_sequence(uint16_t keycode, keyrecord_t *record) {
     }
   --mod_sequence_count;
   update_mod_state();
+  keep_clean();
 }
 bool is_mod_single_tap(keyrecord_t *record) {
   for (int i = 0; i < MOD_POOL_MAX; ++i)
