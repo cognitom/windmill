@@ -96,7 +96,7 @@ enum keycolors {
 
 const uint8_t colorset[][6] = {
   //             Light              Dark
-  //             (R,    G,    B   ) (H,    S,    V   )
+  //             (R,    G,    B   ) (R,    G,    B   )
   [CL_BASE]    = {0x07, 0x07, 0x05,  0x00, 0x00, 0x00},
   [CL_SPECIAL] = {0x1c, 0x11, 0x00,  0x04, 0x03, 0x00},
   [CL_SYMBOL]  = {0x11, 0x22, 0x22,  0x02, 0x04, 0x03},
