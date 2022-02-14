@@ -61,7 +61,7 @@ void windmill_init_keycolors(uint8_t* user_colorset) {
  * RGB Matrix
  */
 
-#define RGBMATRIX_TIMEOUT 3 // in minutes
+#define RGBMATRIX_TIMEOUT 10 // in minutes
 #define CL_TRANS 0xFF
 #define LAYER_SIZE 8 // 最大設定可能なレイヤー数
 #define RGB_STARTING_INDEX 10 // 最初の10個は底面のLEDなので、それを除外するための設定
