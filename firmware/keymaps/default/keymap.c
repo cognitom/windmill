@@ -140,9 +140,12 @@ void keyboard_post_init_user(void) {
   windmill_init_keycolors((uint8_t*)colorset);
 }
 
+static bool is_ctrl_canceled = false;
+static uint8_t pressed_arrow_keys;
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
   bool ctrled = (get_mods() & MOD_MASK_CTRL);
+  uint8_t bitmask;
   
   switch (keycode) {
     // Shift
@@ -171,17 +174,28 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       return windmill_modtap(keycode, record, MOD_MASK_GUI);
     // Ctrl
     case KC_LNG2:
+      if (!pressed && is_ctrl_canceled) {
+        is_ctrl_canceled = false;
+      }
       return windmill_modtap(keycode, record, MOD_MASK_CTRL);
     // Others
-    case KC_UP:
-    case KC_DOWN:
-    case KC_LEFT:
-    case KC_RIGHT:
+    case KC_RIGHT: // 0x4F
+    case KC_LEFT:  // 0x50
+    case KC_DOWN:  // 0x51
+    case KC_UP:    // 0x52
+      // store which arrow key is pressed
+      bitmask = (uint8_t)1 << (keycode - KC_RIGHT);
+      if (pressed) pressed_arrow_keys |= bitmask;
+      else pressed_arrow_keys &= ~bitmask;
+
+      // during Kana mode, unregister Ctrl key
       if (is_kana() && ctrled && pressed) {
+        is_ctrl_canceled = true;
         unregister_mods(MOD_MASK_CTRL);
-        tap_code(keycode);
+      } else if (is_ctrl_canceled && !pressed_arrow_keys) {
+        // when all arrow keys are released, register ctrl again
+        is_ctrl_canceled = false;
         register_mods(MOD_MASK_CTRL);
-        return false;
       }
       break;
   }
