@@ -58,8 +58,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define NO_ACTION_FUNCTION
 
 /* Dual-role keys setting */
-#define TAPPING_TERM 250
-#define STICKY_TERM 150
+#define TAPPING_TERM 0
+#define SECOND_TAPPING_TERM 150
+#define THIRD_TAPPING_TERM 250
 
 /* To reduce its footprint */
 #define NO_ACTION_TAPPING

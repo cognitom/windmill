@@ -236,18 +236,18 @@ void del_mod_sequence(uint16_t keycode, keyrecord_t *record) {
   update_mod_state();
   keep_clean();
 }
-bool is_mod_single_tap(keyrecord_t *record) {
+bool detect_single_tap(keyrecord_t *record) {
   for (int i = 0; i < MOD_POOL_MAX; ++i)
     if (mod_pool[i].is_active && mod_pool[i].key.row == record->event.key.row && mod_pool[i].key.col == record->event.key.col) {
-      return !mod_pool[i].followers && timer_elapsed(mod_pool[i].timer) < TAPPING_TERM;
+      return !mod_pool[i].followers && timer_elapsed(mod_pool[i].timer) < THIRD_TAPPING_TERM;
     }
   return false;
 }
-bool is_mod_sticky(void) {
+bool detect_quick_tap(void) {
   if (mod_sequence_count != 1) return false;
   if (!mod_pool[0].is_active) return false;
   if (mod_pool[0].followers != 1) return false;
-  return timer_elapsed(mod_pool[0].timer) < STICKY_TERM;
+  return timer_elapsed(mod_pool[0].timer) < SECOND_TAPPING_TERM;
   return false;
 }
 bool process_mod_sequence(uint16_t keycode, keyrecord_t *record) {
@@ -276,7 +276,7 @@ bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mas
     return false;
   }
 
-  bool single_tap = is_mod_single_tap(record);
+  bool single_tap = detect_single_tap(record);
   del_mod_sequence(keycode, record);
   if (single_tap) {
     // 時間内に単独でタップされた
@@ -503,19 +503,19 @@ bool process_record_sym(uint16_t keycode, keyrecord_t *record) {
 }
 
 /*
- * Sticky Term
+ * Quick Tap
  */
 
 static uint16_t queued_keycode = 0;
 static keypos_t queued_key = { .row = 0, .col = 0 };
-bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
+bool process_quick_tap(uint16_t keycode, keyrecord_t *record) {
   bool pressed = record->event.pressed;
 
-  // 修飾キーが押されたのち、STICKY_TERM時間内であればキーを送出せずqueued_keycodeに入れて待つ
+  // 修飾キーが押されたのち、SECOND_TAPPING_TERM時間内であればキーを送出せずqueued_keycodeに入れて待つ
   // 例. み(press)
   //     わ(press) <-- イマココ
   if (pressed) {
-    if (is_mod_sticky()) {
+    if (detect_quick_tap()) {
       queued_keycode = keycode;
       queued_key = record->event.key;
       return false;
@@ -547,7 +547,7 @@ bool process_sticky_term(uint16_t keycode, keyrecord_t *record) {
   //     わ(press)
   //     み(release) <-- イマココ
   //     わ(release)
-  if (is_mod_sticky()) {
+  if (detect_quick_tap()) {
     del_mod_sequence(keycode, record);
     windmill_tap_code(keycode); // 例.「み」
     windmill_tap_code(keymap_key_to_keycode(is_kana() ? _KANA : _ALPHA, queued_key)); // 例.「わ」
@@ -626,7 +626,7 @@ void matrix_scan_kb(void) {
 bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
   if (!process_rgb_matrix_timeout(keycode, record)) return false;
   if (!process_mod_sequence(keycode, record)) return false;
-  if (!process_sticky_term(keycode, record)) return false;
+  if (!process_quick_tap(keycode, record)) return false;
   
   // keymap.c
   if (!process_record_user(keycode, record)) return false;
