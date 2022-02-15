@@ -16,6 +16,7 @@ QMKの[MT](https://docs.qmk.fm/#/mod_tap)や[LT、LM](https://docs.qmk.fm/#/feat
 - 素早く(`SECOND_TAPPING_TERM`以内で)複数のキーがタップされた場合は、修飾キーをキャンセルして通常キーとして扱う → Quick Tap参照
 - 指定時間内(`THIRD_TAPPING_TERM`以内)で単独キーがタップされた場合も、修飾キーをキャンセルして通常キーとして扱う
 - 通常キーと修飾キーとレイヤーの同時指定ができる (LT、LMを1キーで実現する)
+- 複数の修飾キーとレイヤーの同時押しを考慮する ※例. 左右のシフトキーを片方だけ残しつつ、押したり離したりする場合
 
 `keymap.c`で設定するが、`keymaps[]`配列では指定せず、`process_record_user()`で次のように書く。
 
