@@ -13,8 +13,8 @@ windmill_tap_code(KA_A);
 QMKの[MT](https://docs.qmk.fm/#/mod_tap)や[LT、LM](https://docs.qmk.fm/#/feature_layers)に近い機能を提供するもの。相違点としては次の通り。
 
 - キーを押した時点で、修飾キーが送出される (または、レイヤーが有効化される) → `TAPPING_TERM = 0`
-- 素早く(`SECOND_TAPPING_TERM`以内で)複数のキーがタップされた場合は、修飾キーをキャンセルして通常キーとして扱う
-- 指定時間内(`THIRD_TAPPING_TERM`以内)で単独キーがタップされた場合も、修飾キーをキャンセルして通常キーとして扱う → Quick Tap参照
+- 素早く(`SECOND_TAPPING_TERM`以内で)複数のキーがタップされた場合は、修飾キーをキャンセルして通常キーとして扱う → Quick Tap参照
+- 指定時間内(`THIRD_TAPPING_TERM`以内)で単独キーがタップされた場合も、修飾キーをキャンセルして通常キーとして扱う
 - 通常キーと修飾キーとレイヤーの同時指定ができる (LT、LMを1キーで実現する)
 
 `keymap.c`で設定するが、`keymaps[]`配列では指定せず、`process_record_user()`で次のように書く。
