@@ -3,7 +3,7 @@
 # Windmill
 Windmill is a keymap for 40% keyboards.
 
-このキー配列は、40%キーボード向けに作成したものです。
+このキー配列は、40%キーボード向けに作成しで使える機能たものです。
 
 - 風車状のカーソル配置
 - かな入力対応 (ほぼJISかな配列)
@@ -16,6 +16,7 @@ Windmill is a keymap for 40% keyboards.
 - [追加機能 (↓)](#追加機能)
 - [導入方法](docs/install.md)
 - [ファームウェアの作成](docs/build.md)
+- [キーマップで使える機能](docs/keymap.md)
 
 ## キー配列
 
