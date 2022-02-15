@@ -125,175 +125,6 @@ void cache_keycolors(void) {
 }
 
 /*
- * Mod Seq
- */
-
-#define MOD_POOL_MAX 8
-
-struct mod_sequence {
-  bool is_active;
-  keypos_t key;
-  uint8_t mod_mask;
-  uint8_t layer;
-  uint16_t timer;
-  int followers;
-};
-
-static int mod_sequence_count = 0;
-static bool weakmod_alt = false;
-static bool weakmod_gui = false;
-static uint8_t last_mod_state = 0;
-static uint16_t last_layer_state = 0;
-static struct mod_sequence mod_pool[MOD_POOL_MAX];
-void keep_clean(void) {
-  mod_sequence_count = 0;
-  for (int i = 0; i < MOD_POOL_MAX; ++i)
-    if (mod_pool[i].is_active) {
-      if (matrix_is_on(mod_pool[i].key.row, mod_pool[i].key.col)) {
-        mod_pool[i].is_active = false;
-      } else {
-        ++mod_sequence_count;
-      }
-    }
-}
-void update_mod_state(void) {
-  uint8_t next_mod_state = 0;
-  uint8_t mod_to_add = 0;
-  uint8_t mod_to_del = 0;
-  uint8_t target_mod_state = 0;
-  uint16_t next_layer_state = 0;
-  uint16_t layer_to_add = 0;
-  uint16_t layer_to_del = 0;
-  uint16_t target_layer_state = 0;
-  bool should_remove_alt = false;
-  bool should_remove_gui = false;
-
-  for (int i = 0; i < MOD_POOL_MAX; ++i)
-    if (mod_pool[i].is_active) {
-      next_mod_state = next_mod_state | mod_pool[i].mod_mask;
-      next_layer_state = next_layer_state | ((layer_state_t)1 << mod_pool[i].layer);
-    }
-
-  // 前回の状況との差分計算 (mod_seqを使っているもののみ)
-  mod_to_del = last_mod_state & (last_mod_state ^ next_mod_state);
-  mod_to_add = next_mod_state & (last_mod_state ^ next_mod_state);
-  layer_to_del = last_layer_state & (last_layer_state ^ next_layer_state);
-  layer_to_add = next_layer_state & (last_layer_state ^ next_layer_state);
-  
-  should_remove_alt = mod_to_del & MOD_MASK_ALT;
-  should_remove_gui = mod_to_del & MOD_MASK_GUI;
-
-  // weakmodを除外
-  mod_to_del = mod_to_del ^ (mod_to_del & (MOD_MASK_ALT | MOD_MASK_GUI));
-  mod_to_add = mod_to_add ^ (mod_to_add & (MOD_MASK_ALT | MOD_MASK_GUI));
-
-  // 現在の状況との差分計算 (mod_seq以外も含む)
-  target_mod_state = get_mods() | mod_to_add;
-  target_mod_state = target_mod_state & (target_mod_state ^ mod_to_del);
-  target_layer_state = layer_state | layer_to_add;
-  target_layer_state = target_layer_state & (target_layer_state ^ layer_to_del);
-
-  // シフト以外の修飾が指定されている場合、_KANAレイヤーをオフにする
-  if (is_kana()) {
-    target_layer_state = target_layer_state | ((layer_state_t)1 << _KANA);
-    if (next_mod_state && next_mod_state != MOD_MASK_SHIFT)
-      target_layer_state = target_layer_state ^ ((layer_state_t)1 << _KANA);
-  }
-
-  // 適用
-  set_mods(target_mod_state);
-  layer_state_set(target_layer_state);
-  weakmod_alt = next_mod_state & MOD_MASK_ALT;
-  weakmod_gui = next_mod_state & MOD_MASK_GUI;
-  if (should_remove_alt) unregister_mods(MOD_MASK_ALT);
-  if (should_remove_gui) unregister_mods(MOD_MASK_GUI);
-
-  last_mod_state = next_mod_state;
-  last_layer_state = next_layer_state;
-}
-void add_mod_sequence(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate) {
-  // 空いているところに追加
-  for (int i = 0; i < MOD_POOL_MAX; ++i)
-    if (!mod_pool[i].is_active) {
-      mod_pool[i].is_active = true;
-      mod_pool[i].key = record->event.key;
-      mod_pool[i].mod_mask = mod_mask;
-      mod_pool[i].layer = layer_to_activate;
-      mod_pool[i].timer = timer_read();
-      mod_pool[i].followers = 0;
-      break;
-    }
-  ++mod_sequence_count;
-  update_mod_state();
-}
-void del_mod_sequence(uint16_t keycode, keyrecord_t *record) {
-  for (int i = 0; i < MOD_POOL_MAX; ++i)
-    if (mod_pool[i].is_active && mod_pool[i].key.row == record->event.key.row && mod_pool[i].key.col == record->event.key.col) {
-      mod_pool[i].is_active = false;
-      break;
-    }
-  --mod_sequence_count;
-  update_mod_state();
-  keep_clean();
-}
-bool detect_single_tap(keyrecord_t *record) {
-  for (int i = 0; i < MOD_POOL_MAX; ++i)
-    if (mod_pool[i].is_active && mod_pool[i].key.row == record->event.key.row && mod_pool[i].key.col == record->event.key.col) {
-      return !mod_pool[i].followers && timer_elapsed(mod_pool[i].timer) < THIRD_TAPPING_TERM;
-    }
-  return false;
-}
-bool detect_quick_tap(void) {
-  if (mod_sequence_count != 1) return false;
-  if (!mod_pool[0].is_active) return false;
-  if (mod_pool[0].followers != 1) return false;
-  return timer_elapsed(mod_pool[0].timer) < SECOND_TAPPING_TERM;
-  return false;
-}
-bool process_mod_sequence(uint16_t keycode, keyrecord_t *record) {
-  if (record->event.pressed && mod_sequence_count)
-    for (int i = 0; i < MOD_POOL_MAX; ++i)
-      if (mod_pool[i].is_active) mod_pool[i].followers += 1;
-  return true;
-}
-bool process_weakmod_activation(uint16_t keycode) {
-  if (weakmod_alt) register_mods(MOD_MASK_ALT);
-  if (weakmod_gui) register_mods(MOD_MASK_GUI);
-  return true;
-}
-bool process_weakmod(uint16_t keycode, keyrecord_t *record) {
-  if (record->event.pressed) {
-    if (!process_weakmod_activation(keycode)) return false;
-  }
-  return true;
-}
-
-bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate) {
-  if (record->event.pressed) {
-    // 修飾キー(dual role)が押された
-    // 例. 英数 (press) <-- イマココ
-    add_mod_sequence(keycode, record, mod_mask, layer_to_activate);
-    return false;
-  }
-
-  bool single_tap = detect_single_tap(record);
-  del_mod_sequence(keycode, record);
-  if (single_tap) {
-    // 時間内に単独でタップされた
-    // 例. 英数 (press)
-    //     英数 (release) <-- イマココ
-    windmill_tap_code(keycode);
-  }
-  return false;
-}
-bool windmill_layertap(uint16_t keycode, keyrecord_t *record, uint8_t layer_to_activate) {
-  return windmill_modlayertap(keycode, record, MOD_MASK_NONE, layer_to_activate);
-}
-bool windmill_modtap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask) {
-  return windmill_modlayertap(keycode, record, mod_mask, 0);
-}
-
-/*
  * Kana
  */
 
@@ -466,18 +297,6 @@ bool process_keycode_sym(uint16_t keycode) {
 }
 
 /*
- * 拡張版 tap_code
- */
-
-void windmill_tap_code(uint16_t keycode) {
-  if (!process_keycode_kana(keycode)) return;
-  if (!process_keycode_fn(keycode)) return;
-  if (!process_keycode_sym(keycode)) return;
-  if (!process_weakmod_activation(keycode)) return;
-  tap_code16(keycode);
-}
-
-/*
  * process_record_*
  */
 
@@ -500,6 +319,187 @@ bool process_record_sym(uint16_t keycode, keyrecord_t *record) {
     if (!process_keycode_sym(keycode)) return false;
   }
   return true;
+}
+
+/*
+ * Mod Seq
+ */
+
+#define MOD_POOL_MAX 8
+
+struct mod_sequence {
+  bool is_active;
+  keypos_t key;
+  uint8_t mod_mask;
+  uint8_t layer;
+  uint16_t timer;
+  int followers;
+};
+
+static int mod_sequence_count = 0;
+static bool weakmod_alt = false;
+static bool weakmod_gui = false;
+static uint8_t last_mod_state = 0;
+static uint16_t last_layer_state = 0;
+static struct mod_sequence mod_pool[MOD_POOL_MAX];
+void keep_clean(void) {
+  mod_sequence_count = 0;
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (mod_pool[i].is_active) {
+      if (matrix_is_on(mod_pool[i].key.row, mod_pool[i].key.col)) {
+        mod_pool[i].is_active = false;
+      } else {
+        ++mod_sequence_count;
+      }
+    }
+}
+void update_mod_state(void) {
+  uint8_t next_mod_state = 0;
+  uint8_t mod_to_add = 0;
+  uint8_t mod_to_del = 0;
+  uint8_t target_mod_state = 0;
+  uint16_t next_layer_state = 0;
+  uint16_t layer_to_add = 0;
+  uint16_t layer_to_del = 0;
+  uint16_t target_layer_state = 0;
+  bool should_remove_alt = false;
+  bool should_remove_gui = false;
+
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (mod_pool[i].is_active) {
+      next_mod_state = next_mod_state | mod_pool[i].mod_mask;
+      next_layer_state = next_layer_state | ((layer_state_t)1 << mod_pool[i].layer);
+    }
+
+  // 前回の状況との差分計算 (mod_seqを使っているもののみ)
+  mod_to_del = last_mod_state & (last_mod_state ^ next_mod_state);
+  mod_to_add = next_mod_state & (last_mod_state ^ next_mod_state);
+  layer_to_del = last_layer_state & (last_layer_state ^ next_layer_state);
+  layer_to_add = next_layer_state & (last_layer_state ^ next_layer_state);
+  
+  should_remove_alt = mod_to_del & MOD_MASK_ALT;
+  should_remove_gui = mod_to_del & MOD_MASK_GUI;
+
+  // weakmodを除外
+  mod_to_del = mod_to_del ^ (mod_to_del & (MOD_MASK_ALT | MOD_MASK_GUI));
+  mod_to_add = mod_to_add ^ (mod_to_add & (MOD_MASK_ALT | MOD_MASK_GUI));
+
+  // 現在の状況との差分計算 (mod_seq以外も含む)
+  target_mod_state = get_mods() | mod_to_add;
+  target_mod_state = target_mod_state & (target_mod_state ^ mod_to_del);
+  target_layer_state = layer_state | layer_to_add;
+  target_layer_state = target_layer_state & (target_layer_state ^ layer_to_del);
+
+  // シフト以外の修飾が指定されている場合、_KANAレイヤーをオフにする
+  if (is_kana()) {
+    target_layer_state = target_layer_state | ((layer_state_t)1 << _KANA);
+    if (next_mod_state && next_mod_state != MOD_MASK_SHIFT)
+      target_layer_state = target_layer_state ^ ((layer_state_t)1 << _KANA);
+  }
+
+  // 適用
+  set_mods(target_mod_state);
+  layer_state_set(target_layer_state);
+  weakmod_alt = next_mod_state & MOD_MASK_ALT;
+  weakmod_gui = next_mod_state & MOD_MASK_GUI;
+  if (should_remove_alt) unregister_mods(MOD_MASK_ALT);
+  if (should_remove_gui) unregister_mods(MOD_MASK_GUI);
+
+  last_mod_state = next_mod_state;
+  last_layer_state = next_layer_state;
+}
+void add_mod_sequence(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate) {
+  // 空いているところに追加
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (!mod_pool[i].is_active) {
+      mod_pool[i].is_active = true;
+      mod_pool[i].key = record->event.key;
+      mod_pool[i].mod_mask = mod_mask;
+      mod_pool[i].layer = layer_to_activate;
+      mod_pool[i].timer = timer_read();
+      mod_pool[i].followers = 0;
+      break;
+    }
+  ++mod_sequence_count;
+  update_mod_state();
+}
+void del_mod_sequence(uint16_t keycode, keyrecord_t *record) {
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (mod_pool[i].is_active && mod_pool[i].key.row == record->event.key.row && mod_pool[i].key.col == record->event.key.col) {
+      mod_pool[i].is_active = false;
+      break;
+    }
+  --mod_sequence_count;
+  update_mod_state();
+  keep_clean();
+}
+bool detect_single_tap(keyrecord_t *record) {
+  for (int i = 0; i < MOD_POOL_MAX; ++i)
+    if (mod_pool[i].is_active && mod_pool[i].key.row == record->event.key.row && mod_pool[i].key.col == record->event.key.col) {
+      return !mod_pool[i].followers && timer_elapsed(mod_pool[i].timer) < THIRD_TAPPING_TERM;
+    }
+  return false;
+}
+bool detect_quick_tap(void) {
+  if (mod_sequence_count != 1) return false;
+  if (!mod_pool[0].is_active) return false;
+  if (mod_pool[0].followers != 1) return false;
+  return timer_elapsed(mod_pool[0].timer) < SECOND_TAPPING_TERM;
+  return false;
+}
+bool process_mod_sequence(uint16_t keycode, keyrecord_t *record) {
+  if (record->event.pressed && mod_sequence_count)
+    for (int i = 0; i < MOD_POOL_MAX; ++i)
+      if (mod_pool[i].is_active) mod_pool[i].followers += 1;
+  return true;
+}
+bool process_weakmod_activation(uint16_t keycode) {
+  if (weakmod_alt) register_mods(MOD_MASK_ALT);
+  if (weakmod_gui) register_mods(MOD_MASK_GUI);
+  return true;
+}
+bool process_weakmod(uint16_t keycode, keyrecord_t *record) {
+  if (record->event.pressed) {
+    if (!process_weakmod_activation(keycode)) return false;
+  }
+  return true;
+}
+
+bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate) {
+  if (record->event.pressed) {
+    // 修飾キー(dual role)が押された
+    // 例. 英数 (press) <-- イマココ
+    add_mod_sequence(keycode, record, mod_mask, layer_to_activate);
+    return false;
+  }
+
+  bool single_tap = detect_single_tap(record);
+  del_mod_sequence(keycode, record);
+  if (single_tap) {
+    // 時間内に単独でタップされた
+    // 例. 英数 (press)
+    //     英数 (release) <-- イマココ
+    windmill_tap_code(keycode);
+  }
+  return false;
+}
+bool windmill_layertap(uint16_t keycode, keyrecord_t *record, uint8_t layer_to_activate) {
+  return windmill_modlayertap(keycode, record, MOD_MASK_NONE, layer_to_activate);
+}
+bool windmill_modtap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask) {
+  return windmill_modlayertap(keycode, record, mod_mask, 0);
+}
+
+/*
+ * 拡張版 tap_code
+ */
+
+void windmill_tap_code(uint16_t keycode) {
+  if (!process_keycode_kana(keycode)) return;
+  if (!process_keycode_fn(keycode)) return;
+  if (!process_keycode_sym(keycode)) return;
+  if (!process_weakmod_activation(keycode)) return;
+  tap_code16(keycode);
 }
 
 /*
