@@ -57,6 +57,8 @@ enum windmill_keycodes {
   KA_SPC,
   // 半角記号
   KA_QUES, KA_PIPE, KA_SLSH, KA_BSLS,
+  // IME種別
+  IME_WIN, IME_AND, IME_CRM, IME_MAC, IME_IOS,
 
   WINDMILL_SAFE_RANGE
 };

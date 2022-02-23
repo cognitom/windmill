@@ -128,21 +128,58 @@ void cache_keycolors(void) {
  * Kana
  */
 
+enum ime_types {
+  _IME_WINDOWS,
+  _IME_ANDROID,
+  _IME_CHROMEOS, // not immplemented yet
+  _IME_MAC, // not immplemented yet
+  _IME_IOS, // not immplemented yet
+};
 static bool _is_kana = false;
+static uint8_t _ime_type = _IME_WINDOWS;
+
 bool is_kana(void) {
   return _is_kana;
 }
+uint8_t get_ime_type(void) {
+  return _ime_type;
+}
+void set_ime_type(uint8_t ime_type) {
+  _ime_type = ime_type;
+}
 
 void send_kana(void) {
+  uint8_t ime_type = get_ime_type();
   clear_keyboard();
-  tap_code(KC_LNG1); // Mac, Microsoft IME
-  tap_code(KC_INT4); // Mozc
+  switch (ime_type) {
+    case _IME_WINDOWS:
+    case _IME_MAC:
+      tap_code(KC_LNG1);
+      break;
+    case _IME_ANDROID:
+      tap_code16(S(KC_SPC));
+      break;
+    case _IME_CHROMEOS:
+      tap_code(KC_INT4); // 未検証
+      break;
+  }
 }
 
 void send_alpha(void) {
+  uint8_t ime_type = get_ime_type();
   clear_keyboard();
-  tap_code(KC_LNG2); // Mac, Microsoft IME
-  tap_code(KC_INT5); // Mozc
+  switch (ime_type) {
+    case _IME_WINDOWS:
+    case _IME_MAC:
+      tap_code(KC_LNG2);
+      break;
+    case _IME_ANDROID:
+      tap_code16(S(KC_SPC));
+      break;
+    case _IME_CHROMEOS:
+      tap_code(KC_INT5); // 未検証
+      break;
+  }
 }
 
 void kana_on(void) {
@@ -158,7 +195,9 @@ void kana_off(void) {
   send_alpha();
 }
 
-uint16_t translate_kana_to_ascii(uint16_t keycode) {
+// 独自キーコードからの変換
+// OS:Windows 11, Layout:English(US), IME:Microsoft IME
+uint16_t translate_kana_to_ascii_default(uint16_t keycode) {
   switch (keycode) {
     case KA_A:    return KC_3;    // あ
     case KA_I:    return KC_E;    // い
@@ -228,6 +267,31 @@ uint16_t translate_kana_to_ascii(uint16_t keycode) {
   return KC_NO;
 }
 
+// 独自キーコードからの変換
+// OS:Android, Layout:English(US), IME:Wnn Keyboard Lab
+uint16_t translate_kana_to_ascii_android(uint16_t keycode) {
+  switch (keycode) {
+    case KA_KE:   return KC_ASTR; // け
+    case KA_RO:   return KC_BSLS; // ろ
+    case KA_XO:   return KC_AMPR; // ぉ
+    case KA_XYA:  return KC_QUOT; // ゃ
+    case KA_XYU:  return KC_LPRN; // ゅ
+    case KA_XYO:  return S(KC_9); // ょ ※打てない
+    case KA_DAKU: return KC_GRV;  // ゛
+    case KA_HAN:  return KC_LBRC; // ゜
+    case KA_CHOU: return KC_PIPE; // ー
+  }
+  return translate_kana_to_ascii_default(keycode);
+}
+
+uint16_t translate_kana_to_ascii(uint16_t keycode) {
+  uint8_t ime_type = get_ime_type();
+  switch (ime_type) {
+    case _IME_ANDROID: return translate_kana_to_ascii_android(keycode);
+  }
+  return translate_kana_to_ascii_default(keycode);
+}
+
 uint16_t translate_special_to_ascii(uint16_t keycode) {
   switch (keycode) {
     case KA_QUES: return KC_QUES; // ?
@@ -264,11 +328,14 @@ bool process_keycode_fn(uint16_t keycode) {
     case KC_LNG2:
       kana_off();
       break;
-    default: 
-      return true;
     case KC_NUM:
       layer_invert(_NUMPAD);
-      return false;
+      break;
+    case IME_WIN ... IME_IOS:
+      set_ime_type(_IME_WINDOWS + keycode - IME_WIN);
+      break;
+    default: 
+      return true;
   }
   return false;
 }
