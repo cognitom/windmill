@@ -56,3 +56,17 @@ Windmill is a keymap for 40% keyboards.
 - <kbd>Fn</kbd> + <kbd>Enter</kbd> を押す
 
 ダークモードを解除するには、もう一度上記のキーを押します。
+
+### OSの切り替え
+
+各OSのIMEの差異を吸収するため、モードを切り替えることができます。
+
+| 独自キーコード | キー | 対称OS | 配列の認識 | IME |
+|--|--|--|--|--|
+| IME_WIN | <kbd>Fn</kbd>+<kbd>W</kbd> | Windows 11 | English (US) | Microsof IME |
+| IME_AND | <kbd>Fn</kbd>+<kbd>E</kbd> | Android | English (US) | Wnn Keyboard Lab |
+| IME_CRM | <kbd>Fn</kbd>+<kbd>R</kbd> | Chrome OS | -- | Japanese with US keyboard |
+
+※Android, Chrome OSでは、英数キー・かなキーがどちらもトグルになっています。
+
+※Androidでは「ょ」(拗音)の入力ができません。
