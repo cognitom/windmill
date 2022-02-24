@@ -41,6 +41,16 @@ led_config_t g_led_config = { {
 } };
 #endif
 
+typedef union {
+  uint32_t raw;
+  struct {
+    bool is_kana: 1;
+    bool led_darkmode: 1;
+    uint8_t ime_type: 8; // Windows
+  };
+} keyboard_config_t;
+keyboard_config_t keyboard_config;
+
 static int _ALPHA;
 static int _NUMPAD;
 static int _KANA;
@@ -75,6 +85,9 @@ static bool led_darkmode = false;
 
 void toggle_darkmode(void) {
   led_darkmode = !led_darkmode;
+
+  keyboard_config.led_darkmode = led_darkmode;
+  eeconfig_update_user(keyboard_config.raw);
 }
 
 void refresh_rgb_matrix_timeout(void) {
@@ -146,6 +159,9 @@ uint8_t get_ime_type(void) {
 }
 void set_ime_type(uint8_t ime_type) {
   _ime_type = ime_type;
+
+  keyboard_config.ime_type = ime_type;
+  eeconfig_update_user(keyboard_config.raw);
 }
 
 void send_kana(void) {
@@ -187,12 +203,18 @@ void kana_on(void) {
   layer_move(_ALPHA);
   layer_on(_KANA);
   send_kana();
+  
+  keyboard_config.is_kana = true;
+  eeconfig_update_user(keyboard_config.raw);
 }
 
 void kana_off(void) {
   _is_kana = false;
   layer_move(_ALPHA);
   send_alpha();
+
+  keyboard_config.is_kana = false;
+  eeconfig_update_user(keyboard_config.raw);
 }
 
 // 独自キーコードからの変換
@@ -626,6 +648,22 @@ bool process_quick_tap(uint16_t keycode, keyrecord_t *record) {
 }
 
 /*
+ * Permanent configs
+ */
+void load_keyboard_config(void) {
+  keyboard_config.raw = eeconfig_read_user();
+  if (keyboard_config.is_kana) {
+    _is_kana = 1;
+  }
+  if (keyboard_config.led_darkmode) {
+    led_darkmode = 1;
+  }
+  if (_IME_WINDOWS <= keyboard_config.ime_type && keyboard_config.ime_type <= _IME_IOS) {
+    _ime_type = keyboard_config.ime_type;
+  }
+}
+
+/*
  * QMK callbacks
  */
 
@@ -633,13 +671,18 @@ void keyboard_post_init_kb(void) {
 #ifdef CONSOLE_ENABLE
   debug_enable = true;
 #endif
-
+  
+  load_keyboard_config();
   keyboard_post_init_user();
   rgb_matrix_mode(RGB_MATRIX_NONE);
   rgb_matrix_sethsv(HSV_OFF);
   cache_keycolors();
   led_initialized = true;
+
   layer_move(_ALPHA);
+  if (is_kana()) {
+    layer_on(_KANA);
+  }
 }
 
 static uint8_t cached_keycolors[48];
