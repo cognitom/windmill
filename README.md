@@ -57,11 +57,11 @@ Windmill is a keymap for 40% keyboards.
 
 ダークモードを解除するには、もう一度上記のキーを押します。
 
-### OSの切り替え
+### 対象OSの切り替え
 
 各OSのIMEの差異を吸収するため、モードを切り替えることができます。
 
-| 独自キーコード | キー | 対称OS | 配列の認識 | IME |
+| 独自キーコード | キー | 対象OS | 配列の認識 | IME |
 |--|--|--|--|--|
 | IME_WIN | <kbd>Fn</kbd>+<kbd>W</kbd> | Windows 11 | English (US) | Microsof IME |
 | IME_AND | <kbd>Fn</kbd>+<kbd>E</kbd> | Android | English (US) | Wnn Keyboard Lab |
