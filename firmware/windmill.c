@@ -176,7 +176,7 @@ void send_kana(void) {
       tap_code16(S(KC_SPC));
       break;
     case _IME_CHROMEOS:
-      tap_code(KC_INT4); // 未検証
+      tap_code16(C(KC_SPC));
       break;
   }
 }
@@ -193,7 +193,7 @@ void send_alpha(void) {
       tap_code16(S(KC_SPC));
       break;
     case _IME_CHROMEOS:
-      tap_code(KC_INT5); // 未検証
+      tap_code16(C(KC_SPC));
       break;
   }
 }
