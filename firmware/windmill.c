@@ -298,7 +298,7 @@ uint16_t translate_kana_to_ascii_android(uint16_t keycode) {
     case KA_XO:   return KC_AMPR; // ぉ
     case KA_XYA:  return KC_QUOT; // ゃ
     case KA_XYU:  return KC_LPRN; // ゅ
-    case KA_XYO:  return S(KC_9); // ょ ※打てない
+    case KA_XYO:  return KC_NO;   // ょ ※打てない
     case KA_DAKU: return KC_GRV;  // ゛
     case KA_HAN:  return KC_LBRC; // ゜
     case KA_CHOU: return KC_PIPE; // ー
