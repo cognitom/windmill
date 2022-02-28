@@ -29,11 +29,6 @@
         {K36, K37, K38, K39, K40, K41, K42, K43, K44, K45, K46, K47} \
     }
 
-// TODO: QMKのバージョンを上げて、以下3行を削除
-#define KC_LNG1 KC_LANG1
-#define KC_LNG2 KC_LANG2
-#define KC_NUM  0x53
-
 #define MOD_MASK_NONE 0x00
 
 // 各キーの対応は translate_kana_to_ascii() 関数の内容を参照のこと
