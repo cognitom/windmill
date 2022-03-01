@@ -32,6 +32,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./output/windmill.hex
+          asset_path: ./output/windmill-technik.hex
           asset_name: windmill.hex
           asset_content_type: application/octet-stream
