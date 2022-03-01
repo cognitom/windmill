@@ -71,6 +71,7 @@ uint8_t rgblight_remap(uint8_t pos) {
 #endif
 
 static uint8_t cached_keycolormap[LAYER_SIZE][MATRIX_ROWS * MATRIX_COLS];
+static uint8_t ime_indicators[5][2]; // IME_WIN ... IME_IOS
 static uint16_t idle_timer = 0;
 static uint8_t halfmin_counter = 0;
 static bool led_initialized = false;
@@ -128,6 +129,13 @@ void cache_keycolors(void) {
       for (int col = 0; col < MATRIX_COLS; ++col) {
         uint16_t keycode = keymap_key_to_keycode(layer, (keypos_t){.row = row, .col = col});
         cached_keycolormap[layer][row * 12 + col] = (keycode == _______) ? CL_TRANS : windmill_process_keycolor_user(keycode);
+
+        switch (keycode) {
+          case IME_WIN ... IME_IOS:
+            ime_indicators[keycode - IME_WIN][0] = layer;
+            ime_indicators[keycode - IME_WIN][1] = row * MATRIX_COLS + col;
+            break;
+        }
       }
     }
   }
@@ -351,6 +359,7 @@ bool process_keycode_fn(uint16_t keycode) {
       break;
     case IME_WIN ... IME_IOS:
       set_ime_type(_IME_WINDOWS + keycode - IME_WIN);
+      layer_state_set_kb(layer_state);
       break;
     default: 
       return true;
@@ -691,6 +700,11 @@ void keyboard_post_init_kb(void) {
 
 static uint8_t cached_keycolors[48];
 layer_state_t layer_state_set_kb(layer_state_t state) {
+  // IMEのモードを示すインジケーターの位置
+  const uint8_t ime_type = get_ime_type();
+  uint8_t ime_indicator[2] = { ime_indicators[ime_type][0], ime_indicators[ime_type][1] };
+
+  // どのレイヤーが有効化されているか
   bool layer_states[LAYER_SIZE];
   for (int layer = 0; layer < LAYER_SIZE; ++layer) {
     layer_states[layer] = layer_state_cmp(state, layer);
@@ -701,6 +715,8 @@ layer_state_t layer_state_set_kb(layer_state_t state) {
       if (!layer_states[layer]) continue;
       uint8_t keycolor = cached_keycolormap[layer][i];
       if (keycolor == CL_TRANS) continue;
+      // インジケーターの場合は色指定を上書き
+      if (layer == ime_indicator[0] && i == ime_indicator[1]) keycolor = 0;
       cached_keycolors[i] = keycolor;
       break;
     }

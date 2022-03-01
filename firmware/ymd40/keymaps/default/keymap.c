@@ -72,7 +72,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   ),
 
   [_FN] = LAYOUT_ortho_4x12(
-    RESET,   _______, IME_WIN, IME_AND, IME_CRM, _______, _______, _______, _______, _______, _______, RGB_TOG,
+    RESET,   IME_WIN, IME_AND, IME_CRM, IME_MAC, IME_IOS, _______, _______, _______, _______, _______, RGB_TOG,
     KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
     KC_DEL,  KC_PSCR, KC_INS,  _______, _______, KC_BRID, KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PGUP, KC_END,
     _______, _______, _______, _______, _______, KC_SPC,  KC_SPC,  _______, _______, _______, KC_HOME, KC_PGDN
@@ -85,6 +85,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  */
 
 enum keycolors {
+  CL_INDICATOR,
+  CL_CONFIG,
   CL_BASE,
   CL_SPECIAL,
   CL_SYMBOL,
@@ -95,22 +97,26 @@ enum keycolors {
 };
 
 const uint8_t colorset[][6] = {
-  //             Light              Dark
-  //             (R,    G,    B   ) (R,    G,    B   )
-  [CL_BASE]    = {0x00, 0x00, 0x00,  0x00, 0x00, 0x00},
-  [CL_SPECIAL] = {0xFF, 0x00, 0x00,  0x66, 0x00, 0x00},
-  [CL_SYMBOL]  = {0xFF, 0xCC, 0x00,  0x66, 0x55, 0x00},
-  [CL_NUMBER]  = {0x00, 0x66, 0xFF,  0x66, 0x55, 0x00},
-  [CL_BRACKET] = {0x00, 0xFF, 0x00,  0x66, 0x55, 0x00},
-  [CL_FUNC]    = {0xFF, 0x66, 0x00,  0x66, 0x55, 0x00},
-  [CL_MEDIA]   = {0xFF, 0xCC, 0x00,  0x66, 0x55, 0x00},
+  //               Light              Dark
+  //               (R,    G,    B   ) (R,    G,    B   )
+  [CL_INDICATOR] = {0xFF, 0xFF, 0xFF,  0x22, 0x22, 0x18},
+  [CL_CONFIG]    = {0x66, 0x66, 0x33,  0x06, 0x06, 0x03},
+  [CL_BASE]      = {0x00, 0x00, 0x00,  0x00, 0x00, 0x00},
+  [CL_SPECIAL]   = {0xFF, 0x00, 0x00,  0x11, 0x00, 0x00},
+  [CL_SYMBOL]    = {0xFF, 0xCC, 0x00,  0x09, 0x06, 0x00},
+  [CL_NUMBER]    = {0x00, 0x66, 0xFF,  0x09, 0x06, 0x00},
+  [CL_BRACKET]   = {0x00, 0xFF, 0x00,  0x09, 0x06, 0x00},
+  [CL_FUNC]      = {0xFF, 0x66, 0x00,  0x09, 0x06, 0x00},
+  [CL_MEDIA]     = {0xFF, 0xCC, 0x00,  0x09, 0x06, 0x00},
 };
 
 uint8_t windmill_process_keycolor_user(uint16_t keycode) {
   switch (keycode) {
+    case IME_WIN ... IME_IOS:
+      return CL_CONFIG;
     case KC_ENT ... KC_TAB: case KC_DEL: case KC_RGHT ... KC_NUM:
     case KC_APP: case KC_INT1 ... KC_LNG2: case KC_LCTL ... KC_RGUI:
-    case RGB_TOG: case RESET: case IME_WIN ... IME_IOS:
+    case RGB_TOG: case RESET:
       return CL_SPECIAL;
     case KC_MINS ... KC_EQL: case KC_BSLS ... KC_SLSH:
     case KC_EXLM ... KC_ASTR: case KC_UNDS ... KC_PLUS:
