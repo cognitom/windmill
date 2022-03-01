@@ -25,7 +25,8 @@ typedef union {
   struct {
     bool is_kana: 1;
     bool led_darkmode: 1;
-    uint8_t ime_type: 8; // Windows
+    uint8_t ime_type: 8;
+    uint8_t lang_type: 8;
   };
 } keyboard_config_t;
 keyboard_config_t keyboard_config;
@@ -72,6 +73,7 @@ uint8_t rgblight_remap(uint8_t pos) {
 
 static uint8_t cached_keycolormap[LAYER_SIZE][MATRIX_ROWS * MATRIX_COLS];
 static uint8_t ime_indicators[5][2]; // IME_WIN ... IME_IOS
+static uint8_t lang_indicators[5][2]; // JA_ROME ... JA_KANA
 static uint16_t idle_timer = 0;
 static uint8_t halfmin_counter = 0;
 static bool led_initialized = false;
@@ -135,6 +137,10 @@ void cache_keycolors(void) {
             ime_indicators[keycode - IME_WIN][0] = layer;
             ime_indicators[keycode - IME_WIN][1] = row * MATRIX_COLS + col;
             break;
+          case JA_ROME ... JA_KANA:
+            lang_indicators[keycode - JA_ROME][0] = layer;
+            lang_indicators[keycode - JA_ROME][1] = row * MATRIX_COLS + col;
+            break;
         }
       }
     }
@@ -148,12 +154,18 @@ void cache_keycolors(void) {
 enum ime_types {
   _IME_WINDOWS,
   _IME_ANDROID,
-  _IME_CHROMEOS, // not immplemented yet
+  _IME_CHROMEOS,
   _IME_MAC, // not immplemented yet
   _IME_IOS, // not immplemented yet
 };
+enum lang_types {
+  _LANG_JA_ROME,
+  _LANG_JA_ROKA,
+  _LANG_JA_KANA,
+};
 static bool _is_kana = false;
 static uint8_t _ime_type = _IME_WINDOWS;
+static uint8_t _lang_type = _LANG_JA_ROME;
 
 bool is_kana(void) {
   return _is_kana;
@@ -165,6 +177,15 @@ void set_ime_type(uint8_t ime_type) {
   _ime_type = ime_type;
 
   keyboard_config.ime_type = ime_type;
+  eeconfig_update_user(keyboard_config.raw);
+}
+uint8_t get_lang_type(void) {
+  return _lang_type;
+}
+void set_lang_type(uint8_t lang_type) {
+  _lang_type = lang_type;
+
+  keyboard_config.lang_type = lang_type;
   eeconfig_update_user(keyboard_config.raw);
 }
 
@@ -203,22 +224,24 @@ void send_alpha(void) {
 }
 
 void kana_on(void) {
-  _is_kana = true;
   layer_move(_ALPHA);
-  layer_on(_KANA);
+  if (_lang_type != _LANG_JA_ROME) {
+    layer_on(_KANA);
+    _is_kana = true;
+    keyboard_config.is_kana = true;
+    eeconfig_update_user(keyboard_config.raw);
+  }
   send_kana();
-  
-  keyboard_config.is_kana = true;
-  eeconfig_update_user(keyboard_config.raw);
 }
 
 void kana_off(void) {
-  _is_kana = false;
   layer_move(_ALPHA);
+  if (_lang_type != _LANG_JA_ROME) {
+    _is_kana = false;
+    keyboard_config.is_kana = false;
+    eeconfig_update_user(keyboard_config.raw);
+  }
   send_alpha();
-
-  keyboard_config.is_kana = false;
-  eeconfig_update_user(keyboard_config.raw);
 }
 
 // 独自キーコードからの変換
@@ -359,6 +382,10 @@ bool process_keycode_fn(uint16_t keycode) {
       break;
     case IME_WIN ... IME_IOS:
       set_ime_type(_IME_WINDOWS + keycode - IME_WIN);
+      layer_state_set_kb(layer_state);
+      break;
+    case JA_ROME ... JA_KANA:
+      set_lang_type(_LANG_JA_ROME + keycode - JA_ROME);
       layer_state_set_kb(layer_state);
       break;
     default: 
@@ -667,6 +694,9 @@ void load_keyboard_config(void) {
   if (_IME_WINDOWS <= keyboard_config.ime_type && keyboard_config.ime_type <= _IME_IOS) {
     _ime_type = keyboard_config.ime_type;
   }
+  if (_LANG_JA_ROME <= keyboard_config.lang_type && keyboard_config.lang_type <= _LANG_JA_KANA) {
+    _lang_type = keyboard_config.lang_type;
+  }
 }
 
 /*
@@ -704,6 +734,10 @@ layer_state_t layer_state_set_kb(layer_state_t state) {
   const uint8_t ime_type = get_ime_type();
   uint8_t ime_indicator[2] = { ime_indicators[ime_type][0], ime_indicators[ime_type][1] };
 
+  // 言語モードを示すインジケーターの位置
+  const uint8_t lang_type = get_lang_type();
+  uint8_t lang_indicator[2] = { lang_indicators[lang_type][0], lang_indicators[lang_type][1] };
+
   // どのレイヤーが有効化されているか
   bool layer_states[LAYER_SIZE];
   for (int layer = 0; layer < LAYER_SIZE; ++layer) {
@@ -717,6 +751,7 @@ layer_state_t layer_state_set_kb(layer_state_t state) {
       if (keycolor == CL_TRANS) continue;
       // インジケーターの場合は色指定を上書き
       if (layer == ime_indicator[0] && i == ime_indicator[1]) keycolor = 0;
+      if (layer == lang_indicator[0] && i == lang_indicator[1]) keycolor = 0;
       cached_keycolors[i] = keycolor;
       break;
     }

@@ -45,6 +45,8 @@ enum windmill_keycodes {
   KA_SPC,
   // 半角記号
   KA_QUES, KA_PIPE, KA_SLSH, KA_BSLS,
+  // 日本語入力モード
+  JA_ROME, JA_ROKA, JA_KANA, // ローマ字入力, ローマ字エミュレーション入力, かな入力
   // IME種別
   IME_WIN, IME_AND, IME_CRM, IME_MAC, IME_IOS,
 

@@ -72,7 +72,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   ),
 
   [_FN] = LAYOUT_ortho_4x12(
-    RESET,   IME_WIN, IME_AND, IME_CRM, IME_MAC, IME_IOS, _______, _______, _______, _______, _______, RGB_TOG,
+    RESET,   IME_WIN, IME_AND, IME_CRM, IME_MAC, IME_IOS, _______, _______, JA_ROME, JA_ROKA, JA_KANA, RGB_TOG,
     KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
     KC_DEL,  KC_PSCR, KC_INS,  _______, _______, KC_BRID, KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PGUP, KC_END,
     _______, _______, _______, _______, _______, KC_SPC,  KC_SPC,  _______, _______, _______, KC_HOME, KC_PGDN
@@ -112,7 +112,7 @@ const uint8_t colorset[][6] = {
 
 uint8_t windmill_process_keycolor_user(uint16_t keycode) {
   switch (keycode) {
-    case IME_WIN ... IME_IOS:
+    case IME_WIN ... IME_IOS: case JA_ROME ... JA_KANA:
       return CL_CONFIG;
     case KC_ENT ... KC_TAB: case KC_DEL: case KC_RGHT ... KC_NUM:
     case KC_APP: case KC_INT1 ... KC_LNG2: case KC_LCTL ... KC_RGUI:
