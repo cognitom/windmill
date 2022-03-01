@@ -20,27 +20,6 @@
   #include "print.h"
 #endif
 
-#ifdef RGB_MATRIX_ENABLE
-led_config_t g_led_config = { {
-    { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21},
-    { 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33},
-    { 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45},
-    { 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57}
-}, {
-    {220, 17}, {172, 17}, {112, 17}, { 50, 17}, {  4, 17}, {  4, 56}, { 50, 56}, {112, 56}, {172, 56}, {220, 56},
-    {  0,  0}, { 20,  0}, { 40,  0}, { 61,  0}, { 81,  0}, {101,  0}, {122,  0}, {142,  0}, {162,  0}, {183,  0}, {203,  0}, {224,  0},
-    {  0, 21}, { 20, 21}, { 40, 21}, { 61, 21}, { 81, 21}, {101, 21}, {122, 21}, {142, 21}, {162, 21}, {183, 21}, {203, 21}, {224, 21},
-    {  0, 42}, { 20, 42}, { 40, 42}, { 61, 42}, { 81, 42}, {101, 42}, {122, 42}, {142, 42}, {162, 42}, {183, 42}, {203, 42}, {224, 42},
-    {  0, 64}, { 20, 64}, { 40, 64}, { 61, 64}, { 81, 64}, {101, 64}, {122, 64}, {142, 64}, {162, 64}, {183, 64}, {203, 64}, {224, 64}
-}, {
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-    1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
-    1, 1, 1, 1, 1, 4, 4, 1, 1, 1, 1, 1
-} };
-#endif
-
 typedef union {
   uint32_t raw;
   struct {
@@ -76,6 +55,21 @@ void windmill_init_keycolors(uint8_t* user_colorset) {
 #define LAYER_SIZE 8 // 最大設定可能なレイヤー数
 #define RGB_STARTING_INDEX 10 // 最初の10個は底面のLEDなので、それを除外するための設定
 
+#ifdef RGBLIGHT_ENABLE
+// RGBLIGHT_LED_MAP の挙動がおかしい?ので、独自に
+// 本来は、ymd40のconfig.hで吸収したいので、ここに書くのは一時的な措置
+const uint8_t rgblight_remap_config[] = {
+  11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  0,
+  23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12,
+  35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24,
+  50, 49, 48, 47, 46, 44, 42, 40, 39, 38, 37, 36,
+  45, 43, 41
+};
+uint8_t rgblight_remap(uint8_t pos) {
+  return rgblight_remap_config[pos];
+}
+#endif
+
 static uint8_t cached_keycolormap[LAYER_SIZE][MATRIX_ROWS * MATRIX_COLS];
 static uint16_t idle_timer = 0;
 static uint8_t halfmin_counter = 0;
@@ -107,8 +101,10 @@ void update_rgb_matrix_timeout(void) {
   }
 
   if (led_on && halfmin_counter >= RGBMATRIX_TIMEOUT * 2) {
+#ifdef RGB_MATRIX_ENABLE
     rgb_matrix_sethsv(HSV_OFF);
     rgb_matrix_set_color_all(RGB_OFF);
+#endif
     led_on = false;
     halfmin_counter = 0;
   }
@@ -415,6 +411,7 @@ bool process_record_sym(uint16_t keycode, keyrecord_t *record) {
  */
 
 #define MOD_POOL_MAX 8
+#define MOD_MASK_NONE 0x00
 
 struct mod_sequence {
   bool is_active;
@@ -674,8 +671,15 @@ void keyboard_post_init_kb(void) {
   
   load_keyboard_config();
   keyboard_post_init_user();
+
+#ifdef RGB_MATRIX_ENABLE
   rgb_matrix_mode(RGB_MATRIX_NONE);
   rgb_matrix_sethsv(HSV_OFF);
+#elif defined(RGBLIGHT_ENABLE)
+  rgblight_mode(RGBLIGHT_MODE_STATIC_LIGHT);
+  rgblight_sethsv(HSV_OFF);
+#endif
+
   cache_keycolors();
   led_initialized = true;
 
@@ -701,9 +705,31 @@ layer_state_t layer_state_set_kb(layer_state_t state) {
       break;
     }
   }
+
+#ifdef RGBLIGHT_ENABLE
+  if (!led_darkmode) {
+    for (int i = 0; i < MATRIX_ROWS * MATRIX_COLS; ++i)
+      rgblight_setrgb_at(
+        *(colorsetPtr + cached_keycolors[i] * 6 + 0),
+        *(colorsetPtr + cached_keycolors[i] * 6 + 1),
+        *(colorsetPtr + cached_keycolors[i] * 6 + 2),
+        rgblight_remap(i)
+      );
+  } else {
+    for (int i = 0; i < MATRIX_ROWS * MATRIX_COLS; ++i)
+      rgblight_setrgb_at(
+        *(colorsetPtr + cached_keycolors[i] * 6 + 3),
+        *(colorsetPtr + cached_keycolors[i] * 6 + 4),
+        *(colorsetPtr + cached_keycolors[i] * 6 + 5),
+        rgblight_remap(i)
+      );
+  }
+#endif
+
   return state;
 }
 
+#ifdef RGB_MATRIX_ENABLE
 void rgb_matrix_indicators_kb(void) {
   if (!led_on || !led_initialized) return;
 
@@ -726,6 +752,7 @@ void rgb_matrix_indicators_kb(void) {
       *(colorsetPtr + cached_keycolors[i] * 6 + 5)
     );
 }
+#endif
 
 void matrix_scan_kb(void) {
   update_rgb_matrix_timeout();
