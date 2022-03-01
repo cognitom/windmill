@@ -24,6 +24,10 @@
   #include "ymd40.h"
 #endif
 
+#define KC_LNG1 KC_LANG1
+#define KC_LNG2 KC_LANG2
+#define KC_NUM  0x53
+
 // 各キーの対応は translate_kana_to_ascii() 関数の内容を参照のこと
 enum windmill_keycodes {
   // かな
