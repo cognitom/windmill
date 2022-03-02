@@ -351,11 +351,135 @@ uint16_t translate_special_to_ascii(uint16_t keycode) {
   return KC_NO;
 }
 
+// ローマ字かなエミュレーション
+static uint16_t roka_buffer = KC_NO;
+void tap_code_roka(uint16_t keycode) {
+  switch (keycode) {
+    case KA_A:    send_string("a");   break; // あ
+    case KA_I:    send_string("i");   break; // い
+    case KA_U:    send_string("u");   break; // う
+    case KA_E:    send_string("e");   break; // え
+    case KA_O:    send_string("o");   break; // お
+    case KA_KA:   send_string("ka");  break; // か
+    case KA_KI:   send_string("ki");  break; // き
+    case KA_KU:   send_string("ku");  break; // く
+    case KA_KE:   send_string("ke");  break; // け
+    case KA_KO:   send_string("ko");  break; // こ
+    case KA_SA:   send_string("sa");  break; // さ
+    case KA_SHI:  send_string("si");  break; // し
+    case KA_SU:   send_string("su");  break; // す
+    case KA_SE:   send_string("se");  break; // せ
+    case KA_SO:   send_string("so");  break; // そ
+    case KA_TA:   send_string("ta");  break; // た
+    case KA_CHI:  send_string("ti");  break; // ち
+    case KA_TSU:  send_string("tu");  break; // つ
+    case KA_TE:   send_string("te");  break; // て
+    case KA_TO:   send_string("to");  break; // と
+    case KA_NA:   send_string("na");  break; // な
+    case KA_NI:   send_string("ni");  break; // に
+    case KA_NU:   send_string("nu");  break; // ぬ
+    case KA_NE:   send_string("ne");  break; // ね
+    case KA_NO:   send_string("no");  break; // の
+    case KA_HA:   send_string("ha");  break; // は
+    case KA_HI:   send_string("hi");  break; // ひ
+    case KA_FU:   send_string("hu");  break; // ふ
+    case KA_HE:   send_string("he");  break; // へ
+    case KA_HO:   send_string("ho");  break; // ほ
+    case KA_MA:   send_string("ma");  break; // ま
+    case KA_MI:   send_string("mi");  break; // み
+    case KA_MU:   send_string("mu");  break; // む
+    case KA_ME:   send_string("me");  break; // め
+    case KA_MO:   send_string("mo");  break; // も
+    case KA_YA:   send_string("ya");  break; // や
+    case KA_YU:   send_string("yu");  break; // ゆ
+    case KA_YO:   send_string("yo");  break; // よ
+    case KA_RA:   send_string("ra");  break; // ら
+    case KA_RI:   send_string("ri");  break; // り
+    case KA_RU:   send_string("ru");  break; // る
+    case KA_RE:   send_string("re");  break; // れ
+    case KA_RO:   send_string("ro");  break; // ろ
+    case KA_WA:   send_string("wa");  break; // わ
+    case KA_WO:   send_string("wo");  break; // を
+    case KA_N:    send_string("nn");  break; // ん
+    case KA_XA:   send_string("xa");  break; // ぁ
+    case KA_XI:   send_string("xi");  break; // ぃ
+    case KA_XU:   send_string("xu");  break; // ぅ
+    case KA_XE:   send_string("xe");  break; // ぇ
+    case KA_XO:   send_string("xo");  break; // ぉ
+    case KA_XTSU: send_string("xtu"); break; // っ
+    case KA_XYA:  send_string("xya"); break; // ゃ
+    case KA_XYU:  send_string("xyu"); break; // ゅ
+    case KA_XYO:  send_string("xyo"); break; // ょ
+    case KA_LKAK: send_string("[");   break; // 「
+    case KA_RKAK: send_string("]");   break; // 」
+    case KA_DAKU:
+      switch (roka_buffer) {
+        case KA_U:   send_string("\bvu");  break; // ヴ
+        case KA_KA:  send_string("\bga");  break; // が
+        case KA_KI:  send_string("\bgi");  break; // ぎ
+        case KA_KU:  send_string("\bgu");  break; // ぐ
+        case KA_KE:  send_string("\bge");  break; // げ
+        case KA_KO:  send_string("\bgo");  break; // ご
+        case KA_SA:  send_string("\bza");  break; // ざ
+        case KA_SHI: send_string("\bzi");  break; // じ
+        case KA_SU:  send_string("\bzu");  break; // ず
+        case KA_SE:  send_string("\bze");  break; // ぜ
+        case KA_SO:  send_string("\bzo");  break; // ぞ
+        case KA_TA:  send_string("\bda");  break; // だ
+        case KA_CHI: send_string("\bdi");  break; // ぢ
+        case KA_TSU: send_string("\bdu");  break; // づ
+        case KA_TE:  send_string("\bde");  break; // で
+        case KA_TO:  send_string("\bdo");  break; // ど
+        case KA_HA:  send_string("\bba");  break; // ば
+        case KA_HI:  send_string("\bbi");  break; // び
+        case KA_FU:  send_string("\bbu");  break; // ぶ
+        case KA_HE:  send_string("\bbe");  break; // べ
+        case KA_HO:  send_string("\bbo");  break; // ぼ
+      }
+      break;
+    case KA_HAN:
+      switch (roka_buffer) {
+        case KA_HA:  send_string("\bpa");  break; // ぱ
+        case KA_HI:  send_string("\bpi");  break; // ぴ
+        case KA_FU:  send_string("\bpu");  break; // ぷ
+        case KA_HE:  send_string("\bpe");  break; // ぺ
+        case KA_HO:  send_string("\bpo");  break; // ぽ
+      }
+      break;
+    case KA_TEN:  send_string(",");   break; // 、
+    case KA_MARU: send_string(".");   break; // 。
+    case KA_NAKA: send_string("/");   break; // ・
+    case KA_CHOU: send_string("-");   break; // ー
+    case KA_SPC:  send_string(" ");   break; // Space
+  }
+  switch (keycode) {
+    case KA_U: case KA_KA ... KA_TO: case KA_HA ... KA_HO:
+      roka_buffer = keycode;
+      break;
+    default:
+      roka_buffer = KC_NO;
+      break;
+  }
+}
+
 /*
  * process_keycord_*
  */
 
+bool process_keycode_roka(uint16_t keycode) {
+  if (keycode < KA_A || KA_SPC < keycode) return true;
+
+  bool shifted = (get_mods() & MOD_MASK_SHIFT);
+  if (shifted) unregister_mods(MOD_MASK_SHIFT);
+  tap_code_roka(keycode);
+  if (shifted) register_mods(MOD_MASK_SHIFT);
+  return false;
+}
+
 bool process_keycode_kana(uint16_t keycode) {
+  uint8_t lang_type = get_lang_type();
+  if (lang_type == _LANG_JA_ROKA) return process_keycode_roka(keycode);
+
   uint16_t translated = translate_kana_to_ascii(keycode);
   if (translated == KC_NO) return true;
 
