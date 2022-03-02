@@ -63,10 +63,28 @@ Windmill is a keymap for 40% keyboards.
 
 | 独自キーコード | キー | 対象OS | 配列の認識 | IME |
 |--|--|--|--|--|
-| IME_WIN | <kbd>Fn</kbd>+<kbd>W</kbd> | Windows 11 | English (US) | Microsof IME |
-| IME_AND | <kbd>Fn</kbd>+<kbd>E</kbd> | Android | English (US) | Wnn Keyboard Lab |
-| IME_CRM | <kbd>Fn</kbd>+<kbd>R</kbd> | Chrome OS | -- | Japanese with US keyboard |
+| IME_WIN | <kbd>Fn</kbd>+<kbd>Q</kbd> | Windows 11 | English (US) | Microsof IME |
+| IME_AND | <kbd>Fn</kbd>+<kbd>W</kbd> | Android | English (US) | Wnn Keyboard Lab |
+| IME_CRM | <kbd>Fn</kbd>+<kbd>E</kbd> | Chrome OS | -- | Japanese with US keyboard |
 
 ※Android, Chrome OSでは、英数キー・かなキーがどちらもトグルになっています。
 
-※Androidでは「ょ」(拗音)の入力ができません。
+※Androidでは「ょ」(拗音)の入力ができません。後述のローマ字かなエミュレーションモードとの併用がオススメです。
+
+### 入力モードの切り替え
+
+Windmill は「かな入力」のために設計されましたが、ローマ字入力にも対応しています。
+
+| 独自キーコード | キー | 入力モード | IME設定 |
+|--|--|--|--|
+| JA_ROME | <kbd>Fn</kbd>+<kbd>I</kbd> | ローマ字 | ローマ字入力 |
+| JA_ROKA | <kbd>Fn</kbd>+<kbd>O</kbd> | ローマ字かなエミュレーション | ローマ字入力 |
+| JA_KANE | <kbd>Fn</kbd>+<kbd>P</kbd> | かな | かな入力 |
+
+### ローマ字かなエミュレーション
+
+ローマ字かなエミュレーション入力は、かな入力機能がないOSでも、かな打ちを実現するための機能です。例えば、「た」のキーを打つと自動的にアルファベット2文字(ta)が送出されます。
+
+通常のキーボードの場合、AndroidだとWnn Keyboard Labなどをインストールしないと「かな入力」できません。エミュレーションを使えば標準設定のまま、追加ソフトのインストールも不要で、そのままかな入力が可能です。
+
+ただ、Windowsの標準IMEなどとは相性が悪いようです。OS設定でかな入力が選択可能な場合はそちらを「かな」モードで使うのが無難です。
