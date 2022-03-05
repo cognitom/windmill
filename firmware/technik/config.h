@@ -40,7 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define RGB_MATRIX_MAXIMUM_BRIGHTNESS 120
 #define RGB_DISABLE_WHEN_USB_SUSPENDED true // turns off RGB Matrix while the PC is sleeping
 #ifdef RGBLIGHT_ENABLE
-#define RGBLED_NUM 10 // Number of LEDs
+  #define RGBLED_NUM 10 // Number of LEDs
 #endif
 
 #define DRIVER_LED_TOTAL 58

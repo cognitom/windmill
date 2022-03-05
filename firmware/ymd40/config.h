@@ -49,13 +49,13 @@
 #define BACKLIGHT_LEVELS 3
 
 #if defined(RGBLIGHT_ENABLE)
-    #define RGB_DI_PIN E2
-    #define RGBLED_NUM 51
-    #define RGBLIGHT_HUE_STEP 8
-    #define RGBLIGHT_SAT_STEP 8
-    #define RGBLIGHT_VAL_STEP 8
-    #define RGBLIGHT_LIMIT_VAL 150 /* The maximum brightness level */
-    #define RGBLIGHT_SLEEP  /* If defined, the RGB lighting will be switched off when the host goes to sleep */
+  #define RGB_DI_PIN E2
+  #define RGBLED_NUM 51
+  #define RGBLIGHT_HUE_STEP 8
+  #define RGBLIGHT_SAT_STEP 8
+  #define RGBLIGHT_VAL_STEP 8
+  #define RGBLIGHT_LIMIT_VAL 150 /* The maximum brightness level */
+  #define RGBLIGHT_SLEEP  /* If defined, the RGB lighting will be switched off when the host goes to sleep */
 #endif
 
 /* Dual-role keys setting */
