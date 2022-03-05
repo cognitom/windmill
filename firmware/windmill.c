@@ -107,6 +107,8 @@ void update_rgb_matrix_timeout(void) {
 #ifdef RGB_MATRIX_ENABLE
     rgb_matrix_sethsv(HSV_OFF);
     rgb_matrix_set_color_all(RGB_OFF);
+#elif defined(RGBLIGHT_ENABLE)
+    rgblight_sethsv(HSV_OFF);
 #endif
     led_on = false;
     halfmin_counter = 0;
