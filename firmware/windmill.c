@@ -48,29 +48,14 @@ void windmill_init_keycolors(uint8_t* user_colorset) {
 }
 
 /*
- * RGB Matrix
+ * RGB Matrix / Light
  */
 
 #define RGBMATRIX_TIMEOUT 10 // in minutes
 #define CL_TRANS 0xFF
 #define LAYER_SIZE 8 // 最大設定可能なレイヤー数
-#define RGB_STARTING_INDEX 10 // 最初の10個は底面のLEDなので、それを除外するための設定
 
-#ifdef RGBLIGHT_ENABLE
-// RGBLIGHT_LED_MAP の挙動がおかしい?ので、独自に
-// 本来は、ymd40のconfig.hで吸収したいので、ここに書くのは一時的な措置
-const uint8_t rgblight_remap_config[] = {
-  11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  0,
-  23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12,
-  35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24,
-  50, 49, 48, 47, 46, 44, 42, 40, 39, 38, 37, 36,
-  45, 43, 41
-};
-uint8_t rgblight_remap(uint8_t pos) {
-  return rgblight_remap_config[pos];
-}
-#endif
-
+extern const uint8_t lighting_map[48]; // 各キーボード側で定義
 static uint8_t cached_keycolormap[LAYER_SIZE][MATRIX_ROWS * MATRIX_COLS];
 static uint8_t ime_indicators[5][2]; // IME_WIN ... IME_IOS
 static uint8_t lang_indicators[5][2]; // JA_ROME ... JA_KANA
@@ -890,7 +875,7 @@ layer_state_t layer_state_set_kb(layer_state_t state) {
         *(colorsetPtr + cached_keycolors[i] * 6 + 0),
         *(colorsetPtr + cached_keycolors[i] * 6 + 1),
         *(colorsetPtr + cached_keycolors[i] * 6 + 2),
-        rgblight_remap(i)
+        lighting_map[i]
       );
   } else {
     for (int i = 0; i < MATRIX_ROWS * MATRIX_COLS; ++i)
@@ -898,7 +883,7 @@ layer_state_t layer_state_set_kb(layer_state_t state) {
         *(colorsetPtr + cached_keycolors[i] * 6 + 3),
         *(colorsetPtr + cached_keycolors[i] * 6 + 4),
         *(colorsetPtr + cached_keycolors[i] * 6 + 5),
-        rgblight_remap(i)
+        lighting_map[i]
       );
   }
 #endif
@@ -913,7 +898,7 @@ void rgb_matrix_indicators_kb(void) {
   if (!led_darkmode) {
     for (int i = 0; i < MATRIX_ROWS * MATRIX_COLS; ++i)
       rgb_matrix_set_color(
-        RGB_STARTING_INDEX + i,
+        lighting_map[i],
         *(colorsetPtr + cached_keycolors[i] * 6 + 0),
         *(colorsetPtr + cached_keycolors[i] * 6 + 1),
         *(colorsetPtr + cached_keycolors[i] * 6 + 2)
@@ -923,7 +908,7 @@ void rgb_matrix_indicators_kb(void) {
 
   for (int i = 0; i < MATRIX_ROWS * MATRIX_COLS; ++i)
     rgb_matrix_set_color(
-      RGB_STARTING_INDEX + i,
+      lighting_map[i],
       *(colorsetPtr + cached_keycolors[i] * 6 + 3),
       *(colorsetPtr + cached_keycolors[i] * 6 + 4),
       *(colorsetPtr + cached_keycolors[i] * 6 + 5)
