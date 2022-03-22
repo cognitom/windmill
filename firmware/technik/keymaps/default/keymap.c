@@ -26,20 +26,24 @@ enum layers {
   _FN,
 };
 
+enum custom_keycodes {
+  MY_SPC = WINDMILL_SAFE_RANGE,
+};
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [_ALPHA] = LAYOUT_ortho_4x12(
     KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
     KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
     KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LNG2, KC_LGUI, KC_LALT, KC_NUM,  KC_BSLS, KC_SPC,  KC_SPC,  KC_SLSH, KC_LNG1, KC_APP,  KC_LEFT, KC_DOWN
+    KC_LNG2, KC_LGUI, KC_LALT, KC_NUM,  KC_BSLS, MY_SPC,  MY_SPC,  KC_SLSH, KC_LNG1, KC_APP,  KC_LEFT, KC_DOWN
   ),
 
   [_ALPHA_SHIFTED] = LAYOUT_ortho_4x12(
     _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
     _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_COLN, KC_DQUO,
     _______, _______, _______, _______, _______, _______, _______, _______, KC_LT,   KC_GT,   _______, _______,
-    _______, _______, _______, _______, KC_PIPE, _______, _______, KC_QUES, _______, _______, _______, _______
+    _______, _______, _______, _______, KC_PIPE, KC_SPC,  KC_SPC,  KC_QUES, _______, _______, _______, _______
   ),
 
   [_NUMPAD] = LAYOUT_ortho_4x12(
@@ -155,8 +159,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   
   switch (keycode) {
     // Shift
-    case KC_SPC:
-      return windmill_modlayertap(keycode, record, MOD_MASK_SHIFT, _ALPHA_SHIFTED);
+    case MY_SPC:
+      return windmill_modlayertap(KC_SPC, record, MOD_MASK_SHIFT, _ALPHA_SHIFTED);
     case KA_KO:
     case KA_MI:
       return windmill_modlayertap(keycode, record, MOD_MASK_SHIFT, _KANA_SHIFTED);
