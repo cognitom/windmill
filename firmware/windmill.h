@@ -45,9 +45,9 @@ enum windmill_keycodes {
   KA_XA, KA_XI, KA_XU, KA_XE, KA_XO, KA_XTSU, KA_XYA, KA_XYU, KA_XYO,
   // 記号
   KA_LKAK, KA_RKAK, KA_DAKU, KA_HAN, KA_TEN, KA_MARU, KA_NAKA, KA_CHOU,
-  // 半角スペース
+  // 半角スペース ※常に非シフト
   KA_SPC,
-  // 半角記号
+  // 半角記号 ※一時的に直接入力に切り替える都合で、KC_*と別に定義している
   KA_QUES, KA_PIPE, KA_SLSH, KA_BSLS,
   // 日本語入力モード
   JA_ROME, JA_ROKA, JA_KANA, // ローマ字入力, ローマ字エミュレーション入力, かな入力
