@@ -732,6 +732,7 @@ void windmill_tap_code(uint16_t keycode) {
   if (!process_keycode_fn(keycode)) return;
   if (!process_keycode_sym(keycode)) return;
   if (!process_weakmod_activation(keycode)) return;
+  if (keycode >= WINDMILL_SAFE_RANGE) return; // QuickTapに独自キーが渡される場合についての暫定対処
   tap_code16(keycode);
 }
 
