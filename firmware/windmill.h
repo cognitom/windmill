@@ -1,4 +1,4 @@
-/* Copyright 2021 Tsutomu Kawamura
+/* Copyright 2021-2026 Tsutomu Kawamura
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,57 +18,45 @@
 
 #include "quantum.h"
 
-#if defined(KEYBOARD_windmill_technik)
-  #include "technik.h"
-#elif defined(KEYBOARD_windmill_ymd40)
-  #include "ymd40.h"
-#endif
+/* レイヤー番号。keymaps[] の並びと一致させること */
+#define LAYER_KANA  0 // かな。OS側のIMEを「かな入力」にして使う
+#define LAYER_ALPHA 1 // 英数
+#define LAYER_SYM   2 // 数字・記号
+#define LAYER_FN    3 // ファンクション・メディア・設定
+#define LAYER_SIZE  4
 
-#define KC_LNG1 KC_LANG1
-#define KC_LNG2 KC_LANG2
-#define KC_NUM  0x53
+/* 親指Shift。keymaps[] のレイヤー0で使っているものと一致させること */
+#define THUMB_SHIFT_B LSFT_T(KC_B)
+#define THUMB_SHIFT_N RSFT_T(KC_N)
 
-// 各キーの対応は translate_kana_to_ascii() 関数の内容を参照のこと
+/* geonix41/minipeg48 から移植したカスタムキーコード。
+ * MY_W 〜 MY_A は my_shift_pairs[] のインデックス (keycode - MY_W) に
+ * 使っているので、並び順を変えないこと。 */
 enum windmill_keycodes {
-  // かな
-  KA_A = SAFE_RANGE, KA_I, KA_U, KA_E, KA_O,
-  KA_KA, KA_KI, KA_KU, KA_KE, KA_KO,
-  KA_SA, KA_SHI, KA_SU, KA_SE, KA_SO,
-  KA_TA, KA_CHI, KA_TSU, KA_TE, KA_TO,
-  KA_NA, KA_NI, KA_NU, KA_NE, KA_NO,
-  KA_HA, KA_HI, KA_FU, KA_HE, KA_HO,
-  KA_MA, KA_MI, KA_MU, KA_ME, KA_MO,
-  KA_YA, KA_YU, KA_YO,
-  KA_RA, KA_RI, KA_RU, KA_RE, KA_RO,
-  KA_WA, KA_WO, KA_N,
-  // 拗音
-  KA_XA, KA_XI, KA_XU, KA_XE, KA_XO, KA_XTSU, KA_XYA, KA_XYU, KA_XYO,
-  // 記号
-  KA_LKAK, KA_RKAK, KA_DAKU, KA_HAN, KA_TEN, KA_MARU, KA_NAKA, KA_CHOU,
-  // 半角スペース ※常に非シフト
-  KA_SPC,
-  // 半角記号 ※一時的に直接入力に切り替える都合で、KC_*と別に定義している
-  KA_QUES, KA_PIPE, KA_SLSH, KA_BSLS,
-  // 日本語入力モード
-  JA_ROME, JA_ROKA, JA_KANA, // ローマ字入力, ローマ字エミュレーション入力, かな入力
-  // IME種別
-  IME_WIN, IME_AND, IME_CRM, IME_MAC, IME_IOS,
-
-  WINDMILL_SAFE_RANGE
+    MY_O = QK_KB_0, // Shift時: 「
+    MY_P,           // Shift時: 」
+    MY_LCTL,        // tap: 英数, double-tap: かな, hold: Ctrl + 英数レイヤー
+    MY_W,           // Shift時: +
+    MY_R,           // Shift時: バックスラッシュ
+    MY_U,           // Shift時: -
+    MY_LBRC,        // Shift時: ]
+    MY_K,           // Shift時: <
+    MY_L,           // Shift時: >
+    MY_SCLN,        // Shift時: ?
+    MY_QUOT,        // Shift時: _
+    MY_A,           // Shift時: Z
+    MY_WIN,         // MY_O/MY_PのShift時出力をWindows/デスクトップ向けに (EEPROM保存)
+    MY_ANDR,        // MY_O/MY_PのShift時出力をAndroid向けに (EEPROM保存)
+    MY_DARK,        // LEDの明るさ 強/弱 を切り替え (EEPROM保存)
 };
 
-void windmill_init_layers(int alpha_layer, int numpad_layer, int kana_layer, int sym_layer);
-void windmill_init_keycolors(uint8_t* user_colorset);
+/* keymap.c 側で定義する配色テーブルを登録する。
+ * colorset は [色][6] = {明るい時のR,G,B, 暗い時のR,G,B} の配列。 */
+void windmill_init_keycolors(uint8_t *user_colorset);
+
+/* keymap.c 側で実装する。キーコードを配色カテゴリ (colorset の添字) に分類する。
+ * dual-role キーは windmill_base_keycode() でタップ側に展開してから渡される。 */
 uint8_t windmill_process_keycolor_user(uint16_t keycode);
 
-bool windmill_modlayertap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask, uint8_t layer_to_activate);
-bool windmill_modtap(uint16_t keycode, keyrecord_t *record, uint8_t mod_mask);
-bool windmill_layertap(uint16_t keycode, keyrecord_t *record, uint8_t layer_to_activate);
-
-bool is_kana(void);
-void send_kana(void);
-void send_alpha(void);
-void kana_on(void);
-void kana_off(void);
-
-void windmill_tap_code(uint16_t keycode);
+/* MT()/LT() をタップ側のキーコードに展開する。それ以外はそのまま返す。 */
+uint16_t windmill_base_keycode(uint16_t keycode);
