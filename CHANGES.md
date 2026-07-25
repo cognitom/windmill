@@ -1,0 +1,324 @@
+# 変更履歴
+
+## v3.0.0 (未リリース)
+
+QMKを **0.14.25 → 0.33.11** へ更新。あわせて、当時のQMKに無かった機能を自前実装していた
+部分を捨てて、[geonix41/minipeg48](https://github.com/cognitom/qmk_firmware_geonix41/tree/geonix41-customized-layout/keyboards/geonix41/minipeg48)
+で書き直したQMK標準ベースの実装へ移植した。
+
+そのままではビルドできなくなっていたのが発端。QMK 0.14 以降で
+`config_common.h` / `RESET` / `RGB_TOG` / `DRIVER_LED_TOTAL` / `RGB_DI_PIN` /
+`RGBLED_NUM` / `NO_ACTION_MACRO` などが軒並み削除されている。
+
+**LEDの光らせ方 (キー種別ごとの配色) と、明るさ 強/弱 のトグルは従来どおり。**
+
+---
+
+### 破壊的変更: キー配列
+
+#### かな配列が変わった
+
+以前は `KA_*` という独自キーコードを定義し、firmware 内で JISかな相当の ASCII
+(例: 「あ」→ `KC_3`) に変換していた。そのうえで、英語配列では修飾キーが並ぶ最下段も
+かなに使う独自の4段配置にしていた。
+
+現在は **firmware 側で一切変換せず、OSのIMEの「かな入力」に任せる**。レイヤー0を
+素のQWERTY+数字段にしてあるので、標準のJISかな配置がそのまま出る。
+
+#### レイヤー構成: 7 → 4
+
+| 旧 | 新 |
+|--|--|
+| `_ALPHA` / `_ALPHA_SHIFTED` / `_NUMPAD` / `_KANA` / `_KANA_SHIFTED` / `_SYM` / `_FN` | `LAYER_KANA`(0) / `LAYER_ALPHA`(1) / `LAYER_SYM`(2) / `LAYER_FN`(3) |
+
+- `_ALPHA_SHIFTED` / `_KANA_SHIFTED` は、Shift時の出し分けをテーブル引き
+  (`my_shift_pairs[]`) に置き換えたため不要になった
+- `_NUMPAD` は廃止 (移植元に無い)
+- レイヤー0とレイヤー1がベースレイヤーで、`default_layer_set()` で切り替える。
+  レイヤー1で透過のキーはQMKの仕様どおりレイヤー0へ落ちる
+
+#### レイヤー0 — かな
+
+|  |  |  |  |  |  |  |  |  |  |  |  |
+|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| Esc | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 | Enter |
+| Tab | Q | W | E | R | T | Y | U | I | O | P | [ |
+| BS | A | S | D | F | G | H | J | K | L | ; | ' |
+| MY_LCTL | Z | X | C | V | B | N | M | , | . | / | ` |
+
+最下段のホールド動作:
+
+| キー | タップ | ホールド |
+|--|--|--|
+| 左端 (`MY_LCTL`) | 英数 (2回タップでかな) | Ctrl + 英数レイヤー |
+| Z | Z | GUI |
+| X | X | Alt |
+| C / , | C / , | Fn (レイヤー3) |
+| V / M | V / M | Sym (レイヤー2) |
+| B / N | B / N | Shift |
+
+#### レイヤー1 — 英数
+
+|  |  |  |  |  |  |  |  |  |  |  |  |
+|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| (Esc) | Q | W | E | R | T | Y | U | I | O | P | (Enter) |
+| (Tab) | A | S | D | F | G | H | J | K | L | ; | ' |
+| (BS) | Z | X | C | V | B | N | M | , | . | ↑ | → |
+| (MY_LCTL) | GUI | Alt | Fn | Sym \ | Space | Space | Sym / | Fn | App | ← | ↓ |
+
+括弧付きは透過でレイヤー0から落ちてくるもの。Space はホールドで Shift (SandS)。
+風車状のカーソル配置は従来どおり。
+
+#### レイヤー2 — Sym
+
+|  |  |  |  |  |  |  |  |  |  |  |  |
+|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 | |
+| | ! | @ | # | $ | % | ^ | & | * | ( | ) | ` |
+| | = | + | - | _ | [ | ] | ~ | { | } | ↑ | → |
+| | | | | | \| | ? | | | | ← | ↓ |
+
+#### レイヤー3 — Fn
+
+|  |  |  |  |  |  |  |  |  |  |  |  |
+|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| MY_WIN | | | MY_ANDR | | | | | | | QK_BOOT | MY_DARK |
+| F1 | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 | F10 | F11 | F12 |
+| Del | PrtSc | | | | 輝度- | 輝度+ | ミュート | 音量- | 音量+ | ↑ | → |
+| | | | | | | | | | | ← | ↓ |
+
+#### Shiftで別の記号を出すキー
+
+IMEをかな入力にしていると通常の位置では打てない記号を、Shift側に逃がしている。
+
+| キー | W | R | U | [ | K | L | ; | ' | A | O | P |
+|--|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| Shift時 | + | \ | - | ] | < | > | ? | _ | Z | 「 | 」 |
+
+親指Shift (B/N) を押しながらそのキー自身をタップすると半角スペース。ただしShift開始後に
+他のキーを押していた場合は、誤入力ガードとして何も出さない。
+
+#### `MY_LCTL` — 英数 / かな / Ctrl
+
+| 操作 | 動作 |
+|--|--|
+| 1回タップ | `KC_LNG2` (英数) + ベースレイヤーを1へ |
+| 2回タップ | `KC_LNG1` (かな) + ベースレイヤーを0へ |
+| ホールド | Ctrl + 英数レイヤー |
+
+ホールド中は英数レイヤーになるので、かな入力中でも <kbd>Ctrl</kbd>+<kbd>C</kbd> などが
+そのまま打てる。旧版の「かな入力時にCtrl+矢印をキャンセルする」ワークアラウンドは不要に
+なったので削除した。
+
+かなのままSymレイヤーの数字・記号を打った場合は、`KC_LNG2` → キー → `KC_LNG1` の順に
+送出して全角になるのを防ぐ (IMEの切り替えが非同期なので間に30msのウェイトを挟んでいる。
+`LT2_IME_WAIT_MS` で調整可)。
+
+#### 廃止した機能
+
+- **ローマ字かなエミュレーション** (`JA_ROKA`) — 「た」で "ta" を送出していたもの
+- **入力モードの切り替え** (`JA_ROME` / `JA_ROKA` / `JA_KANA`)
+- **IME種別5種** (`IME_WIN` / `IME_AND` / `IME_CRM` / `IME_MAC` / `IME_IOS`)
+  → 「」の出し分け用に `MY_WIN` / `MY_ANDR` の2種のみ残した
+- **LEDインジケーター** — IME種別・言語モードのキーを白く光らせていたもの
+- **`_NUMPAD` レイヤー**
+- **独自の tap-hold** (Mod Seq / Quick Tap)
+
+#### キーコードの変更
+
+| 旧 | 新 |
+|--|--|
+| `RGB_TOG` (LED明暗トグル) | `MY_DARK` — 物理位置は Fn+Enter のまま |
+| `RESET` | `QK_BOOT` — Fnレイヤー最上段の右から2番目 |
+| `KA_*` (67個) | 廃止 |
+| `IME_WIN` 〜 `IME_IOS` | `MY_WIN` / `MY_ANDR` |
+| `JA_ROME` / `JA_ROKA` / `JA_KANA` | 廃止 |
+
+カスタムキーコードの起点も `SAFE_RANGE` から `QK_KB_0` へ変更した。
+
+---
+
+### 独自実装 → QMK標準への置き換え
+
+`firmware/windmill.c` は 939行 → 約400行になった。
+
+| 旧 (独自実装) | 新 |
+|--|--|
+| Mod Seq (`windmill_modtap` / `windmill_layertap` / `windmill_modlayertap`) | `MT()` / `LT()` + `hold_on_other_key_press` |
+| Quick Tap (`SECOND_TAPPING_TERM` / `THIRD_TAPPING_TERM`) | 廃止。`tapping.term` (200ms) のみ |
+| `windmill_tap_code()` (独自キーコード対応の拡張版 `tap_code`) | 廃止 |
+| `KA_*` + `translate_kana_to_ascii()` | 廃止。OSのIMEに任せる |
+| `tap_code_roka()` (ローマ字かなエミュレーション) | 廃止 |
+| ALT/GUIのweakmod (単打時に修飾を送らない) | `LGUI_T()` / `LALT_T()` |
+| かな入力時のCtrl+矢印の回避 (`is_ctrl_canceled`) | 廃止。Ctrlホールド中は英数レイヤーなので不要 |
+| `is_kana` のEEPROM保存 | 廃止。`default_layer_set()` で切り替え (EEPROMを書かない) |
+| SandS の自前実装 | `LSFT_T(KC_SPC)` |
+
+`TAPPING_TERM = 0` + 独自処理をやめ、`hold_on_other_key_press` を使うようにした。
+`permissive_hold` では「シフトdown→キーdown→シフトup→キーup」の順でシフトが効かない
+問題があったが、`hold_on_other_key_press` は「ホールド中に他のキーが押された時点で
+ホールド確定」なので、離す順序に依存しない。
+
+#### 残っている独自実装 (`firmware/windmill.c`)
+
+- `MY_LCTL` の tap / double-tap / hold の状態機械 (`td_phase`)。
+  QMKのTap Danceではなく手書きなのは、別キー割り込みで tapping term を待たずに
+  ホールド確定させたい (`pre_process_record_kb()`) のと、確定時に `default_layer_set()`
+  も呼びたいため
+- `process_shift_pair()` + `my_shift_pairs[]` — QMKの Key Override 相当。
+  **`MY_W` 〜 `MY_A` は `keycode - MY_W` でテーブルを引くので、`windmill.h` の enum の
+  並び順を変えないこと**
+- `process_thumb_shift()` — 親指Shift中のタップで半角スペース
+- Symレイヤーの数字・記号のIMEラップ
+
+---
+
+### 維持したもの: LEDの配色
+
+キーコードの種類ごとに色を割り当てる独自実装は、そのまま残している。
+
+- `keymap.c` の `windmill_process_keycolor_user()` がキーコードを配色カテゴリに分類
+- `keymap.c` の `colorset[][6]` が `{明るい時のRGB, 暗い時のRGB}` を持つ
+  (technikは暗め、ymd40は明るめで別々の値)
+- 各キーボードの `.c` の `lighting_map[]` が「行×列」の並びをLEDの番号へ対応させる
+- 起動時に全レイヤー分を `cached_keycolormap[]` に焼き、レイヤーが変わるたびに上の
+  レイヤーから透過でない色を拾って `cached_keycolors[]` を作り直す
+- 10分間操作がないと消灯。次の打鍵で点灯し、その打鍵自体は入力されない
+- 明暗トグルはEEPROMに保存され、USBを挿し直しても保持される
+
+配色まわりで直したところ:
+
+- **`default_layer_state_set_kb()` を追加** — `MY_LCTL` がベースレイヤーを切り替えるので、
+  これがないと かな⇔英数 でLEDが追従しない
+- **`windmill_base_keycode()` を追加** — 新キーマップは `LT(2,KC_V)` / `LSFT_T(KC_B)` /
+  `LGUI_T(KC_Z)` のような合成キーコードを多用するため、分類前にタップ側へ展開する。
+  `S(KC_1)` などのシフト付きは展開せず、記号として分類する
+- **色の解決をQMKのキーコード解決と揃えた** — `layer_state | default_layer_state` を
+  上から走査し、どれも透過ならレイヤー0の色 (`layer_switch_get_layer()` と同じ挙動)
+- `rgb_matrix_mode()` / `rgb_matrix_sethsv()` は毎起動でEEPROMを書くので `_noeeprom` 版へ
+- 消灯タイムアウト時の `rgblight_sethsv()` も `_noeeprom` 版へ (10分ごとにEEPROMを
+  書いていた)
+- ymd40 (RGBLight) は消灯からの復帰時に塗り直していなかったので、`apply_keycolors()` を
+  呼ぶようにした
+- `LAYER_SIZE` 8 → 4
+- `rgb_matrix_indicators_kb()` のシグネチャが `void` → `bool` に変わったのに追従
+
+---
+
+### リポジトリ構成
+
+#### `keyboard.json` への統合
+
+`info.json` + `config.h` + `rules.mk` + `<keyboard>.h` を `keyboard.json` 1ファイルに
+まとめた。`technik.h` / `ymd40.h` の `LAYOUT_ortho_4x12` マクロは QMK が自動生成するので
+不要になった (`QMK_KEYBOARD_H` が生成ヘッダを指す)。
+
+`config.h` も作っていない。`tapping.term` と `hold_on_other_key_press` が
+データ駆動になったため、残す設定が無くなったから。
+
+```
+firmware/
+  windmill.h                        共有: カスタムキーコード + レイヤー番号
+  windmill.c                        共有: キー処理 + LEDエンジン
+  technik/
+    keyboard.json                   ← info.json + config.h + rules.mk + technik.h
+    technik.c                       lighting_map[] のみ (g_led_config は json へ移動)
+    readme.md                       qmk lint --strict が要求する
+    keymaps/default/keymap.c        keymaps[] + colorset[] + 配色の分類
+  ymd40/                            (同構成)
+```
+
+- **ymd40 の独自定義を残した理由**: 本家QMKの `ymdk/ymd40/v2` は RGB が 8灯の想定だが、
+  実機は 51灯。本家のキーマップとして書く方式は採れない
+- **technik** は本家 `boardsource/technik_o` とマトリクスピン・LED配置が完全一致するので、
+  `keyboard.json` はそちらをベースにした
+- **ymd40 の 2u バリアント4レイアウト** (`LAYOUT_ortho_4x12_2x2u` など) を削除した。
+  `info.json` に宣言だけあってマクロの実体が `ymd40.h` に無く、使えない状態だったため
+- `build.lto: true` を有効化。RGBのアニメーションは自前描画しか使わないので全て無効化
+
+#### 削除したファイル
+
+```
+firmware/technik/{info.json, config.h, rules.mk, technik.h}
+firmware/ymd40/{info.json, config.h, rules.mk, ymd40.h}
+```
+
+**`NO_ACTION_TAPPING`** が `config.h` にあった。独自 Mod Seq 用の設定だが、QMK標準の
+tap-hold へ移行した以上これを残すと `LT`/`MT` が全く効かなくなる。
+
+---
+
+### ビルド / CI
+
+#### `scripts/`
+
+- `Dockerfile`: `ARG QMK_VERSION` を 0.14.25 → **0.33.11**
+- `build.sh`: Dockerイメージのタグに QMK のバージョンを含めるようにした。以前は
+  `windmill-qmk` 固定だったので、バージョンを上げてもイメージが作り直されなかった。
+  現行QMKで未使用の `ALT_GET_KEYBOARDS` を削除
+- `entrypoint.sh`: `set -euo pipefail` を追加。以前はビルドが失敗しても `mv` に進んで
+  終了コード0で終わっていた。あわせてビルド前に `qmk lint --strict` を走らせるようにした
+
+#### `.github/workflows/main.yml`
+
+- **リリースへのアップロードが失敗していたのを修正**。`asset_path` が
+  `./output/windmill-technik.hex` (ハイフン) だったが、実際の出力は
+  `windmill_technik.hex` (アンダースコア) だった
+- **ymd40 の hex がリリースに含まれていなかった**ので、両方添付するようにした
+- archived な `actions/create-release@v1` + `actions/upload-release-asset@v1` を
+  `softprops/action-gh-release@v2` の1ステップへ。`actions/checkout@v2` → `@v4`
+- タグのpush時だけでなく、**通常のpush / PR でもビルドを走らせるジョブ**を追加した
+
+#### リリース資産名の変更
+
+| 旧 | 新 |
+|--|--|
+| `windmill.hex` (technikのみ) | `windmill_technik.hex` / `windmill_ymd40.hex` |
+
+---
+
+### ビルド検証
+
+QMK 0.33.11 + avr-gcc 7.3 でビルド。警告なし、`qmk lint --strict` 通過。
+
+| | Flash | RAM |
+|--|--|--|
+| technik | 16598 / 28672 (57%) | 1103 / 2560 (43%) |
+| ymd40 | 17400 / 28672 (60%) | 844 / 2560 (33%) |
+
+配色の分類については、`keymap.c` から分類関数とキーマップを機械的に抜き出して
+ホスト側で全192キー分を評価し、意図したカテゴリになることを確認した。
+
+**実機での確認は未実施。** 以下は要確認:
+
+- かな⇔英数 の切り替えと、それに追従するLEDの色替え
+- `MY_DARK` の明暗トグルと、USB挿し直し後の保持
+- 親指Shift (tap=B/N, hold=Shift, Shift中のtap=半角スペース)
+- かなモードでSymレイヤーの数字・記号が全角にならないか (`LT2_IME_WAIT_MS` の調整)
+- `MY_WIN` / `MY_ANDR` による 「」 の出し分け
+
+---
+
+### ドキュメントについて
+
+**`README.md` と `docs/` 配下は v2.0.2 のままで、上記の変更が反映されていない。**
+旧かな配列、ローマ字かなエミュレーション、IME種別5種、Mod Seq / Quick Tap、
+`windmill_tap_code()` など、既に存在しない機能の説明が残っている。
+リリース資産名も `windmill.hex` のままになっている。
+
+`docs/images/layout-main.png` / `docs/images/layout-kana.png` も旧かな配列の図で、
+現在のキーマップとは一致しない。
+
+Androidで使う場合の注意 (移植元の readme より):
+
+- Android側の「物理キーボードのレイアウト」を **「英語（アメリカ）」** にすること。
+  このキーボードはUS配列 (ANSI) としてキーコードを送るため、日本語IMEを使う場合でも
+  「日本語 109A 配列」ではなく「英語（アメリカ）」が正しい。109A配列のままだと
+  Android側がJIS配列として解釈するので `@` `[` `]` `:` などが入らない
+- あわせてFnレイヤーの `MY_ANDR` を押しておくこと
+
+---
+
+## v2.0.2 以前
+
+コミット履歴を参照。
