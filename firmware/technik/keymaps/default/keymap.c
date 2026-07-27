@@ -81,7 +81,18 @@ const uint8_t colorset[][6] = {
 
 /* dual-role キーはタップ側のキーコードに展開されてから渡される。
  * S(KC_x) はそのまま (シフト付きの記号として分類したいため)。 */
-uint8_t windmill_process_keycolor_user(uint16_t keycode) {
+uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode) {
+  /* かなレイヤーはOSのIMEがかなに変換するので、キーコードからは色を決められない
+   * (KC_1 は「ぬ」、KC_SLSH は「め」…)。かなが打てるキーは全て CL_BASE にする。 */
+  if (layer == LAYER_KANA) {
+    switch (keycode) {
+      case KC_ENT ... KC_TAB: // Enter, Esc, BSpc, Tab
+      case MY_LCTL:           // 英数/かな
+        return CL_SPECIAL;
+    }
+    return CL_BASE;
+  }
+
   switch (keycode) {
     case MY_WIN: case MY_ANDR: case MY_DARK: case QK_BOOT:
       return CL_CONFIG;

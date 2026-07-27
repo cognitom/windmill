@@ -193,6 +193,12 @@ IMEをかな入力にしていると通常の位置では打てない記号を�
 - **`windmill_base_keycode()` を追加** — 新キーマップは `LT(2,KC_V)` / `LSFT_T(KC_B)` /
   `LGUI_T(KC_Z)` のような合成キーコードを多用するため、分類前にタップ側へ展開する。
   `S(KC_1)` などのシフト付きは展開せず、記号として分類する
+- **`windmill_process_keycolor_user()` にレイヤー番号を渡すようにした** —
+  かなレイヤー (レイヤー0) はOSのIMEが変換するので、キーコードと実際に入る文字が
+  食い違う (`KC_1` は「ぬ」、`KC_SLSH` は「め」)。キーコードで分類すると数字段や記号キーが
+  数字・記号の色になってしまうため、レイヤー0だけは `Esc` / `Enter` / `Tab` / `BS` /
+  英数かな (`MY_LCTL`) を `CL_SPECIAL`、残りは全て `CL_BASE` に固定する。
+  v2.0.2 では `_KANA` レイヤーが `KA_*` 専用キーコードだったのでこの問題は起きなかった
 - **色の解決をQMKのキーコード解決と揃えた** — `layer_state | default_layer_state` を
   上から走査し、どれも透過ならレイヤー0の色 (`layer_switch_get_layer()` と同じ挙動)
 - `rgb_matrix_mode()` / `rgb_matrix_sethsv()` は毎起動でEEPROMを書くので `_noeeprom` 版へ

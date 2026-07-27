@@ -55,8 +55,10 @@ enum windmill_keycodes {
 void windmill_init_keycolors(uint8_t *user_colorset);
 
 /* keymap.c 側で実装する。キーコードを配色カテゴリ (colorset の添字) に分類する。
- * dual-role キーは windmill_base_keycode() でタップ側に展開してから渡される。 */
-uint8_t windmill_process_keycolor_user(uint16_t keycode);
+ * dual-role キーは windmill_base_keycode() でタップ側に展開してから渡される。
+ * レイヤー0 (かな) はOSのIMEがかなに変換するのでキーコードから色を決められない。
+ * そのため、どのレイヤーの分なのかを layer で渡す。 */
+uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode);
 
 /* MT()/LT() をタップ側のキーコードに展開する。それ以外はそのまま返す。 */
 uint16_t windmill_base_keycode(uint16_t keycode);

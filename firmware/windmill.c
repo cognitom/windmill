@@ -70,7 +70,7 @@ static void cache_keycolors(void) {
             for (uint8_t col = 0; col < MATRIX_COLS; ++col) {
                 uint16_t keycode = keymap_key_to_keycode(layer, (keypos_t){.row = row, .col = col});
                 cached_keycolormap[layer][row * MATRIX_COLS + col] =
-                    (keycode == KC_TRANSPARENT) ? CL_TRANS : windmill_process_keycolor_user(windmill_base_keycode(keycode));
+                    (keycode == KC_TRANSPARENT) ? CL_TRANS : windmill_process_keycolor_user(layer, windmill_base_keycode(keycode));
             }
         }
     }
