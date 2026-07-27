@@ -94,4 +94,4 @@ Copyright (c) 2021-2026 Tsutomu Kawamura
 
 - `technik`: QMKの [`boardsource/technik_o`](https://github.com/qmk/qmk_firmware/tree/master/keyboards/boardsource/technik_o)
 - `ymd40`: QMKの [`ymdk/ymd40/v2`](https://github.com/qmk/qmk_firmware/tree/master/keyboards/ymdk/ymd40) (LEDの数を実機に合わせて変更)
-- `minipeg48`: [cognitom/qmk_firmware_geonix41](https://github.com/cognitom/qmk_firmware_geonix41/tree/geonix41-customized-layout/keyboards/geonix41/minipeg48) ([sporewoh minipeg48](https://github.com/ChrisChrisLoLo/minipeg48) 向け)
+- `minipeg48`: [sporewoh minipeg48](https://github.com/ChrisChrisLoLo/minipeg48) (本家QMKには未収録)
