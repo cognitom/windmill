@@ -18,6 +18,11 @@
 
 #include "quantum.h"
 
+/* LEDの配色処理を持つかどうか。minipeg48 はLED非搭載なので丸ごと外れる */
+#if defined(RGB_MATRIX_ENABLE) || defined(RGBLIGHT_ENABLE)
+#    define WINDMILL_LED_ENABLE
+#endif
+
 /* レイヤー番号。keymaps[] の並びと一致させること */
 #define LAYER_KANA  0 // かな。OS側のIMEを「かな入力」にして使う
 #define LAYER_ALPHA 1 // 英数
@@ -47,8 +52,10 @@ enum windmill_keycodes {
     MY_A,           // Shift時: Z
     MY_WIN,         // MY_O/MY_PのShift時出力をWindows/デスクトップ向けに (EEPROM保存)
     MY_ANDR,        // MY_O/MY_PのShift時出力をAndroid向けに (EEPROM保存)
-    MY_DARK,        // LEDの明るさ 強/弱 を切り替え (EEPROM保存)
+    MY_DARK,        // LEDの明るさ 強/弱 を切り替え (EEPROM保存。LED搭載機のみ)
 };
+
+#ifdef WINDMILL_LED_ENABLE
 
 /* keymap.c 側で定義する配色テーブルを登録する。
  * colorset は [色][6] = {明るい時のR,G,B, 暗い時のR,G,B} の配列。 */
@@ -62,3 +69,5 @@ uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode);
 
 /* MT()/LT() をタップ側のキーコードに展開する。それ以外はそのまま返す。 */
 uint16_t windmill_base_keycode(uint16_t keycode);
+
+#endif // WINDMILL_LED_ENABLE

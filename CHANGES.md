@@ -211,6 +211,68 @@ IMEをかな入力にしていると通常の位置では打てない記号を�
 
 ---
 
+### 対応キーボードに minipeg48 を追加
+
+移植元だった [minipeg48](https://github.com/ChrisChrisLoLo/minipeg48)
+(Pro Micro互換の4x12オーソリニア) 自体を3機種目として取り込んだ。
+定義とキーマップは
+[cognitom/qmk_firmware_geonix41](https://github.com/cognitom/qmk_firmware_geonix41/tree/geonix41-customized-layout/keyboards/geonix41/minipeg48)
+から持ってきたもので、本家QMKには収録されていない。
+
+    technik / ymd40 / minipeg48
+
+キー配列は3機種とも同一。minipeg48 だけの差分は以下。
+
+#### LED非搭載
+
+`windmill.h` に `WINDMILL_LED_ENABLE` を導入し、LEDが載っている機種
+(`RGB_MATRIX_ENABLE` または `RGBLIGHT_ENABLE`) でのみ配色処理をコンパイルする
+ようにした。従来は `apply_keycolors()` の内側だけが `#ifdef RGB_MATRIX_ENABLE` で
+分岐していて、`extern const uint8_t lighting_map[]` や `cache_keycolors()` の
+呼び出しは無条件だったため、LED非搭載機ではリンクが通らなかった。
+
+これに伴い minipeg48 では以下が丸ごと外れる。
+
+- 配色エンジン一式 (`cache_keycolors` / `refresh_keycolors` / `apply_keycolors` /
+  `toggle_darkmode` / 消灯タイムアウト)
+- `layer_state_set_kb()` / `default_layer_state_set_kb()` (塗り直し専用のため)
+- `keymap.c` 側の `colorset[][6]` と `windmill_process_keycolor_user()`
+- `lighting_map[]` (= `minipeg48.c` そのものが不要)
+- `cached_keycolormap[4][48]` + `cached_keycolors[48]` の 240 バイトのRAM
+
+`MY_DARK` (明るさ 強/弱) はレイヤー3に置いていない。ただし
+`enum windmill_keycodes` には3機種共通で残してある (キーコードの値をずらさないため)。
+`windmill_config_t` の `led_darkmode` ビットも、EEPROMのレイアウトを揃えるため残した。
+
+#### レイヤー3の上段
+
+| | technik / ymd40 | minipeg48 |
+|--|--|--|
+| 11列目 | `QK_BOOT` | `QK_BOOT` |
+| 12列目 | `MY_DARK` | (なし) |
+
+移植元にはそもそも `QK_BOOT` が無かったが、他の2機種に揃えて同じ位置に置いた。
+
+#### `keyboard.json`
+
+移植元からの変更点:
+
+- **`tapping.term` / `tapping.hold_on_other_key_press` を明記した**。移植元は Vial の
+  QMK Settings のデフォルトに頼っていて `tapping` セクションが無かった。これがないと
+  親指Shiftや `LT()` の挙動が他の2機種とずれる
+- `mousekey` / `nkro` を無効化して technik / ymd40 と揃えた
+- `community_layouts: ["ortho_4x12"]` を追加
+- USB (`0xBEAF` / `0x0004`)、マトリクスピン、`LAYOUT_ortho_4x12` は移植元のまま
+
+#### Vialキーマップは持ち込んでいない
+
+移植元では `keymaps/vial` (`VIAL_ENABLE`) が主なビルド対象だったが、これは
+Vial-QMK フォークでないとビルドできず、このリポジトリの Docker (素の QMK 0.33.11) では
+通らない。`default` のみを移植した。Vial版が必要になったら、Vial-QMK 側に
+`keyboards/windmill` を置いて `keymaps/vial` を足す形になる。
+
+---
+
 ### リポジトリ構成
 
 #### `keyboard.json` への統合
@@ -232,6 +294,10 @@ firmware/
     readme.md                       qmk lint --strict が要求する
     keymaps/default/keymap.c        keymaps[] + colorset[] + 配色の分類
   ymd40/                            (同構成)
+  minipeg48/
+    keyboard.json
+    readme.md
+    keymaps/default/keymap.c        keymaps[] のみ (LED非搭載なので配色なし)
 ```
 
 - **ymd40 の独自定義を残した理由**: 本家QMKの `ymdk/ymd40/v2` は RGB が 8灯の想定だが、
@@ -263,7 +329,8 @@ tap-hold へ移行した以上これを残すと `LT`/`MT` が全く効かなく
   `windmill-qmk` 固定だったので、バージョンを上げてもイメージが作り直されなかった。
   現行QMKで未使用の `ALT_GET_KEYBOARDS` を削除
 - `entrypoint.sh`: `set -euo pipefail` を追加。以前はビルドが失敗しても `mv` に進んで
-  終了コード0で終わっていた。あわせてビルド前に `qmk lint --strict` を走らせるようにした
+  終了コード0で終わっていた。あわせてビルド前に `qmk lint --strict` を走らせるようにした。
+  ビルド対象は `technik ymd40 minipeg48` の3機種
 
 #### `.github/workflows/main.yml`
 
@@ -279,7 +346,7 @@ tap-hold へ移行した以上これを残すと `LT`/`MT` が全く効かなく
 
 | 旧 | 新 |
 |--|--|
-| `windmill.hex` (technikのみ) | `windmill_technik.hex` / `windmill_ymd40.hex` |
+| `windmill.hex` (technikのみ) | `windmill_technik.hex` / `windmill_ymd40.hex` / `windmill_minipeg48.hex` |
 
 ---
 
@@ -289,31 +356,38 @@ QMK 0.33.11 + avr-gcc 7.3 でビルド。警告なし、`qmk lint --strict` 通�
 
 | | Flash | RAM |
 |--|--|--|
-| technik | 16598 / 28672 (57%) | 1103 / 2560 (43%) |
-| ymd40 | 17400 / 28672 (60%) | 844 / 2560 (33%) |
+| technik | 16622 / 28672 (57%) | 1103 / 2560 (43%) |
+| ymd40 | 17422 / 28672 (60%) | 844 / 2560 (33%) |
+| minipeg48 | 13090 / 28672 (45%) | 331 / 2560 (12%) |
 
 配色の分類については、`keymap.c` から分類関数とキーマップを機械的に抜き出して
 ホスト側で全192キー分を評価し、意図したカテゴリになることを確認した。
 
-**実機での確認は未実施。** 以下は要確認:
+`WINDMILL_LED_ENABLE` の導入では、technik / ymd40 のFlash・RAMともに導入前と
+1バイトも変わっていないこと、上記の配色チェックの出力が完全一致することを確認している。
 
-- かな⇔英数 の切り替えと、それに追従するLEDの色替え
-- `MY_DARK` の明暗トグルと、USB挿し直し後の保持
-- 親指Shift (tap=B/N, hold=Shift, Shift中のtap=半角スペース)
-- かなモードでSymレイヤーの数字・記号が全角にならないか (`LT2_IME_WAIT_MS` の調整)
-- `MY_WIN` / `MY_ANDR` による 「」 の出し分け
+実機での確認状況:
+
+| | |
+|--|--|
+| かな⇔英数 の切り替えと、それに追従するLEDの色替え | 確認済み (かなレイヤーの配色は後述の修正あり) |
+| `MY_DARK` の明暗トグルと、USB挿し直し後の保持 | 確認済み |
+| 親指Shift (tap=B/N, hold=Shift, Shift中のtap=半角スペース) | 確認済み |
+| かなモードでSymレイヤーの数字・記号が全角にならないか | 確認済み |
+| `MY_WIN` / `MY_ANDR` による 「」 の出し分け | 未確認 |
+| **minipeg48** | **未確認** |
 
 ---
 
 ### ドキュメントについて
 
-**`README.md` と `docs/` 配下は v2.0.2 のままで、上記の変更が反映されていない。**
-旧かな配列、ローマ字かなエミュレーション、IME種別5種、Mod Seq / Quick Tap、
-`windmill_tap_code()` など、既に存在しない機能の説明が残っている。
-リリース資産名も `windmill.hex` のままになっている。
+`README.md` と `docs/` 配下は、上記の変更に合わせて作者が更新済み
+(旧い内容は `docs/archived/` へ移動)。
 
-`docs/images/layout-main.png` / `docs/images/layout-kana.png` も旧かな配列の図で、
-現在のキーマップとは一致しない。
+**未反映なのは minipeg48 の追加分のみ。** `README.md` の「対応キーボード」が
+Technik と YMD40 の2つのままなので、必要であれば
+[minipeg48](https://github.com/ChrisChrisLoLo/minipeg48) を足すこと
+(市販品ではなく、PCBを自作するタイプ)。
 
 Androidで使う場合の注意 (移植元の readme より):
 

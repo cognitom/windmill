@@ -9,7 +9,7 @@ fi
 host_uid=$(ls -n "$0" | awk '{print $3}') # study who my owner is
 host_gid=$(ls -n "$0" | awk '{print $4}') # study what I belong to
 
-for keyboard in technik ymd40; do
+for keyboard in technik ymd40 minipeg48; do
   qmk lint -kb "windmill/$keyboard" -km default --strict
   make "windmill/$keyboard:default"
   mv "windmill_${keyboard}_default.hex" "/output/windmill_${keyboard}.hex"

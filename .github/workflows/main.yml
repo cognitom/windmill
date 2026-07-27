@@ -44,4 +44,5 @@ jobs:
           files: |
             output/windmill_technik.hex
             output/windmill_ymd40.hex
+            output/windmill_minipeg48.hex
           fail_on_unmatched_files: true
