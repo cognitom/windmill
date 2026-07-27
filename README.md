@@ -83,3 +83,15 @@ Windmill is a keymap for 40% keyboards.
 - **廃止**: NumPad
 
 内部実装はかなり変わって簡素になっていますが、使い勝手はそれほど変わらないのではないかと思います。
+
+## ライセンス
+
+Copyright (c) 2021-2026 Tsutomu Kawamura
+
+このリポジトリのソースコードは **GPL-2.0-or-later** (GNU General Public License version 2, または任意のそれ以降のバージョン) で配布しています。全文は [LICENSE](LICENSE) を参照してください。
+
+ビルドしたファームウェアは [QMK Firmware](https://github.com/qmk/qmk_firmware) (GPL-2.0-or-later) を含みます。また、各キーボードの定義ファイル (`keyboard.json` など) は以下をもとにしています。
+
+- `technik`: QMKの [`boardsource/technik_o`](https://github.com/qmk/qmk_firmware/tree/master/keyboards/boardsource/technik_o)
+- `ymd40`: QMKの [`ymdk/ymd40/v2`](https://github.com/qmk/qmk_firmware/tree/master/keyboards/ymdk/ymd40) (LEDの数を実機に合わせて変更)
+- `minipeg48`: [cognitom/qmk_firmware_geonix41](https://github.com/cognitom/qmk_firmware_geonix41/tree/geonix41-customized-layout/keyboards/geonix41/minipeg48) ([sporewoh minipeg48](https://github.com/ChrisChrisLoLo/minipeg48) 向け)
