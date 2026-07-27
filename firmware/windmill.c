@@ -20,7 +20,9 @@
  * default_layer_set を使う。かな入力はOS側のIMEに任せる (レイヤー0が素の
  * QWERTY+数字段で、標準のJISかな配置になる)。
  *
- * LEDはキーコードの種類ごとに色を割り当てる独自実装で、こちらは従来のまま。 */
+ * LEDはキーコードの種類ごとに色を割り当てる独自実装で、こちらは従来のまま。
+ * LED非搭載機 (minipeg48) では WINDMILL_LED_ENABLE が立たず、配色処理は
+ * 丸ごとコンパイルから外れる。 */
 
 #include "windmill.h"
 
@@ -30,7 +32,7 @@ typedef union {
     uint32_t raw;
     struct {
         bool is_android : 1;   // MY_O/MY_P のShift時出力をAndroid向けにする
-        bool led_darkmode : 1; // LEDを暗いほうの配色にする
+        bool led_darkmode : 1; // LEDを暗いほうの配色にする (LED非搭載機では未使用)
     };
 } windmill_config_t;
 static windmill_config_t windmill_config;
@@ -38,6 +40,8 @@ static windmill_config_t windmill_config;
 /*
  * RGB Matrix / Light
  */
+
+#ifdef WINDMILL_LED_ENABLE
 
 #define RGBMATRIX_TIMEOUT 10 // 分
 #define CL_TRANS 0xFF        // 透過キー。下位レイヤーの色を使う
@@ -167,6 +171,8 @@ static bool process_led_timeout(uint16_t keycode, keyrecord_t *record) {
     refresh_led_timeout();
     return !was_off;
 }
+
+#endif // WINDMILL_LED_ENABLE
 
 /*
  * MY_LCTL: tap = 英数, double-tap = かな, hold = Ctrl + 英数レイヤー
@@ -342,7 +348,9 @@ bool pre_process_record_kb(uint16_t keycode, keyrecord_t *record) {
 }
 
 bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
+#ifdef WINDMILL_LED_ENABLE
     if (!process_led_timeout(keycode, record)) return false;
+#endif
     if (!process_record_user(keycode, record)) return false;
 
     // 親指Shift以外のキー押下でダーティ化
@@ -366,11 +374,13 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
     }
 
     switch (keycode) {
+#ifdef WINDMILL_LED_ENABLE
         case MY_DARK: // LEDの明るさ 強/弱
             if (record->event.pressed) {
                 toggle_darkmode();
             }
             return false;
+#endif
 
         case MY_WIN:
             if (record->event.pressed) {
@@ -427,7 +437,9 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 }
 
 void matrix_scan_kb(void) {
+#ifdef WINDMILL_LED_ENABLE
     update_led_timeout();
+#endif
 
     if (td_phase == TD_PRESSED && !td_hold_active && timer_elapsed(td_timer) > TD_TERM) {
         td_hold_on();
@@ -443,24 +455,30 @@ void matrix_scan_kb(void) {
 void keyboard_post_init_kb(void) {
     windmill_config.raw = eeconfig_read_kb();
     is_android          = windmill_config.is_android;
-    led_darkmode        = windmill_config.led_darkmode;
+#ifdef WINDMILL_LED_ENABLE
+    led_darkmode = windmill_config.led_darkmode;
+#endif
 
     // keymap.c 側で windmill_init_keycolors() を呼ぶので、配色を組む前に済ませる
     keyboard_post_init_user();
 
-#ifdef RGB_MATRIX_ENABLE
+#ifdef WINDMILL_LED_ENABLE
+#    ifdef RGB_MATRIX_ENABLE
     rgb_matrix_mode_noeeprom(RGB_MATRIX_NONE); // アニメーションなし。全て自前で描く
     rgb_matrix_sethsv_noeeprom(HSV_OFF);
-#elif defined(RGBLIGHT_ENABLE)
+#    elif defined(RGBLIGHT_ENABLE)
     rgblight_enable_noeeprom();
     rgblight_mode_noeeprom(RGBLIGHT_MODE_STATIC_LIGHT);
     rgblight_sethsv_noeeprom(HSV_OFF);
-#endif
+#    endif
 
     cache_keycolors();
     led_initialized = true;
     refresh_keycolors(layer_state, default_layer_state);
+#endif // WINDMILL_LED_ENABLE
 }
+
+#ifdef WINDMILL_LED_ENABLE
 
 layer_state_t layer_state_set_kb(layer_state_t state) {
     state = layer_state_set_user(state);
@@ -475,7 +493,7 @@ layer_state_t default_layer_state_set_kb(layer_state_t state) {
     return state;
 }
 
-#ifdef RGB_MATRIX_ENABLE
+#    ifdef RGB_MATRIX_ENABLE
 bool rgb_matrix_indicators_kb(void) {
     if (!rgb_matrix_indicators_user()) return false;
     if (!led_on || !led_initialized) return true;
@@ -483,4 +501,6 @@ bool rgb_matrix_indicators_kb(void) {
     apply_keycolors();
     return true;
 }
-#endif
+#    endif
+
+#endif // WINDMILL_LED_ENABLE
