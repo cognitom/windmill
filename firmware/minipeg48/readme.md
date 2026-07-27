@@ -10,9 +10,7 @@
 LED非搭載なので `windmill.c` の配色処理は `WINDMILL_LED_ENABLE` によって
 コンパイルから外れる。あわせて、レイヤー3の `MY_DARK` (明るさ 強/弱) も置いていない。
 
-キーボード定義は
-[cognitom/qmk_firmware_geonix41](https://github.com/cognitom/qmk_firmware_geonix41/tree/geonix41-customized-layout/keyboards/geonix41/minipeg48)
-から持ってきたもの。本家QMKには収録されていない。
+本家QMKには収録されていないキーボードなので、定義はこのリポジトリで持っている。
 
 ビルド:
 
