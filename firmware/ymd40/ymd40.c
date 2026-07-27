@@ -1,4 +1,4 @@
-/* Copyright 2021 James Young (@noroadsleft)
+/* Copyright 2021-2026 Tsutomu Kawamura
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,11 +14,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ymd40.h"
+#include "windmill.h"
 
-
-// RGBLIGHT_LED_MAP の挙動がおかしいので、独自にマッピング
-const uint8_t lighting_map[48] = {
+/* RGBLIGHT_LED_MAP の挙動がおかしいので、独自にマッピング。
+ * keymaps[] と同じ「行×列」順に並べる。 */
+const uint8_t lighting_map[MATRIX_ROWS * MATRIX_COLS] = {
   11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  0,
   23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12,
   35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24,

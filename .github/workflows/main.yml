@@ -1,37 +1,47 @@
+name: Build
+
 on:
   push:
-    tags:
-    - 'v*'
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
 
-name: Upload Release Asset
+permissions:
+  contents: read
 
 jobs:
   build:
-    name: Upload Release Asset
+    name: Build firmware
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Build project
-        run: |
-          bash scripts/build.sh
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/checkout@v4
+      - name: Build firmware
+        run: bash scripts/build.sh
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-      - name: Upload Release Asset
-        id: upload-release-asset 
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: windmill-hex
+          path: output/*.hex
+          if-no-files-found: error
+
+  release:
+    name: Create release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./output/windmill-technik.hex
-          asset_name: windmill.hex
-          asset_content_type: application/octet-stream
+          name: windmill-hex
+          path: output
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            output/windmill_technik.hex
+            output/windmill_ymd40.hex
+          fail_on_unmatched_files: true

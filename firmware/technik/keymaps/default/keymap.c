@@ -1,4 +1,4 @@
-/* Copyright 2021 Tsutomu Kawamura
+/* Copyright 2021-2026 Tsutomu Kawamura
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,71 +15,38 @@
  */
 
 #include QMK_KEYBOARD_H
+#include "windmill.h"
 
-enum layers {
-  _ALPHA,
-  _ALPHA_SHIFTED,
-  _NUMPAD,
-  _KANA,
-  _KANA_SHIFTED,
-  _SYM,
-  _FN,
-};
-
-enum custom_keycodes {
-  MY_SPC = WINDMILL_SAFE_RANGE,
-};
-
+/* レイヤー0(かな)とレイヤー1(英数)がベースレイヤーで、MY_LCTL のタップ/
+ * ダブルタップで切り替わる。レイヤー1で透過のキーはレイヤー0へ落ちる。 */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
-  [_ALPHA] = LAYOUT_ortho_4x12(
-    KC_ESC,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
-    KC_TAB,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
-    KC_BSPC, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_UP,   KC_RGHT,
-    KC_LNG2, KC_LGUI, KC_LALT, KC_NUM,  KC_BSLS, MY_SPC,  MY_SPC,  KC_SLSH, KC_LNG1, KC_APP,  KC_LEFT, KC_DOWN
+  [LAYER_KANA] = LAYOUT_ortho_4x12(
+    KC_ESC,  KC_1,         KC_2,         KC_3,        KC_4,        KC_5,          KC_6,          KC_7,        KC_8,           KC_9,    KC_0,    KC_ENT,
+    KC_TAB,  KC_Q,         MY_W,         KC_E,        MY_R,        KC_T,          KC_Y,          MY_U,        KC_I,           MY_O,    MY_P,    MY_LBRC,
+    KC_BSPC, MY_A,         KC_S,         KC_D,        KC_F,        KC_G,          KC_H,          KC_J,        MY_K,           MY_L,    MY_SCLN, MY_QUOT,
+    MY_LCTL, LGUI_T(KC_Z), LALT_T(KC_X), LT(3,KC_C),  LT(2,KC_V),  LSFT_T(KC_B),  RSFT_T(KC_N),  LT(2,KC_M),  LT(3,KC_COMMA), KC_DOT,  KC_SLSH, KC_GRV
   ),
 
-  [_ALPHA_SHIFTED] = LAYOUT_ortho_4x12(
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_COLN, KC_DQUO,
-    _______, _______, _______, _______, _______, _______, _______, _______, KC_LT,   KC_GT,   _______, _______,
-    _______, _______, _______, _______, KC_PIPE, KC_SPC,  KC_SPC,  KC_QUES, _______, _______, _______, _______
+  [LAYER_ALPHA] = LAYOUT_ortho_4x12(
+    _______, KC_Q,         KC_W,         KC_E,        KC_R,        KC_T,          KC_Y,          KC_U,        KC_I,           KC_O,    KC_P,    _______,
+    _______, KC_A,         KC_S,         KC_D,        KC_F,        KC_G,          KC_H,          KC_J,        KC_K,           KC_L,    KC_SCLN, KC_QUOT,
+    _______, KC_Z,         KC_X,         KC_C,        KC_V,        KC_B,          KC_N,          KC_M,        KC_COMM,        KC_DOT,  KC_UP,   KC_RGHT,
+    _______, KC_LGUI,      KC_LALT,      MO(3),       LT(2,KC_BSLS), LSFT_T(KC_SPC), LSFT_T(KC_SPC), LT(2,KC_SLSH), MO(3),    KC_APP,  KC_LEFT, KC_DOWN
   ),
 
-  [_NUMPAD] = LAYOUT_ortho_4x12(
-    _______, _______, _______, _______, _______, _______, _______, KC_7,    KC_8,    KC_9,    _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, KC_4,    KC_5,    KC_6,    _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, KC_1,    KC_2,    KC_3,    _______, _______,
-    _______, _______, _______, _______, _______, _______, _______, KC_0,    _______, _______, _______, _______
+  [LAYER_SYM] = LAYOUT_ortho_4x12(
+    _______, KC_1,         KC_2,         KC_3,        KC_4,        KC_5,          KC_6,          KC_7,        KC_8,           KC_9,    KC_0,    _______,
+    _______, S(KC_1),      S(KC_2),      S(KC_3),     S(KC_4),     S(KC_5),       S(KC_6),       S(KC_7),     S(KC_8),        S(KC_9), S(KC_0), KC_GRV,
+    _______, KC_EQL,       S(KC_EQL),    KC_MINS,     S(KC_MINS),  KC_LBRC,       KC_RBRC,       S(KC_GRV),   S(KC_LBRC),     S(KC_RBRC), KC_UP, KC_RGHT,
+    _______, _______,      _______,      _______,     _______,     S(KC_BSLS),    S(KC_SLSH),    _______,     _______,        _______, KC_LEFT, KC_DOWN
   ),
 
-  [_KANA] = LAYOUT_ortho_4x12(
-    _______, KA_NU,   KA_FU,   KA_A,    KA_U,    KA_E,    KA_O,    KA_YA,   KA_YU,   KA_YO,   KA_WA,   _______,
-    _______, KA_TA,   KA_TE,   KA_I,    KA_SU,   KA_KA,   KA_N,    KA_NA,   KA_NI,   KA_RA,   KA_SE,   KA_DAKU,
-    _______, KA_CHI,  KA_TO,   KA_SHI,  KA_HA,   KA_KI,   KA_KU,   KA_MA,   KA_NO,   KA_RI,   KA_RE,   KA_KE,
-    _______, KA_TSU,  KA_SA,   KA_SO,   KA_HI,   KA_KO,   KA_MI,   KA_MO,   KA_NE,   KA_RU,   KA_ME,   KA_RO
-  ),
-
-  [_KANA_SHIFTED] = LAYOUT_ortho_4x12(
-    _______, _______, _______, KA_XA,   KA_XU,   KA_XE,   KA_XO,   KA_XYA,  KA_XYU,  KA_XYO,  KA_WO,   _______,
-    _______, _______, KA_HE,   KA_XI,   KA_MU,   _______, _______, KA_HO,   _______, KA_LKAK, KA_RKAK, KA_HAN,
-    _______, KA_XTSU, _______, _______, _______, KA_BSLS, KA_SLSH, _______, KA_TEN,  KA_MARU, KA_NAKA, KA_CHOU,
-    _______, KA_XTSU, _______, _______, KA_PIPE, KA_SPC,  KA_SPC,  KA_QUES, _______, _______, _______, _______
-  ),
-
-
-  [_SYM] = LAYOUT_ortho_4x12(
-    _______, KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    _______,
-    _______, KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_AMPR, KC_ASTR, KC_LPRN, KC_RPRN, KC_GRV,
-    _______, KC_EQL,  KC_PLUS, KC_MINS, KC_UNDS, KC_LBRC, KC_RBRC, KC_TILD, KC_LCBR, KC_RCBR, _______, _______,
-    _______, _______, _______, _______, _______, KC_PIPE, KC_QUES, _______, _______, _______, _______, _______
-  ),
-
-  [_FN] = LAYOUT_ortho_4x12(
-    RESET,   IME_WIN, IME_AND, IME_CRM, IME_MAC, IME_IOS, _______, _______, JA_ROME, JA_ROKA, JA_KANA, RGB_TOG,
-    KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
-    KC_DEL,  KC_PSCR, KC_INS,  _______, _______, KC_BRID, KC_BRIU, KC_MUTE, KC_VOLD, KC_VOLU, KC_PGUP, KC_END,
-    _______, _______, _______, _______, _______, KC_SPC,  KC_SPC,  _______, _______, _______, KC_HOME, KC_PGDN
+  [LAYER_FN] = LAYOUT_ortho_4x12(
+    MY_WIN,  KC_NO,        KC_NO,        MY_ANDR,     KC_NO,       KC_NO,         KC_NO,         KC_NO,       KC_NO,          KC_NO,   QK_BOOT, MY_DARK,
+    KC_F1,   KC_F2,        KC_F3,        KC_F4,       KC_F5,       KC_F6,         KC_F7,         KC_F8,       KC_F9,          KC_F10,  KC_F11,  KC_F12,
+    KC_DEL,  KC_PSCR,      KC_NO,        KC_NO,       KC_NO,       KC_BRID,       KC_BRIU,       KC_MUTE,     KC_VOLD,        KC_VOLU, KC_UP,   KC_RGHT,
+    _______, _______,      _______,      _______,     _______,     _______,       _______,       _______,     _______,        _______, KC_LEFT, KC_DOWN
   ),
 
 };
@@ -89,7 +56,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  */
 
 enum keycolors {
-  CL_INDICATOR,
   CL_CONFIG,
   CL_BASE,
   CL_SPECIAL,
@@ -101,37 +67,49 @@ enum keycolors {
 };
 
 const uint8_t colorset[][6] = {
-  //               Light              Dark
-  //               (R,    G,    B   ) (R,    G,    B   )
-  [CL_INDICATOR] = {0x66, 0x66, 0x44,  0x06, 0x06, 0x04},
-  [CL_CONFIG]    = {0x00, 0x33, 0x55,  0x00, 0x03, 0x05},
-  [CL_BASE]      = {0x07, 0x07, 0x05,  0x00, 0x00, 0x00},
-  [CL_SPECIAL]   = {0x1c, 0x11, 0x00,  0x04, 0x03, 0x00},
-  [CL_SYMBOL]    = {0x11, 0x22, 0x22,  0x02, 0x04, 0x03},
-  [CL_NUMBER]    = {0x66, 0x66, 0x44,  0x06, 0x06, 0x04},
-  [CL_BRACKET]   = {0x22, 0x33, 0x00,  0x02, 0x03, 0x00},
-  [CL_FUNC]      = {0x66, 0x66, 0x22,  0x06, 0x06, 0x02},
-  [CL_MEDIA]     = {0x00, 0x33, 0x55,  0x00, 0x03, 0x05},
+  //             Light              Dark
+  //             (R,    G,    B   ) (R,    G,    B   )
+  [CL_CONFIG]  = {0x00, 0x33, 0x55,  0x00, 0x03, 0x05},
+  [CL_BASE]    = {0x07, 0x07, 0x05,  0x00, 0x00, 0x00},
+  [CL_SPECIAL] = {0x1c, 0x11, 0x00,  0x04, 0x03, 0x00},
+  [CL_SYMBOL]  = {0x11, 0x22, 0x22,  0x02, 0x04, 0x03},
+  [CL_NUMBER]  = {0x66, 0x66, 0x44,  0x06, 0x06, 0x04},
+  [CL_BRACKET] = {0x22, 0x33, 0x00,  0x02, 0x03, 0x00},
+  [CL_FUNC]    = {0x66, 0x66, 0x22,  0x06, 0x06, 0x02},
+  [CL_MEDIA]   = {0x00, 0x33, 0x55,  0x00, 0x03, 0x05},
 };
 
-uint8_t windmill_process_keycolor_user(uint16_t keycode) {
+/* dual-role キーはタップ側のキーコードに展開されてから渡される。
+ * S(KC_x) はそのまま (シフト付きの記号として分類したいため)。 */
+uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode) {
+  /* かなレイヤーはOSのIMEがかなに変換するので、キーコードからは色を決められない
+   * (KC_1 は「ぬ」、KC_SLSH は「め」…)。かなが打てるキーは全て CL_BASE にする。 */
+  if (layer == LAYER_KANA) {
+    switch (keycode) {
+      case KC_ENT ... KC_TAB: // Enter, Esc, BSpc, Tab
+      case MY_LCTL:           // 英数/かな
+        return CL_SPECIAL;
+    }
+    return CL_BASE;
+  }
+
   switch (keycode) {
-    case IME_WIN ... IME_IOS: case JA_ROME ... JA_KANA:
+    case MY_WIN: case MY_ANDR: case MY_DARK: case QK_BOOT:
       return CL_CONFIG;
-    case KC_ENT ... KC_TAB: case KC_DEL: case KC_RGHT ... KC_NUM:
+    case KC_ENT ... KC_TAB: case KC_DEL: case KC_RIGHT ... KC_UP:
     case KC_APP: case KC_INT1 ... KC_LNG2: case KC_LCTL ... KC_RGUI:
-    case RGB_TOG: case RESET:
+    case MY_LCTL: case QK_MOMENTARY ... QK_MOMENTARY_MAX:
       return CL_SPECIAL;
     case KC_MINS ... KC_EQL: case KC_BSLS ... KC_SLSH:
-    case KC_EXLM ... KC_ASTR: case KC_UNDS ... KC_PLUS:
-    case KC_PIPE ... KC_TILD: case KC_QUES:
-    case KA_DAKU ... KA_CHOU: case KA_QUES:
+    case S(KC_1) ... S(KC_8): case S(KC_MINS) ... S(KC_EQL):
+    case S(KC_BSLS) ... S(KC_GRV): case S(KC_SLSH):
+    case MY_SCLN: case MY_QUOT:
       return CL_SYMBOL;
     case KC_1 ... KC_0:
       return CL_NUMBER;
-    case KC_LT ... KC_GT: case KC_LPRN ... KC_RPRN:
-    case KC_LBRC ... KC_RBRC: case KC_LCBR ... KC_RCBR:
-    case KA_LKAK ... KA_RKAK:
+    case S(KC_COMM) ... S(KC_DOT): case S(KC_9) ... S(KC_0):
+    case KC_LBRC ... KC_RBRC: case S(KC_LBRC) ... S(KC_RBRC):
+    case MY_LBRC:
       return CL_BRACKET;
     case KC_F1 ... KC_PGUP: case KC_END ... KC_PGDN:
       return CL_FUNC;
@@ -146,69 +124,5 @@ uint8_t windmill_process_keycolor_user(uint16_t keycode) {
  */
 
 void keyboard_post_init_user(void) {
-  windmill_init_layers(_ALPHA, _NUMPAD, _KANA, _SYM);
   windmill_init_keycolors((uint8_t*)colorset);
-}
-
-static bool is_ctrl_canceled = false;
-static uint8_t pressed_arrow_keys;
-bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-  bool pressed = record->event.pressed;
-  bool ctrled = (get_mods() & MOD_MASK_CTRL);
-  uint8_t bitmask;
-  
-  switch (keycode) {
-    // Shift
-    case MY_SPC:
-      return windmill_modlayertap(KC_SPC, record, MOD_MASK_SHIFT, _ALPHA_SHIFTED);
-    case KA_KO:
-    case KA_MI:
-      return windmill_modlayertap(keycode, record, MOD_MASK_SHIFT, _KANA_SHIFTED);
-    // Sym
-    case KC_BSLS:
-    case KC_SLSH:
-    case KA_HI:
-    case KA_MO:
-      return windmill_layertap(keycode, record, _SYM);
-    // Fn
-    case KC_LNG1:
-    case KC_NUM:
-    case KA_SO:
-    case KA_NE:
-      return windmill_layertap(keycode, record, _FN);
-    // Alt
-    case KA_SA:
-      return windmill_modtap(keycode, record, MOD_MASK_ALT);
-    // GUI
-    case KA_TSU:
-      return windmill_modtap(keycode, record, MOD_MASK_GUI);
-    // Ctrl
-    case KC_LNG2:
-      if (!pressed && is_ctrl_canceled) {
-        is_ctrl_canceled = false;
-      }
-      return windmill_modtap(keycode, record, MOD_MASK_CTRL);
-    // Others
-    case KC_RIGHT: // 0x4F
-    case KC_LEFT:  // 0x50
-    case KC_DOWN:  // 0x51
-    case KC_UP:    // 0x52
-      // store which arrow key is pressed
-      bitmask = (uint8_t)1 << (keycode - KC_RIGHT);
-      if (pressed) pressed_arrow_keys |= bitmask;
-      else pressed_arrow_keys &= ~bitmask;
-
-      // during Kana mode, unregister Ctrl key
-      if (is_kana() && ctrled && pressed) {
-        is_ctrl_canceled = true;
-        unregister_mods(MOD_MASK_CTRL);
-      } else if (is_ctrl_canceled && !pressed_arrow_keys) {
-        // when all arrow keys are released, register ctrl again
-        is_ctrl_canceled = false;
-        register_mods(MOD_MASK_CTRL);
-      }
-      break;
-  }
-
-  return true;
 }
