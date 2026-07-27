@@ -20,6 +20,7 @@ Windmill is a keymap for 40% keyboards.
 
 - [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)
 - [YMD40](https://ymdkey.com/collections/40-mini-diy)
+- [Geonix48](https://chosfox.com/ja/products/chosfox-x-masro-geonix48) ※minipeg48相当
 
 ファームウェアのバイナリは[リリースページ](https://github.com/cognitom/windmill/releases)からダウンロードできます。
 
