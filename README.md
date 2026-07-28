@@ -18,12 +18,15 @@ Windmill is a keymap for 40% keyboards.
 
 ## 対応キーボード
 
-- [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)
-- [YMD40](https://ymdkey.com/collections/40-mini-diy)
-- [Geonix48](https://chosfox.com/ja/products/chosfox-x-masro-geonix48) ※minipeg48相当
-- Geonix41 (REV.2.5 1U / USB・BLE×3・2.4G の三モード)
+| メーカー | キーボード | キーマップ |
+| --- | --- | --- |
+| Boardsource | [Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2) | [technik](firmware/technik/) |
+| YMD | [YMD40](https://ymdkey.com/collections/40-mini-diy) | [ymd40](firmware/ymd40/) |
+| Chosfox X Masro | [Geonix48](https://chosfox.com/ja/products/chosfox-x-masro-geonix48) | [minipeg48](firmware/minipeg48/) |
+| Chosfox X Masro | [Geonix Rev.2.5](https://chosfox.com/products/chosfox-x-masro-geonix-rev-2-5) | [geonix41](firmware/geonix41/) |
 
-ファームウェアのバイナリは[リリースページ](https://github.com/cognitom/windmill/releases)からダウンロードできます。
+
+📦ファームウェアのバイナリは[リリースページ](https://github.com/cognitom/windmill/releases)からダウンロードできます。
 
 ## キー配列
 
@@ -59,7 +62,7 @@ Windmill is a keymap for 40% keyboards.
 
 ## 追加機能
 
-### LED (Technik, YMD40のみ)
+### LED (Technik, YMD40, Geonix Rev2.5 のみ)
 
 選択されたレイヤーが分かりやすいように、文字種別にライティングされます。
 
