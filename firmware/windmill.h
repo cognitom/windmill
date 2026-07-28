@@ -34,11 +34,18 @@
 #define THUMB_SHIFT_B LSFT_T(KC_B)
 #define THUMB_SHIFT_N RSFT_T(KC_N)
 
+/* カスタムキーコードの開始位置。通常は QK_KB_0 から。ただし geonix41 のように
+ * ベンダーのライブラリが QK_KB_0 から自前のキーコードを並べている機種では、
+ * ぶつからないよう後ろにずらす必要があるので、機種の config.h で上書きする。 */
+#ifndef WINDMILL_KEYCODE_BASE
+#    define WINDMILL_KEYCODE_BASE QK_KB_0
+#endif
+
 /* geonix41/minipeg48 から移植したカスタムキーコード。
  * MY_W 〜 MY_A は my_shift_pairs[] のインデックス (keycode - MY_W) に
  * 使っているので、並び順を変えないこと。 */
 enum windmill_keycodes {
-    MY_O = QK_KB_0, // Shift時: 「
+    MY_O = WINDMILL_KEYCODE_BASE, // Shift時: 「
     MY_P,           // Shift時: 」
     MY_LCTL,        // tap: 英数, double-tap: かな, hold: Ctrl + 英数レイヤー
     MY_W,           // Shift時: +
@@ -71,3 +78,21 @@ uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode);
 uint16_t windmill_base_keycode(uint16_t keycode);
 
 #endif // WINDMILL_LED_ENABLE
+
+/* 機種固有の割り込み口。windmill.c が QMK の *_kb フックを占有しているので、
+ * ベンダーのライブラリを呼ぶ必要がある機種 (geonix41) 向けに weak で開けてある。
+ * 実装しない機種では何もしない。 */
+
+// keyboard_post_init_kb() の最後
+void windmill_board_post_init(void);
+
+/* すべてのキーイベントの入口 (pre_process_record_kb)。MY_* のように windmill が
+ * 途中で消費するキーでも必ず通るので、スリープ抑止などはこちらで行う。 */
+void windmill_board_pre_process_record(uint16_t keycode, keyrecord_t *record);
+
+/* process_record_kb() の最後。windmill が消費しなかったキーだけが渡る。
+ * false を返すとキーはそこで消費される。 */
+bool windmill_board_process_record(uint16_t keycode, keyrecord_t *record);
+
+// LEDを流し込む直前。ベンダー側の描画を先に走らせてから配色を上書きするために使う
+void windmill_board_led_begin(void);

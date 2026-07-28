@@ -16,13 +16,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      # geonix41 のベンダーブロブ。リポジトリには置けないので毎回取りに行くが、
+      # 中身が変わるのは配布物が差し替わったときだけなのでキャッシュが効く。
+      # 落とすのは 97KB の2ファイルだけ (取得スクリプトのコメント参照)
+      - name: Cache vendor blob
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: rdr-lib-${{ hashFiles('scripts/fetch-vendor-blob.py') }}
       - name: Build firmware
         run: bash scripts/build.sh
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windmill-hex
-          path: output/*.hex
+          name: windmill-firmware
+          path: |
+            output/*.hex
+            output/*.bin
           if-no-files-found: error
 
   release:
@@ -36,7 +46,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: windmill-hex
+          name: windmill-firmware
           path: output
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -45,4 +55,5 @@ jobs:
             output/windmill_technik.hex
             output/windmill_ymd40.hex
             output/windmill_minipeg48.hex
+            output/windmill_geonix41.bin
           fail_on_unmatched_files: true

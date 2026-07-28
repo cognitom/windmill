@@ -1,0 +1,196 @@
+diff --git a/quantum/action_util.c b/quantum/action_util.c
+index 00cec24e3f..4636e299aa 100644
+--- a/quantum/action_util.c
++++ b/quantum/action_util.c
+@@ -26,8 +26,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ 
+ extern keymap_config_t keymap_config;
+ 
+-static uint8_t real_mods = 0;
+-static uint8_t weak_mods = 0;
++/* rdr_lib のブロブがレポート組み立てのために直接参照するので非 static */
++uint8_t real_mods = 0;
++uint8_t weak_mods = 0;
+ #ifdef KEY_OVERRIDE_ENABLE
+ static uint8_t weak_override_mods = 0;
+ static uint8_t suppressed_mods    = 0;
+@@ -333,13 +334,15 @@ void send_nkro_report(void) {
+  * FIXME: needs doc
+  */
+ void send_keyboard_report(void) {
+-#ifdef NKRO_ENABLE
+-    if (host_can_send_nkro() && keymap_config.nkro) {
+-        send_nkro_report();
+-        return;
++    /* USB・BLE・2.4G のどれで送るかはブロブ側が握っているので、レポート送出は
++     * QMK の send_{6kro,nkro}_report() ではなくブロブの実装に委ねる。
++     * NKRO レポートを使うのは add_key_to_report() が 6KRO の6枠を使い切って
++     * ビットマップ側に溢れたとき (User_Send_Type) だけ */
++    if (keymap_config.User_Send_Type && keymap_config.nkro) {
++        User_send_nkro_report();
++    } else {
++        User_send_6kro_report();
+     }
+-#endif
+-    send_6kro_report();
+ }
+ 
+ /**
+@@ -362,6 +365,7 @@ mod_t get_mod_state(void) {
+  */
+ void add_mods(uint8_t mods) {
+     real_mods |= mods;
++    keymap_config.User_Send_Type = false;
+ }
+ /** \brief del mods
+  *
+@@ -369,6 +373,7 @@ void add_mods(uint8_t mods) {
+  */
+ void del_mods(uint8_t mods) {
+     real_mods &= ~mods;
++    keymap_config.User_Send_Type = false;
+ }
+ /** \brief set mods
+  *
+diff --git a/quantum/action_util.h b/quantum/action_util.h
+index f3178bba6e..4125e030ad 100644
+--- a/quantum/action_util.h
++++ b/quantum/action_util.h
+@@ -23,6 +23,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ #include "report.h"
+ #include "modifiers.h"
+ 
++/* rdr_lib のブロブが直接読み書きするので公開している */
++extern uint8_t real_mods;
++extern uint8_t weak_mods;
++
++/* rdr_lib (librdrcommon.a) が提供するレポート送出。接続先が USB か BLE か 2.4G かは
++ * ブロブ側が判断する。QMK の send_{6kro,nkro}_report() の代わりに使う */
++void User_send_6kro_report(void);
++void User_send_nkro_report(void);
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+diff --git a/quantum/keycode_config.h b/quantum/keycode_config.h
+index 804f1381d0..76477f4d25 100644
+--- a/quantum/keycode_config.h
++++ b/quantum/keycode_config.h
+@@ -42,6 +42,9 @@ typedef union keymap_config_t {
+         bool oneshot_enable : 1;
+         bool swap_escape_capslock : 1;
+         bool autocorrect_enable : 1;
++        /* rdr_lib 向け。add_key_to_report() が 6KRO の6枠から溢れて NKRO の
++         * ビットマップ側にキーを積んだことを send_keyboard_report() に伝える */
++        bool User_Send_Type : 1;
+     };
+ } keymap_config_t;
+ 
+diff --git a/tmk_core/protocol/report.c b/tmk_core/protocol/report.c
+index 8cae256cc6..b0bdd40e1a 100644
+--- a/tmk_core/protocol/report.c
++++ b/tmk_core/protocol/report.c
+@@ -19,10 +19,14 @@
+ #include "host.h"
+ #include "keycode_config.h"
+ #include "debug.h"
+-#include "usb_device_state.h"
+ #include "util.h"
+ #include <string.h>
+ 
++/* このファイルの NKRO 判定からは host_can_send_nkro() を外してある。
++ * これは USB のプロトコル状態 (usb_device_state) を見るため、rdr_lib で
++ * BLE / 2.4G 接続しているときは常に false になり NKRO が死ぬ。
++ * 接続先の判断はブロブ側が持っているので、ここでは keymap_config.nkro だけを見る */
++
+ /** \brief has_anykey
+  *
+  * FIXME: Needs doc
+@@ -32,7 +36,7 @@ uint8_t has_anykey(void) {
+     uint8_t* p   = keyboard_report->keys;
+     uint8_t  lp  = sizeof(keyboard_report->keys);
+ #ifdef NKRO_ENABLE
+-    if (host_can_send_nkro() && keymap_config.nkro) {
++    if (keymap_config.nkro) {
+         p  = nkro_report->bits;
+         lp = sizeof(nkro_report->bits);
+     }
+@@ -49,7 +53,7 @@ uint8_t has_anykey(void) {
+  */
+ uint8_t get_first_key(void) {
+ #ifdef NKRO_ENABLE
+-    if (host_can_send_nkro() && keymap_config.nkro) {
++    if (keymap_config.nkro) {
+         uint8_t i = 0;
+         for (; i < NKRO_REPORT_BITS && !nkro_report->bits[i]; i++)
+             ;
+@@ -69,7 +73,7 @@ bool is_key_pressed(uint8_t key) {
+         return false;
+     }
+ #ifdef NKRO_ENABLE
+-    if (host_can_send_nkro() && keymap_config.nkro) {
++    if (keymap_config.nkro) {
+         if ((key >> 3) < NKRO_REPORT_BITS) {
+             return nkro_report->bits[key >> 3] & 1 << (key & 7);
+         } else {
+@@ -147,32 +151,34 @@ void del_key_bit(report_nkro_t* nkro_report, uint8_t code) {
+ 
+ /** \brief add key to report
+  *
+- * FIXME: Needs doc
++ * rdr_lib 版: まず 6KRO レポートの6枠を埋め、溢れたぶんだけ NKRO のビットマップに積む。
++ * どちらを送るかは User_Send_Type で send_keyboard_report() に伝える。
++ * 常時 NKRO レポートを投げないのは、BIOS など boot protocol しか解さない相手でも
++ * 6キーまでは素通りさせるため。
+  */
+ void add_key_to_report(uint8_t key) {
+-#ifdef NKRO_ENABLE
+-    if (host_can_send_nkro() && keymap_config.nkro) {
+-        add_key_bit(nkro_report, key);
+-        return;
++    for (uint8_t i = 0; i < KEYBOARD_REPORT_KEYS; i++) {
++        if (keyboard_report->keys[i] == 0x00) {
++            keyboard_report->keys[i]     = key;
++            keymap_config.User_Send_Type = false;
++            return;
++        }
+     }
+-#endif
+-    add_key_byte(keyboard_report, key);
+-}
+ 
+-/** \brief del key from report
+- *
+- * FIXME: Needs doc
+- */
+-void del_key_from_report(uint8_t key) {
+ #ifdef NKRO_ENABLE
+-    if (host_can_send_nkro() && keymap_config.nkro) {
+-        del_key_bit(nkro_report, key);
+-        return;
++    if (keymap_config.nkro) {
++        if ((key >> 3) < NKRO_REPORT_BITS) {
++            nkro_report->bits[key >> 3] |= 1 << (key & 7);
++            keymap_config.User_Send_Type = true;
++        }
+     }
+ #endif
+-    del_key_byte(keyboard_report, key);
+ }
+ 
++/* del_key_from_report() は rdr_lib (librdrcommon.a) 側が定義している。
++ * ブロブは単一オブジェクトなのでリンクすると必ず持ち込まれ、ここに定義を残すと
++ * 多重定義になる。add_key_to_report() の 6KRO/NKRO 二段構えと対になる実装 */
++
+ /** \brief clear key from report
+  *
+  * FIXME: Needs doc
+@@ -180,7 +186,7 @@ void del_key_from_report(uint8_t key) {
+ void clear_keys_from_report(void) {
+     // not clear mods
+ #ifdef NKRO_ENABLE
+-    if (host_can_send_nkro() && keymap_config.nkro) {
++    if (keymap_config.nkro) {
+         memset(nkro_report->bits, 0, sizeof(nkro_report->bits));
+         return;
+     }

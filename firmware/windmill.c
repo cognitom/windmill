@@ -28,6 +28,14 @@
 
 #define KEY_COUNT (MATRIX_ROWS * MATRIX_COLS)
 
+/* 機種固有の割り込み口 (windmill.h 参照)。既定は何もしない */
+__attribute__((weak)) void windmill_board_post_init(void) {}
+__attribute__((weak)) void windmill_board_pre_process_record(uint16_t keycode, keyrecord_t *record) {}
+__attribute__((weak)) bool windmill_board_process_record(uint16_t keycode, keyrecord_t *record) {
+    return true;
+}
+__attribute__((weak)) void windmill_board_led_begin(void) {}
+
 typedef union {
     uint32_t raw;
     struct {
@@ -336,6 +344,8 @@ static bool is_sym_ime_wrap_target(uint16_t keycode) {
 // キーコード確定「前」に呼ばれるため、ここで layer_on すれば
 // 割り込みキーがレイヤー1 + Ctrl で解決される
 bool pre_process_record_kb(uint16_t keycode, keyrecord_t *record) {
+    windmill_board_pre_process_record(keycode, record);
+
     if (keycode != MY_LCTL && record->event.pressed) {
         if (td_phase == TD_PRESSED && !td_hold_active) {
             td_hold_on(); // 割り込み → 即ホールド確定
@@ -433,7 +443,7 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             return false;
     }
 
-    return true;
+    return windmill_board_process_record(keycode, record);
 }
 
 void matrix_scan_kb(void) {
@@ -476,6 +486,8 @@ void keyboard_post_init_kb(void) {
     led_initialized = true;
     refresh_keycolors(layer_state, default_layer_state);
 #endif // WINDMILL_LED_ENABLE
+
+    windmill_board_post_init();
 }
 
 #ifdef WINDMILL_LED_ENABLE
@@ -496,6 +508,10 @@ layer_state_t default_layer_state_set_kb(layer_state_t state) {
 #    ifdef RGB_MATRIX_ENABLE
 bool rgb_matrix_indicators_kb(void) {
     if (!rgb_matrix_indicators_user()) return false;
+
+    // ベンダー実装の描画を先に走らせる。配色はこの上から塗る
+    windmill_board_led_begin();
+
     if (!led_on || !led_initialized) return true;
 
     apply_keycolors();

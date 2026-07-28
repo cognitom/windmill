@@ -1,0 +1,116 @@
+diff --git a/os/hal/ports/ES32/FS026/hal_lld.c b/os/hal/ports/ES32/FS026/hal_lld.c
+index ca62a745..81a438f9 100644
+--- a/os/hal/ports/ES32/FS026/hal_lld.c
++++ b/os/hal/ports/ES32/FS026/hal_lld.c
+@@ -74,24 +74,12 @@ const md_rcu_init_typedef rcu_initStruct =    /**< RCU init structure */
+ {
+     MD_RCU_MPRE_MCO_DIV1,
+     MD_RCU_MSW_MCO_DISABLE,
+-    ES32_PLL_SOURSE_SELECT,
+-    ES32_PLL_CLK_FREQ,
+-    ES32_BUS_DIV_PPRE,
+-    ES32_BUS_DIV_HPRE,
+-    ES32_SYSCLK_SOURSE_SELECT,
+-#if ES32_PLL_CLK_EN
+-#if ES32_HOSC_CLK_EN
+-    (RCU_CON_HRCON | RCU_CON_HRC48ON_MSK | RCU_CON_PLL0ON | RCU_CON_HOSCON),
+-#else
+-    (RCU_CON_HRCON | RCU_CON_HRC48ON_MSK | RCU_CON_PLL0ON),
+-#endif
+-#else
+-#if ES32_HOSC_CLK_EN
+-    (RCU_CON_HRCON | RCU_CON_HRC48ON_MSK | RCU_CON_HOSCON),
+-#else
++    MD_RCU_PLLSRC_HRC48,
++    MD_RCU_PLLCLK_PASS,
++    MD_RCU_PPRE_HCLK_DIV_1,
++    MD_RCU_HPRE_SYSCLK_DIV_1,
++    MD_RCU_SW_SYSCLK_HRC48,
+     (RCU_CON_HRCON | RCU_CON_HRC48ON_MSK),
+-#endif
+-#endif
+ };
+ 
+ /**
+@@ -102,21 +90,21 @@ const md_rcu_init_typedef rcu_initStruct =    /**< RCU init structure */
+ void hal_lld_init(void)
+ {
+     __disable_irq();
+-#if ES32_PLL_CLK_EN
+-    md_rcu_pll0_init(RCU, (md_rcu_init_typedef*)(&rcu_initStruct));
+-#endif
++//#if ES32_PLL_CLK_EN
++    //md_rcu_pll0_init(RCU, (md_rcu_init_typedef*)(&rcu_initStruct));
++//#endif
+     md_rcu_sys_init(RCU, (md_rcu_init_typedef*)(&rcu_initStruct));
+     md_rcu_enable_gpioa(RCU);
+     md_rcu_enable_gpiob(RCU);
+     md_rcu_enable_gpioc(RCU);
+     md_rcu_enable_gpiod(RCU);
+     md_rcu_enable_usb(RCU);
+-#if ES32_USE_USB_SOF_TRIM_HRC48
++//#if ES32_USE_USB_SOF_TRIM_HRC48
+     /*Using USB_SOF to calibrate the internal clock*/
+     md_rcu_enable_csu(RCU);
+     CSU->CON |= CSU_CON_AUTOEN_MSK;
+     CSU->CON |= CSU_CON_CNTEN_MSK;
+-#endif
++//#endif
+     __enable_irq();
+ }
+ #endif
+diff --git a/os/hal/ports/ES32/LLD/TIMv1/hal_st_lld.c b/os/hal/ports/ES32/LLD/TIMv1/hal_st_lld.c
+index 7e31a2a8..fecec167 100644
+--- a/os/hal/ports/ES32/LLD/TIMv1/hal_st_lld.c
++++ b/os/hal/ports/ES32/LLD/TIMv1/hal_st_lld.c
+@@ -81,7 +81,7 @@ OSAL_IRQ_HANDLER(SysTick_Handler)
+ void st_lld_init(void)
+ {
+ #if (OSAL_ST_MODE == OSAL_ST_MODE_PERIODIC)
+-    SysTick->LOAD = 72000 - 1;
++    SysTick->LOAD = 48000 - 1;
+     SysTick->CTRL = 0x10007;
+     
+ #endif /* OSAL_ST_MODE == OSAL_ST_MODE_PERIODIC */
+diff --git a/os/hal/ports/ES32/LLD/USBv1/hal_usb_lld.c b/os/hal/ports/ES32/LLD/USBv1/hal_usb_lld.c
+index 50369d76..8e6fd53f 100644
+--- a/os/hal/ports/ES32/LLD/USBv1/hal_usb_lld.c
++++ b/os/hal/ports/ES32/LLD/USBv1/hal_usb_lld.c
+@@ -442,7 +442,7 @@ int usbd_ep_start_write(const uint8_t ep, const uint8_t *data, uint32_t data_len
+     old_ep_idx = musb_get_active_ep();
+     musb_set_active_ep(ep_idx);
+     
+-    if((USB->CSR0L_TXCSRL) & USB_TXCSRL_TXRDY_MSK)
++    if(es_usbd_ep_tx_ready_state(ep_idx))
+     {
+         musb_set_active_ep(old_ep_idx);
+         return -3;
+@@ -549,6 +549,11 @@ void handle_ep0(void)
+         USB->CSR0L_TXCSRL = ALD_USB_CSR0L_SETENDC;
+     }
+ 
++    if (g_musb_udc.dev_addr > 0) {
++        USB->FADDR = g_musb_udc.dev_addr;
++        g_musb_udc.dev_addr = 0;
++    }
++
+     switch (usb_ep0_state) {
+         case USB_EP0_STATE_SETUP:
+             if (ep0_status & ALD_USB_CSR0L_RXRDY) {
+@@ -937,11 +942,11 @@ void usb_lld_reset(USBDriver *usbp)
+  */
+ void usb_lld_set_address(USBDriver *usbp)
+ {
+-    volatile uint32_t i;
+-    
+-    for(i = 0;i < 9999;i++){}
+-    
+-    USB->FADDR = usbp->address;
++    if (usbp->address == 0) {
++        ald_usb_dev_set_addr(0);
++    }
++
++    g_musb_udc.dev_addr = usbp->address;
+ }
+ 
+ /**
