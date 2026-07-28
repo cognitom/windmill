@@ -21,6 +21,7 @@ Windmill is a keymap for 40% keyboards.
 - [Boardsource Technik](https://boardsource.xyz/store/5ffb9b01edd0447f8023fdb2)
 - [YMD40](https://ymdkey.com/collections/40-mini-diy)
 - [Geonix48](https://chosfox.com/ja/products/chosfox-x-masro-geonix48) ※minipeg48相当
+- Geonix41 (REV.2.5 1U / USB・BLE×3・2.4G の三モード)
 
 ファームウェアのバイナリは[リリースページ](https://github.com/cognitom/windmill/releases)からダウンロードできます。
 
@@ -98,3 +99,9 @@ Copyright (c) 2021-2026 Tsutomu Kawamura
 - `technik`: QMKの [`boardsource/technik_o`](https://github.com/qmk/qmk_firmware/tree/master/keyboards/boardsource/technik_o)
 - `ymd40`: QMKの [`ymdk/ymd40/v2`](https://github.com/qmk/qmk_firmware/tree/master/keyboards/ymdk/ymd40) (LEDの数を実機に合わせて変更)
 - `minipeg48`: [sporewoh minipeg48](https://github.com/ChrisChrisLoLo/minipeg48) (本家QMKには未収録)
+- `geonix41`: ベンダー (RDMCTMZT) 配布のソースをもとに移植 (本家QMKには未収録)
+
+`geonix41` だけは無線・電源・LED制御にベンダー提供のクローズドソースなライブラリ
+(`librdrcommon.a`) を使っており、これはこのリポジトリには含まれていません。
+ビルド時に `scripts/fetch-vendor-blob.py` がベンダー配布物から取得します。
+詳しくは [firmware/geonix41/readme.md](firmware/geonix41/readme.md) を参照してください。
