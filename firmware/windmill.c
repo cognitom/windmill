@@ -237,18 +237,37 @@ static void td_double_confirm(void) {
  * Shift時に別の記号を出すキー
  */
 
-/* Shift付きで押されたらShiftを一時抑制して shifted を、
- * そうでなければ plain を送出する (QMKのkey override相当) */
+// shifted 側が Shift 付きのキーコード (S(KC_x)) かどうか
+static bool is_shifted_keycode(uint16_t keycode) {
+    return IS_QK_MODS(keycode) && (QK_MODS_GET_MODS(keycode) & MOD_LSFT);
+}
+
+/* Shift付きで押されたら shifted を、そうでなければ plain を送出する
+ * (QMKのkey override相当)。
+ *
+ * shifted 側もShiftを要するキー (S(KC_COMM) → 「、」など) では、押されている
+ * Shiftをそのまま使い、修飾の付け外しを一切しない。以前は必ず
+ *   実Shiftを外す → shifted のweak Shiftを付ける → 外す
+ * としていたので、ホストには「右Shiftを離して左Shiftを押す」レポートが1本
+ * 挟まっていた。この入れ替えが起きるのは親指Shiftを押してからの1打鍵目だけで、
+ * そこだけShiftが効かない機種があった (issue #18)。
+ *
+ * あわせて del_mods()/set_mods() をやめる。この2つは real_mods を書き換える
+ * だけでレポートを送らないため、親指Shiftを押し続けていてもホスト側では
+ * 文字ごとにShiftが離れた状態になっていた。 */
 static bool process_shift_pair(uint16_t plain, uint16_t shifted, keyrecord_t *record) {
-    if (record->event.pressed) {
-        const uint8_t mods = get_mods();
-        if (mods & MOD_MASK_SHIFT) {
-            del_mods(MOD_MASK_SHIFT);
-            tap_code16(shifted);
-            set_mods(mods);
-        } else {
-            tap_code16(plain);
-        }
+    if (!record->event.pressed) return false;
+
+    const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
+    if (!shift) {
+        tap_code16(plain);
+    } else if (is_shifted_keycode(shifted)) {
+        tap_code(QK_MODS_GET_BASIC_KEYCODE(shifted)); // 押されているShiftをそのまま使う
+    } else {
+        // shifted 側はShift無しで送る必要がある (バックスラッシュなど)
+        unregister_mods(shift);
+        tap_code16(shifted);
+        register_mods(shift);
     }
     return false;
 }
