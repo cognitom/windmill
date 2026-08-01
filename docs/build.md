@@ -16,3 +16,13 @@ $ bash scripts/build.sh
 ```
 
 `output`ディレクトリ内にファームウェアが作成されます。
+
+## テスト
+
+キー処理のユニットテストがあります。同じくDockerだけあれば動きます。
+
+```bash
+$ bash scripts/test.sh
+```
+
+詳細は [tests/readme.md](../tests/readme.md) を参照してください。
