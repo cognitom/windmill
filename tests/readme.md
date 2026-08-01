@@ -1,0 +1,52 @@
+# ユニットテスト
+
+QMK のテスト基盤 (`make test:<name>`, gtest/gmock) に `firmware/windmill.c` を
+そのまま載せて、**ホストへ送出されるHIDレポート列**を検証する。実機もエミュレータも要らない。
+
+```bash
+$ bash scripts/test.sh
+```
+
+`scripts/build.sh` と同じ Docker イメージ (`scripts/Dockerfile` の `QMK_VERSION`) を使う。
+geonix41 のベンダーブロブは使わないので、取得は走らない。
+
+## なぜレポート列を見るのか
+
+issue #18 は「言語切り替え直後の1打鍵目だけ Shift が効かず、`、` ではなく `ね` が出る」というもので、
+原因は `process_shift_pair()` が
+
+```
+実Shiftを外す → shifted 側の weak Shift を付ける → 外す
+```
+
+と修飾を入れ替えていたことだった。ホストから見ると1打鍵目だけ
+
+```
+[RSFT]  →  [LSFT]  →  [LSFT + KC_COMM]     ← 右Shiftを離して左Shiftを押す1本が挟まる
+```
+
+となる。**送出されるキーコード自体は正しい**ので、キーコードだけ突き合わせても気づけない。
+だからこのテストは `EXPECT_REPORT` でレポートを1本ずつ固定している。
+
+## 構成
+
+| ファイル | 中身 |
+|--|--|
+| `config.h` | マトリクスサイズと tapping 設定。実機の `keyboard.json` / `config.h` と揃える |
+| `test.mk` | `firmware/windmill.c` をテストへリンクする |
+| `test_keymap.hpp` | テスト用キーマップと `WindmillTest` フィクスチャ |
+| `test_shift_pair.cpp` | 親指Shift + `process_shift_pair()` のレポート列 |
+
+`test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
+実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、
+ここだけ二重管理になっている。**キー配置を変えたら両方直すこと。**
+
+## QMK 側へのパッチ
+
+`patches/qmk-test-harness.patch` で `tests/test_common/` に2箇所だけ手を入れている。
+コンテナは使い捨てなので剥がす処理はない。
+
+- `matrix.c`: `matrix_scan_kb()` を weak にして `matrix_scan_user()` を呼ぶようにする。
+  windmill.c が `matrix_scan_kb()` を実装しているため、そのままだと多重定義になる
+- `test_common.h`: `MATRIX_ROWS` / `MATRIX_COLS` を `#ifndef` で囲む。
+  既定が 4x10 なので、実機と同じ 4x12 にできない

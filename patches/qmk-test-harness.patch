@@ -1,0 +1,27 @@
+diff --git a/tests/test_common/matrix.c b/tests/test_common/matrix.c
+index 1d994027..2062aa8b 100644
+--- a/tests/test_common/matrix.c
++++ b/tests/test_common/matrix.c
+@@ -38,7 +38,8 @@ void matrix_print(void) {}
+ 
+ void matrix_init_kb(void) {}
+ 
+-void matrix_scan_kb(void) {}
++__attribute__((weak)) void matrix_scan_kb(void) { matrix_scan_user(); }
++__attribute__((weak)) void matrix_scan_user(void) {}
+ 
+ void press_key(uint8_t col, uint8_t row) {
+     matrix[row] |= (matrix_row_t)1 << col;
+diff --git a/tests/test_common/test_common.h b/tests/test_common/test_common.h
+index 8b93c032..c3719f62 100644
+--- a/tests/test_common/test_common.h
++++ b/tests/test_common/test_common.h
+@@ -1,4 +1,8 @@
+ #pragma once
+ 
++#ifndef MATRIX_ROWS
+ #define MATRIX_ROWS 4
++#endif
++#ifndef MATRIX_COLS
+ #define MATRIX_COLS 10
++#endif
