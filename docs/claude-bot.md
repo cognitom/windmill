@@ -73,6 +73,36 @@ windmill は public なので無料枠だが、非公開だと月あたりの無
 このワークフローはユニットテストで Docker イメージを作るぶん1回が長めなので、
 効いてくるようなら `timeout-minutes` と `--max-turns` を絞る。
 
+## 第三者からの安全性
+
+**PRでワークフローを書き換えられても、持ち主限定は外れない。**
+`issues` / `issue_comment` / `pull_request_review_comment` の3イベントは、
+GitHubの仕様で**デフォルトブランチにあるワークフローファイルしか実行されない**。
+fork のPRが `claude.yml` をどう書き換えても、マージするまで効かない。
+このワークフローは `pull_request` をトリガーに持っていないので、
+PRのコードでワークフローが走る経路もない。
+
+さらに Claude GitHub App のトークンは、そのワークフローがデフォルトブランチに
+あるかを確認してから発行される。ワークフローを変更したPRではそもそもトークンが
+下りない。**ワークフローを触るPRを、中身を読まずにマージしないこと。**
+守りの本体はここで、GitHubのrulesetで足せることは特に無い
+(`.github/workflows/**` を守る push ruleset は非公開リポジトリ向けの機能)。
+
+残るのは**こちらから第三者のコードに対して Claude を呼んでしまう**経路。
+fork のPRで `@claude` と書くと、Claude はそのPRのコードをチェックアウトし、
+許可してある `bash scripts/test.sh` も fork 側の中身が走る。
+実行時の環境にはトークンがあるので、任意コード実行と同じ扱いになる。
+fork の `CLAUDE.md` を読むことによるプロンプトインジェクションも同じ経路。
+
+- **インラインのレビューコメント (Files changed) からは、fork のPRでは起動しない。**
+  ワークフロー側で弾いてある
+- **PRの会話タブのコメントは、イベントに fork かどうかが載らないので弾けない。**
+  第三者のPRでは `@claude` と書かないこと。レビューは自分の目でやる
+- リポジトリの Settings → Actions → General で
+  **Fork pull request workflows from outside collaborators** を
+  「Require approval for all outside collaborators」にしておくと、
+  `Build` ワークフロー側も第三者のPRでは承認するまで走らなくなる
+
 ## 注意
 
 - **枠は対話セッションと共有になる。** CIでの実行が、手元で Claude Code を

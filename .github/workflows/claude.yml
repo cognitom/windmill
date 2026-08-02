@@ -70,10 +70,16 @@ jobs:
   # 追加指示やレビュー対応はこちらに乗る
   mentioned:
     name: Respond to @claude
+    # fork のPRでは動かさない。チェックアウトするのが第三者のコードになり、
+    # 許可した scripts/test.sh も向こうの中身が走ってしまうため
+    # (issue_comment のペイロードには fork かどうかが載らないので、
+    #  PRの会話タブから呼ぶぶんは docs の運用ルールで補う)
     if: >-
       github.event_name != 'issues' &&
       github.actor == (vars.CLAUDE_USER || github.repository_owner) &&
-      contains(github.event.comment.body, '@claude')
+      contains(github.event.comment.body, '@claude') &&
+      (github.event_name != 'pull_request_review_comment' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
