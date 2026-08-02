@@ -1,3 +1,14 @@
+diff --git a/os/common/ext/CMSIS/ES32/FS026/system_fs026.h b/os/common/ext/CMSIS/ES32/FS026/system_fs026.h
+index 03dbc426..78afadc6 100644
+--- a/os/common/ext/CMSIS/ES32/FS026/system_fs026.h
++++ b/os/common/ext/CMSIS/ES32/FS026/system_fs026.h
+@@ -33,5 +33,5 @@
+
+ #ifndef __SYSTEM_FS026_H__
+-#define __SYSTEM_ES32F0283_H__
++#define __SYSTEM_FS026_H__
+
+ #ifdef __cplusplus
 diff --git a/os/hal/ports/ES32/FS026/hal_lld.c b/os/hal/ports/ES32/FS026/hal_lld.c
 index ca62a745..81a438f9 100644
 --- a/os/hal/ports/ES32/FS026/hal_lld.c

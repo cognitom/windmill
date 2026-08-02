@@ -24,11 +24,6 @@ BLUETOOTH_CUSTOM = yes
 
 DEBOUNCE_TYPE = asym_eager_defer_pk
 
-# ES32 の CMSIS ヘッダ (chibios-contrib 同梱の system_fs026.h) はインクルードガードの
-# マクロ名が綴り違いで、GCC 15 の -Wheader-guard に引っかかる。ベンダー由来のコードなので
-# 直さず警告だけ落とす。QMK は -Werror なので、これがないとビルドが止まる。
-CFLAGS += -Wno-error=header-guard
-
 # ベンダーブロブ。無線 (BLE/2.4G)・電源管理・LEDドライバと、キースキャン後段の
 # Key_Value_Dispose() を提供する。scripts/fetch-vendor-blob.py がリポジトリの vendor/ に
 # 置き、build.sh が QMK ツリーの lib/rdr_lib/ へマウントする。

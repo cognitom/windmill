@@ -33,6 +33,13 @@ HTTP の Range リクエストで該当部分だけ抜いている (転送量 4.
 そのため `patches/qmk-core-rdr-lib.patch` を当てないとビルドできない。
 また ES32 のクロックと USB まわりに `patches/es32-fs026-geonix41.patch` が要る。
 
+同じパッチで、chibios-contrib 同梱の CMSIS ヘッダ `system_fs026.h` のインクルードガードも
+直している。`#ifndef __SYSTEM_FS026_H__` に対して `#define __SYSTEM_ES32F0283_H__` と
+綴りが食い違っており (ES32F0283 版からの流用で直し忘れたもの。ファイル先頭のコメントが
+`system_es32f0283.h` のまま残っている)、GCC 15 で入った `-Wheader-guard` が
+これを指摘する。中身は `extern` 宣言とプロトタイプだけなので多重インクルードしても
+実害はないが、QMK は `-Werror` なので放置するとビルドが止まる (issue #29)。
+
 ブロブは単一オブジェクトなので、リンクすると `del_key_from_report()` のような
 コア関数の実装まで一緒に入ってくる。パッチ側では同名の定義を落としてあり、
 **この状態で他の機種をビルドすると未定義参照で落ちる**。
