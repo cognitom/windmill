@@ -70,6 +70,40 @@ jobs:
             --max-turns 60
             --allowedTools "Bash(bash scripts/test.sh),mcp__github__create_pull_request"
 
+      # action の後処理は「PRがもう在るか」をAPIで確かめず、コメント本文に
+      # compare URL が無ければ「Create PR」リンクを足す。PRを作らせている今の
+      # 使い方だと必ず余る。しかもURLの抜き出しに使う正規表現が
+      # `[Claude Code](https://claude.ai/code)` のカッコで切れてリンクが壊れる。
+      # 直せるのは向こうなので、こちらは出てきたぶんを剥がす
+      - name: Tidy up the tracking comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments" --paginate \
+            --jq '[.[] | select(.user.login == "claude[bot]" and (.body | test("Create PR ➔")))] | last | .id // empty' \
+            | tail -n1)
+          if [ -z "$id" ]; then
+            echo "剥がすリンクは無し"
+            exit 0
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/issues/comments/$id" --jq .body > "$RUNNER_TEMP/body.md"
+          python3 - "$RUNNER_TEMP/body.md" "$RUNNER_TEMP/patch.json" <<'PY'
+          import json, re, sys
+
+          src, dst = sys.argv[1], sys.argv[2]
+          with open(src, encoding="utf-8") as f:
+              body = f.read()
+          # ヘッダー行の末尾に付く ` • [Create PR ➔](...)` だけを落とす
+          body = re.sub(r" • \[Create PR ➔\]\(.*$", "", body, flags=re.M)
+          with open(dst, "w", encoding="utf-8") as f:
+              json.dump({"body": body}, f)
+          PY
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" --input "$RUNNER_TEMP/patch.json" --silent
+          echo "コメント $id から Create PR リンクを剥がした"
+
   # 既存の issue / PR で @claude と呼んだときの受け答え。
   # 追加指示やレビュー対応はこちらに乗る
   mentioned:
