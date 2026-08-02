@@ -2,6 +2,11 @@
 
 ## v3.0.0 (未リリース)
 
+起動時 (EEPROM未初期化時) のベースレイヤーを かな → 英数 に変更した (issue #22)。
+`firmware/windmill.c` に `eeconfig_init_kb()` を追加し、工場出荷時のデフォルトを
+`LAYER_ALPHA` にしている。一度でも `MY_LCTL` で切り替えた後は、その状態が
+EEPROMに保存されて復元されるので、この変更が効くのは出荷時とEEPROMリセット後だけ。
+
 QMKを **0.14.25 → 0.33.11** へ更新。あわせて、当時のQMKに無かった機能を自前実装していた
 部分を捨てて、[geonix41/minipeg48](https://github.com/cognitom/qmk_firmware_geonix41/tree/geonix41-customized-layout/keyboards/geonix41/minipeg48)
 で書き直したQMK標準ベースの実装へ移植した。

@@ -46,6 +46,18 @@ typedef union {
 static windmill_config_t windmill_config;
 
 /*
+ * 起動時のベースレイヤー
+ */
+
+/* EEPROM未初期化 (出荷時 / EEPROMリセット後) の初回起動でのみ呼ばれる。
+ * 以降の起動では default_layer_set() が書いたEEPROMの値がそのまま復元されるので、
+ * ここは「工場出荷時のデフォルト」を決めているだけ (issue #22) */
+void eeconfig_init_kb(void) {
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+    eeconfig_init_user();
+}
+
+/*
  * RGB Matrix / Light
  */
 
