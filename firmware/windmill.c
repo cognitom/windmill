@@ -375,15 +375,29 @@ static bool is_sym_ime_wrap_target(uint16_t keycode) {
  * ままでは打てない記号なので、Symレイヤーの数字・記号と同じ要領で英数へ
  * 切り替えてから送出し、かなへ戻す (issue #17)。
  *
+ * Symレイヤー側の is_sym_ime_wrap_target と違い、こちらは押しっぱなしの実Shift
+ * (親指Shiftを含む) がある状態で走る。Shiftを付けたまま KC_LNG2/KC_LNG1 を送ると
+ * IMEはそれを英数/かなキーとして受け取らず、モードがかなのまま KC_SLSH だけが
+ * 届いて「・」(JISかなのShift+/) が出てしまう。そこでモード切り替えの前に
+ * Shiftを外し、「?」を S(KC_SLSH) として自前で付け直してから、最後に実Shiftを
+ * 戻す。del_mods()/set_mods() ではなく register/unregister を使うのは、
+ * ホスト側にもShiftの上げ下げを届ける必要があるため (issue #18 と同じ理由)。
+ *
  * ホールド (Symレイヤーへの遷移) はQMKの通常のLT()処理に任せる */
 static bool process_kana_qmark(keyrecord_t *record) {
     if (record->tap.count && record->event.pressed) { // タップ確定
-        if (get_mods() & MOD_MASK_SHIFT) {
+        const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
+        if (shift) {
+            unregister_mods(shift);
+            // IMEのモード切り替えは非同期なので、届く順が入れ替わらないよう待つ
+            wait_ms(LT2_IME_WAIT_MS);
             tap_code16(KC_LNG2);
             wait_ms(LT2_IME_WAIT_MS);
-            tap_code16(KC_SLSH);
+            tap_code16(S(KC_SLSH));
             wait_ms(LT2_IME_WAIT_MS);
             tap_code16(KC_LNG1);
+            wait_ms(LT2_IME_WAIT_MS);
+            register_mods(shift);
             return false;
         }
     }

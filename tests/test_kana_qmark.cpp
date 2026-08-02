@@ -17,10 +17,11 @@
 /* process_kana_qmark() のHIDレポートを検証する (issue #17)。
  *
  * かなレイヤーの「も」(LT(2,KC_M)) をShiftを押しながらタップすると、
- * KC_LNG2 → KC_SLSH → KC_LNG1 の順で送出し、半角「?」を入力する。
- * キーコードの並びだけでなく、送出中もShiftの修飾が保持され続けることを
- * レポート列で確かめる (issue #18 と同じ理由で、キーコードの一致だけでは
- * 修飾の出方の崩れに気づけない)。
+ * KC_LNG2 → S(KC_SLSH) → KC_LNG1 の順で送出し、半角「?」を入力する。
+ * キーコードの並びだけでなく、実Shiftがいつ外れていつ戻るかをレポート列で
+ * 固定する (issue #18 と同じ理由で、キーコードの一致だけでは修飾の出方の
+ * 崩れに気づけない)。ここでは特に KC_LNG2/KC_LNG1 にShiftが乗っていないことが
+ * 要点で、乗っているとIMEがモードを切り替えず実機で「・」が出る。
  *
  * 起動直後のベースレイヤーは英数 (issue #22) なので、かなレイヤー上の
  * 挙動を見るには先に MY_LCTL をダブルタップしてかなへ切り替えておく必要がある。 */
@@ -72,7 +73,8 @@ TEST_F(KanaQmark, without_shift_sends_plain_keycode) {
     VERIFY_AND_CLEAR(driver);
 }
 
-// Shiftを押しながらのタップは KC_LNG2 -> KC_SLSH -> KC_LNG1 に化ける
+/* Shiftを押しながらのタップは KC_LNG2 -> S(KC_SLSH) -> KC_LNG1 に化ける。
+ * IMEにモード切り替えを届かせるため、この間だけ実Shiftは外れている */
 TEST_F(KanaQmark, shifted_tap_sends_halfwidth_question_mark) {
     TestDriver driver;
     set_windmill_keymap();
@@ -83,14 +85,18 @@ TEST_F(KanaQmark, shifted_tap_sends_halfwidth_question_mark) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));               // み ホールド確定
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_LNG2));
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_SLSH));
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_LNG1));
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver);                            // み 解放
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));    // み ホールド確定
+        EXPECT_EMPTY_REPORT(driver);                // 実Shiftを外す
+        EXPECT_REPORT(driver, (KC_LNG2));           // 英数へ (Shiftが乗っていないこと)
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));     // ? は自前でShiftを付ける
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_SLSH));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LNG1));           // かなへ (Shiftが乗っていないこと)
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));    // 実Shiftを戻す
+        EXPECT_EMPTY_REPORT(driver);                // み 解放
     }
 
     mi.press();
