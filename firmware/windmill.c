@@ -371,6 +371,25 @@ static bool is_sym_ime_wrap_target(uint16_t keycode) {
     return false;
 }
 
+/* LT(2,KC_M) (も) をShiftを押しながらタップしたら、半角「?」を送る。かな入力の
+ * ままでは打てない記号なので、Symレイヤーの数字・記号と同じ要領で英数へ
+ * 切り替えてから送出し、かなへ戻す (issue #17)。
+ *
+ * ホールド (Symレイヤーへの遷移) はQMKの通常のLT()処理に任せる */
+static bool process_kana_qmark(keyrecord_t *record) {
+    if (record->tap.count && record->event.pressed) { // タップ確定
+        if (get_mods() & MOD_MASK_SHIFT) {
+            tap_code16(KC_LNG2);
+            wait_ms(LT2_IME_WAIT_MS);
+            tap_code16(KC_SLSH);
+            wait_ms(LT2_IME_WAIT_MS);
+            tap_code16(KC_LNG1);
+            return false;
+        }
+    }
+    return true; // Shiftなしのタップ、ホールドはQMKに任せる
+}
+
 /*
  * QMK callbacks
  */
@@ -446,6 +465,12 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
         case MY_W ... MY_A: // Shiftで別の記号を出すキー
             return process_shift_pair(my_shift_pairs[keycode - MY_W][0], my_shift_pairs[keycode - MY_W][1], record);
+
+        case KANA_QMARK_KEY: // も。Shift+タップで半角「?」
+            if (!process_kana_qmark(record)) {
+                return false;
+            }
+            break; // 通常のtap(も)とhold(Symレイヤー)はQMKに任せる
 
         case THUMB_SHIFT_B: // 親指Shift
         case THUMB_SHIFT_N:
