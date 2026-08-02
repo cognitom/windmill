@@ -34,17 +34,8 @@ PRができると `Build` ワークフローが走り、4機種ぶんのコン�
    `CLAUDE_CODE_OAUTH_TOKEN` として登録する
 3. **ラベルを作る。** Issues → Labels → New label で `claude` を作る
 
-ボット用のアカウントは要らない。
-
-### 認証をAPIキーに戻す場合
-
-`claude setup-token` のトークンは **Claude Code のサブスクリプション (Pro / Max) の枠**を
-使う。従量課金のAPIクレジットで動かしたければ、`ANTHROPIC_API_KEY` を Secrets に置いて
-`claude.yml` の2箇所を差し替える。
-
-```yaml
-anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-```
+ボット用のアカウントは要らない。トークンは
+**Claude Code のサブスクリプション (Pro / Max) の枠**で動く。
 
 ## 使い方
 
@@ -62,25 +53,6 @@ Claude は勝手に決めずに issue へ質問をコメントして止まる。
 リポジトリ側のお作法 (テストの二重管理、コメントは日本語、など) は
 ルートの `CLAUDE.md` に書いてあり、Claude はこれを読んでから動く。
 やり方を変えたいときはワークフローではなく `CLAUDE.md` を直すのが早い。
-
-## なぜアサインではなくラベルなのか
-
-**GitHubのAppはissueのアサイン先にできない。** アサインで起動する形にするには、
-アサインできる実体 — ボット役の普通のGitHubアカウント — を作って
-コラボレーターに招く必要がある。サイドバーからワンクリックという操作は
-ラベルでも変わらないので、アカウントを増やさないほうを採った。
-
-後からアサインで起動したくなったら、ボット用アカウントを用意したうえで
-`claude.yml` の `on:` に `assigned` を足し、`labeled` ジョブの条件を
-
-```yaml
-if: >-
-  ((github.event.action == 'labeled' && github.event.label.name == 'claude') ||
-   (github.event.action == 'assigned' && github.event.assignee.login == 'ボットの名前')) &&
-  github.actor == (vars.CLAUDE_USER || github.repository_owner)
-```
-
-とすればよい。書き込みの名義は `claude[bot]` のままで、そこは変わらない。
 
 ## 他のリポジトリで使う
 
@@ -103,9 +75,9 @@ windmill は public なので無料枠だが、非公開だと月あたりの無
 
 ## 注意
 
-- **枠は対話セッションと共有になる。** `claude setup-token` のトークンを使う場合、
-  CIでの実行が手元で Claude Code を使うときと同じ枠を消費する。
-  ジョブは60分で打ち切る。モデルとターン数は `claude_args` で変える
+- **枠は対話セッションと共有になる。** CIでの実行が、手元で Claude Code を
+  使うときと同じ枠を消費する。ジョブは60分で打ち切る。
+  モデルとターン数は `claude_args` で変える
 - **トークンには期限がある** (発行から約1年)。切れると静かに動かなくなるので、
   動かなくなったらまず `claude setup-token` を取り直す
 - **PRは自動ではマージされない。** 中身は必ず読んでからマージする
