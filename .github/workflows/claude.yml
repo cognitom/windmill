@@ -54,7 +54,11 @@ jobs:
             2. issue の本文とコメントを読み、関連するコードとドキュメントを調べる
             3. 実装したら `bash scripts/test.sh` でユニットテストを通す。
                Dockerイメージのビルドから走るので数分かかる。落ちたまま出さないこと
-            4. ブランチへコミットしてPRを作り、やったことを issue に返す
+            4. ブランチへコミットする
+            5. **`mcp__github__create_pull_request` を呼んでPRを作る。**
+               action の既定の案内は「PR作成用のリンクを出す」で止まるが、
+               それでは終わりにしない。本文には issue への参照を入れる
+            6. やったことを issue のコメントに返す
 
             ファームウェアのビルド (`scripts/build.sh`) はこの場で走らせなくてよい。
             PRを作れば Build ワークフローが4機種ぶんコンパイルする。
@@ -64,7 +68,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5
             --max-turns 60
-            --allowedTools "Bash(bash scripts/test.sh)"
+            --allowedTools "Bash(bash scripts/test.sh),mcp__github__create_pull_request"
 
   # 既存の issue / PR で @claude と呼んだときの受け答え。
   # 追加指示やレビュー対応はこちらに乗る
@@ -104,4 +108,4 @@ jobs:
           claude_args: |
             --model claude-sonnet-5
             --max-turns 60
-            --allowedTools "Bash(bash scripts/test.sh)"
+            --allowedTools "Bash(bash scripts/test.sh),mcp__github__create_pull_request"
