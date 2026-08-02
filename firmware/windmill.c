@@ -376,28 +376,40 @@ static bool is_sym_ime_wrap_target(uint16_t keycode) {
  * 切り替えてから送出し、かなへ戻す (issue #17)。
  *
  * Symレイヤー側の is_sym_ime_wrap_target と違い、こちらは押しっぱなしの実Shift
- * (親指Shiftを含む) がある状態で走る。Shiftを付けたまま KC_LNG2/KC_LNG1 を送ると
- * IMEはそれを英数/かなキーとして受け取らず、モードがかなのまま KC_SLSH だけが
- * 届いて「・」(JISかなのShift+/) が出てしまう。そこでモード切り替えの前に
- * Shiftを外し、「?」を S(KC_SLSH) として自前で付け直してから、最後に実Shiftを
- * 戻す。del_mods()/set_mods() ではなく register/unregister を使うのは、
- * ホスト側にもShiftの上げ下げを届ける必要があるため (issue #18 と同じ理由)。
+ * (親指Shiftを含む) がある状態で走るので、Shiftの扱いに2つ気をつける点がある。
+ *
+ * 1. KC_LNG2/KC_LNG1 にShiftが乗っているとIMEが英数/かなキーとして受け取らず、
+ *    モードがかなのまま KC_SLSH だけが届いて「・」(JISかなのShift+/) が出る。
+ *    そこでモード切り替えの間だけShiftを外す。
+ * 2. 「?」のShiftは、外した実Shiftをそのまま戻して使う。以前は S(KC_SLSH) の
+ *    weak Shift (左Shift) を自前で付けていたが、それだとホストからは
+ *    「右Shiftを離す → 左Shiftを押す」と修飾が入れ替わって見え、言語切り替え
+ *    直後の1打鍵目だけShiftが効かずに半角「/」が出ていた。issue #18 と同じ罠。
+ *
+ * 加えて、モードとShiftの変化はどちらもIMEが非同期に処理するので、レポートを
+ * 送るたびにウェイトを挟んで順序を保証する。修飾の上げ下げにも1回ずつ要るのは、
+ * Shiftを押した直後に KC_SLSH を送るとIMEが切り替え処理に紛れてShiftを取り
+ * こぼすため。del_mods()/set_mods() ではなく register/unregister を使うのは、
+ * ホスト側にもShiftの上げ下げを届ける必要があるから (これも issue #18)。
  *
  * ホールド (Symレイヤーへの遷移) はQMKの通常のLT()処理に任せる */
 static bool process_kana_qmark(keyrecord_t *record) {
     if (record->tap.count && record->event.pressed) { // タップ確定
         const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
         if (shift) {
+            unregister_mods(shift); // モード切り替えの間だけ実Shiftを外す
+            wait_ms(LT2_IME_WAIT_MS);
+            tap_code16(KC_LNG2); // 英数へ
+            wait_ms(LT2_IME_WAIT_MS);
+            register_mods(shift); // 押されていたShiftをそのまま戻して「?」に使う
+            wait_ms(LT2_IME_WAIT_MS);
+            tap_code(KC_SLSH);
+            wait_ms(LT2_IME_WAIT_MS);
             unregister_mods(shift);
-            // IMEのモード切り替えは非同期なので、届く順が入れ替わらないよう待つ
             wait_ms(LT2_IME_WAIT_MS);
-            tap_code16(KC_LNG2);
+            tap_code16(KC_LNG1); // かなへ
             wait_ms(LT2_IME_WAIT_MS);
-            tap_code16(S(KC_SLSH));
-            wait_ms(LT2_IME_WAIT_MS);
-            tap_code16(KC_LNG1);
-            wait_ms(LT2_IME_WAIT_MS);
-            register_mods(shift);
+            register_mods(shift); // 押しっぱなしの実Shiftを戻す
             return false;
         }
     }
