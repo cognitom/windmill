@@ -1,59 +1,46 @@
 name: Claude
 
-# issue をボット役のアカウントへアサインすると Claude が実装まで担当する。
+# issue に claude ラベルを付けると Claude が実装してPRを出す。
 # セットアップと運用は docs/claude-bot.md を参照。
 
 on:
   issues:
-    types: [assigned, labeled]
+    types: [labeled]
   issue_comment:
     types: [created]
   pull_request_review_comment:
     types: [created]
-  pull_request_review:
-    types: [submitted]
 
 # 既定では何も渡さず、必要な権限はジョブ側で付ける
 permissions: {}
 
 jobs:
-  # issue をボットへアサイン (または claude ラベルを付与) したときの本番ルート。
-  # 調査 → 実装 → テスト → PR まで通しでやらせる
-  assigned:
-    name: Work on assigned issue
-    if: >-
-      github.event_name == 'issues' && github.event.issue.state == 'open' && (
-        (github.event.action == 'assigned' &&
-         github.event.assignee.login == (vars.CLAUDE_ASSIGNEE || 'windmill-bot')) ||
-        (github.event.action == 'labeled' && github.event.label.name == 'claude')
-      )
+  # 本番ルート。調査 → 実装 → テスト → PR まで通しでやらせる
+  labeled:
+    name: Work on labeled issue
+    if: github.event.label.name == 'claude'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
       # 同じ issue で二重に走らせない。走行中のものは潰さない
-      group: claude-issue-${{ github.event.issue.number }}
+      group: claude-${{ github.event.issue.number }}
       cancel-in-progress: false
     permissions:
       contents: write
       issues: write
       pull-requests: write
-      id-token: write
+      id-token: write # Claude GitHub App のトークンをOIDCで受け取る
       actions: read # CI (Build ワークフロー) の結果を読むため
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # コミットログの書き方に合わせさせる
 
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # コミットもPRもコメントも、既定では Claude GitHub App (claude[bot]) 名義。
-          # CLAUDE_BOT_TOKEN (ボット用アカウントのPAT) を置くと、そのアカウント名義になる
-          github_token: ${{ secrets.CLAUDE_BOT_TOKEN }}
-          bot_name: ${{ secrets.CLAUDE_BOT_TOKEN != '' && (vars.CLAUDE_ASSIGNEE || 'windmill-bot') || 'claude[bot]' }}
-          bot_id: ${{ secrets.CLAUDE_BOT_TOKEN != '' && vars.CLAUDE_BOT_ID || '41898282' }}
           # issue に進捗コメントを1本立てて、そこを更新していく
           track_progress: true
           prompt: |
@@ -76,25 +63,18 @@ jobs:
             --allowedTools "Bash(bash scripts/test.sh)"
 
   # 既存の issue / PR で @claude と呼んだときの受け答え。
-  # アサイン後の追加指示やレビュー対応はこちらに乗る
+  # 追加指示やレビュー対応はこちらに乗る
   mentioned:
     name: Respond to @claude
-    # ボット自身の書き込みには反応しない。PATを使うとボットは普通のユーザー扱いになり、
-    # 自分のコメントで自分を呼び直す無限ループがありえる
+    # ボットの書き込みには反応しない (自分のコメントで自分を呼び直さないように)
     if: >-
-      (github.event_name == 'issue_comment' &&
-       contains(github.event.comment.body, '@claude') &&
-       github.event.comment.user.login != (vars.CLAUDE_ASSIGNEE || 'windmill-bot')) ||
-      (github.event_name == 'pull_request_review_comment' &&
-       contains(github.event.comment.body, '@claude') &&
-       github.event.comment.user.login != (vars.CLAUDE_ASSIGNEE || 'windmill-bot')) ||
-      (github.event_name == 'pull_request_review' &&
-       contains(github.event.review.body, '@claude') &&
-       github.event.review.user.login != (vars.CLAUDE_ASSIGNEE || 'windmill-bot'))
+      github.event_name != 'issues' &&
+      contains(github.event.comment.body, '@claude') &&
+      github.event.comment.user.type != 'Bot'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
-      group: claude-mention-${{ github.event.issue.number || github.event.pull_request.number }}
+      group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
       cancel-in-progress: false
     permissions:
       contents: write
@@ -112,9 +92,6 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.CLAUDE_BOT_TOKEN }}
-          bot_name: ${{ secrets.CLAUDE_BOT_TOKEN != '' && (vars.CLAUDE_ASSIGNEE || 'windmill-bot') || 'claude[bot]' }}
-          bot_id: ${{ secrets.CLAUDE_BOT_TOKEN != '' && vars.CLAUDE_BOT_ID || '41898282' }}
           claude_args: |
             --model claude-sonnet-5
             --max-turns 60
