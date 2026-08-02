@@ -49,12 +49,15 @@ static windmill_config_t windmill_config;
  * 起動時のベースレイヤー
  */
 
-/* EEPROM未初期化 (出荷時 / EEPROMリセット後) の初回起動でのみ呼ばれる。
- * 以降の起動では default_layer_set() が書いたEEPROMの値がそのまま復元されるので、
- * ここは「工場出荷時のデフォルト」を決めているだけ (issue #22) */
-void eeconfig_init_kb(void) {
-    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
-    eeconfig_init_user();
+/* 英数/かなの切り替え (MY_LCTL) はEEPROMに保存しない (td_tap_confirm 参照)。
+ * つまり起動時のベースレイヤーはEEPROMの値を復元するのではなく、電源を入れる
+ * たびに固定で決まる。以前は eeconfig_init_kb() (EEPROM初期化直後のみ呼ばれる
+ * コールバック) で英数に切り替えていたが、これは通常の電源投入時には呼ばれず
+ * 実機ではレイヤー0(かな)のままだった (issue #22)。keyboard_post_init_kb() は
+ * 毎回の起動時に呼ばれるので、ここで直接 default_layer_state を書き換えて
+ * EEPROMを経由せずに強制する (default_layer_set() は eeconfig も書いてしまう) */
+static void reset_default_layer(void) {
+    default_layer_state = (layer_state_t)1 << LAYER_ALPHA;
 }
 
 /*
@@ -494,6 +497,8 @@ void matrix_scan_kb(void) {
 }
 
 void keyboard_post_init_kb(void) {
+    reset_default_layer();
+
     windmill_config.raw = eeconfig_read_kb();
     is_android          = windmill_config.is_android;
 #ifdef WINDMILL_LED_ENABLE
