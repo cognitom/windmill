@@ -8,7 +8,9 @@ issue に `claude` ラベルを付けると、GitHub Actions 上で Claude が�
 | きっかけ | 動き |
 |--|--|
 | issue に `claude` ラベルを付ける | issue に進捗コメントを立てて実装し、PRを出す |
+| issue に `claude-opus` ラベルを付ける | 同上。手強い issue 用にモデルを Opus 5 へ上げる |
 | issue / PR のコメントで `@claude` と書く | その場で返事をする。追加指示やレビュー対応はこちら |
+| コメントで `@claude opus` と書く | 同上。こちらもモデルが Opus 5 になる |
 
 コミットもPRもコメントも **`claude[bot]`** (Claude GitHub App) 名義になる。
 `cognitom` 名義では書き込まれない。
@@ -32,7 +34,8 @@ PRができると `Build` ワークフローが走り、4機種ぶんのコン�
 2. **トークンを置く。** 手元で `claude setup-token` を実行し、出てきたトークンを
    Settings → Secrets and variables → Actions → Secrets に
    `CLAUDE_CODE_OAUTH_TOKEN` として登録する
-3. **ラベルを作る。** Issues → Labels → New label で `claude` を作る
+3. **ラベルを作る。** Issues → Labels → New label で `claude` と
+   `claude-opus` を作る
 
 ボット用のアカウントは要らない。トークンは
 **Claude Code のサブスクリプション (Pro / Max) の枠**で動く。
@@ -40,6 +43,8 @@ PRができると `Build` ワークフローが走り、4機種ぶんのコン�
 ## 使い方
 
 issue を書いて `claude` ラベルを付ける。あとは進捗コメントとPRを待つ。
+既定は Sonnet 5 で、うまく捌けなかった issue は `claude-opus` のほうを付け直す
+(**両方付けると2回走る**ので、どちらか一方にする)。
 やることが曖昧だったり、キー配列の方針など好みが割れる判断が要るときは、
 Claude は勝手に決めずに issue へ質問をコメントして止まる。
 そこに答えるか、PRに `@claude` で追加指示を出せば続きをやる。
@@ -77,7 +82,8 @@ windmill は public なので無料枠だが、非公開だと月あたりの無
 
 - **枠は対話セッションと共有になる。** CIでの実行が、手元で Claude Code を
   使うときと同じ枠を消費する。ジョブは60分で打ち切る。
-  モデルとターン数は `claude_args` で変える
+  ターン数は `claude_args` で変える
+- **Opus は枠の減りが速い。** 常用せず、Sonnet で捌けなかった issue に絞る
 - **トークンには期限がある** (発行から約1年)。切れると静かに動かなくなるので、
   動かなくなったらまず `claude setup-token` を取り直す
 - **第三者のPRでは `@claude` と書かない。** 向こうのコードをチェックアウトして
