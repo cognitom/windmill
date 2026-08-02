@@ -15,13 +15,15 @@ on:
 permissions: {}
 
 jobs:
-  # 本番ルート。調査 → 実装 → テスト → PR まで通しでやらせる
+  # 本番ルート。調査 → 実装 → テスト → PR まで通しでやらせる。
+  # 手強い issue は claude-opus ラベルのほうを付けてモデルを上げる
   labeled:
     name: Work on labeled issue
     # 起動できるのはリポジトリの持ち主だけ (CLAUDE_USER で上書きできる)。
     # 他人のラベル付けやコメントでは動かないので、使う枠は自分の操作ぶんに収まる
     if: >-
-      github.event.label.name == 'claude' &&
+      (github.event.label.name == 'claude' ||
+       github.event.label.name == 'claude-opus') &&
       github.actor == (vars.CLAUDE_USER || github.repository_owner)
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -66,7 +68,7 @@ jobs:
             キー配置の好みや設計方針など、判断が割れそうなところは勝手に決めない。
             issue にコメントで質問して、そこで止まること。
           claude_args: |
-            --model claude-sonnet-5
+            --model ${{ github.event.label.name == 'claude-opus' && 'claude-opus-5' || 'claude-sonnet-5' }}
             --max-turns 60
             --allowedTools "Bash(bash scripts/test.sh),mcp__github__create_pull_request"
 
@@ -140,6 +142,6 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
-            --model claude-sonnet-5
+            --model ${{ contains(github.event.comment.body, '@claude opus') && 'claude-opus-5' || 'claude-sonnet-5' }}
             --max-turns 60
             --allowedTools "Bash(bash scripts/test.sh),mcp__github__create_pull_request"
