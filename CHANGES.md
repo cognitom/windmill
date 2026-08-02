@@ -2,6 +2,10 @@
 
 ## v3.0.0 (未リリース)
 
+起動時のベースレイヤーを かな → 英数 に変更した (issue #22)。英数/かなの
+切り替え (`MY_LCTL`) はEEPROMに保存しないので、`keyboard_post_init_kb()` で
+毎回の電源投入時に `default_layer_state` を直接書き換えて英数へ強制する。
+
 QMKを **0.14.25 → 0.33.11** へ更新。あわせて、当時のQMKに無かった機能を自前実装していた
 部分を捨てて、[geonix41/minipeg48](https://github.com/cognitom/qmk_firmware_geonix41/tree/geonix41-customized-layout/keyboards/geonix41/minipeg48)
 で書き直したQMK標準ベースの実装へ移植した。
