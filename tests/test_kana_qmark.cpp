@@ -107,8 +107,8 @@ TEST_F(KanaQmark, shifted_tap_sends_halfwidth_question_mark) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT)); // み ホールド確定
-        expect_qmark_reports(driver, KC_RIGHT_SHIFT);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // み ホールド確定
+        expect_qmark_reports(driver, KC_LEFT_SHIFT);
         EXPECT_EMPTY_REPORT(driver); // み 解放
     }
 
@@ -137,12 +137,12 @@ TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));        // み ホールド確定
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_F));  // は
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
-        expect_qmark_reports(driver, KC_RIGHT_SHIFT);   // も 1回目
-        expect_qmark_reports(driver, KC_RIGHT_SHIFT);   // も 2回目
-        EXPECT_EMPTY_REPORT(driver);                    // み 解放
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));        // み ホールド確定
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_F));  // は
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        expect_qmark_reports(driver, KC_LEFT_SHIFT);   // も 1回目
+        expect_qmark_reports(driver, KC_LEFT_SHIFT);   // も 2回目
+        EXPECT_EMPTY_REPORT(driver);                   // み 解放
     }
 
     mi.press();

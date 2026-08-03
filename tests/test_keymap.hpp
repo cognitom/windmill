@@ -37,7 +37,7 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
     {KC_ESC,  KC_1,         KC_2,         KC_3,        KC_4,          KC_5,           KC_6,           KC_7,          KC_8,           KC_9,       KC_0,    KC_ENT},
     {KC_TAB,  KC_Q,         MY_W,         KC_E,        MY_R,          KC_T,           KC_Y,           MY_U,          KC_I,           MY_O,       MY_P,    MY_LBRC},
     {KC_BSPC, MY_A,         KC_S,         KC_D,        KC_F,          KC_G,           KC_H,           KC_J,          MY_K,           MY_L,       MY_SCLN, MY_QUOT},
-    {MY_LCTL, LGUI_T(KC_Z), LALT_T(KC_X), LT(3,KC_C),  LT(2,KC_V),    LSFT_T(KC_B),   RSFT_T(KC_N),   LT(2,KC_M),    LT(3,KC_COMMA), KC_DOT,     KC_SLSH, KC_GRV},
+    {MY_LCTL, LGUI_T(KC_Z), LALT_T(KC_X), LT(3,KC_C),  LT(2,KC_V),    LSFT_T(KC_B),   LSFT_T(KC_N),   LT(2,KC_M),    LT(3,KC_COMMA), KC_DOT,     KC_SLSH, KC_GRV},
   },
 
   [LAYER_ALPHA] = {
