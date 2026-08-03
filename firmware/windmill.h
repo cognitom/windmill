@@ -34,6 +34,10 @@
 #define THUMB_SHIFT_B LSFT_T(KC_B)
 #define THUMB_SHIFT_N RSFT_T(KC_N)
 
+/* かなレイヤーの「も」。Shiftを押しながらタップすると半角「?」を出す
+ * (process_kana_qmark 参照)。keymaps[] のレイヤー0で使っているものと一致させること */
+#define KANA_QMARK_KEY LT(2, KC_M)
+
 /* カスタムキーコードの開始位置。通常は QK_KB_0 から。ただし geonix41 のように
  * ベンダーのライブラリが QK_KB_0 から自前のキーコードを並べている機種では、
  * ぶつからないよう後ろにずらす必要があるので、機種の config.h で上書きする。 */
