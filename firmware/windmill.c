@@ -351,12 +351,31 @@ static uint8_t thumb_shift_held = 0;
 // falseを返したらそのイベントは消費済み(以降の処理をスキップ)
 static bool process_thumb_shift(uint16_t keycode, keyrecord_t *record) {
     if (record->tap.count && record->event.pressed) { // tap確定
-        const uint8_t mods = get_mods();
-        if (mods & MOD_MASK_SHIFT) {
+        const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
+        if (shift) {
             if (!thumb_shift_dirty) {
-                del_mods(MOD_MASK_SHIFT);
+                /* 実Shiftを外してから半角スペースを送る。
+                 *
+                 * 以前は del_mods()/set_mods() で real_mods を書き換えていた。この2つは
+                 * レポートを送らないので、ホストへ届く1本目が
+                 *
+                 *   [LSFT] (ホールド確定) → [KC_SPC]
+                 *
+                 * と、「Shiftを離す」と「Spaceを押す」を1本にまとめた形になっていた。
+                 * しかも同時押しでは、もう片方の押下がホールドを確定させる
+                 * (HOLD_ON_OTHER_KEY_PRESS) ので、その1本はホールド確定の直後に出る。
+                 * IMEがShiftの上げ下げを追い切れず、1打鍵目だけShiftが乗ったままに
+                 * なっていた。2打鍵目以降が無事なのは前のレポートから間が空いている
+                 * だけの話で、process_shift_pair() の「Shiftを外して送る」経路と
+                 * 同じ症状 (issue #36)。
+                 *
+                 * register系に変えてShiftを外すレポートを1本独立させ、あわせて
+                 * そちらと同じウェイトを挟んで順序を保証する。 */
+                wait_ms(IME_WAIT_MS);
+                unregister_mods(shift);
+                wait_ms(IME_WAIT_MS);
                 tap_code16(KC_SPC);
-                set_mods(mods);
+                register_mods(shift);
             }
             return false; // ダーティ時は何も出さない
         }

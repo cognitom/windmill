@@ -19,6 +19,19 @@
 `process_kana_qmark()` に入れたのと同じウェイト (`IME_WAIT_MS` = 10ms) を挟むようにした。
 **効くのはShiftと一緒に押したときだけなので、通常の打鍵は従来どおり。**
 
+同じ症状が「こ」+「み」同時押しの半角スペースにもあり、こちらも1打鍵目だけShiftが
+乗っていた (issue #36)。`process_thumb_shift()` は `del_mods()` / `set_mods()` で
+実Shiftを外していたが、この2つはレポートを送らないため、ホストへ届く1本目が
+
+```
+[LSFT] (ホールド確定) → [KC_SPC]     ← 「Shiftを離す」と「Spaceを押す」が1本にまとまる
+```
+
+という形になっていた。しかも同時押しでは、もう片方の押下がホールドを確定させる
+(`HOLD_ON_OTHER_KEY_PRESS`) ので、この2本は1msしか離れない。`register_mods()` /
+`unregister_mods()` に変えてShiftを外すレポートを1本独立させ、あわせて同じウェイトを
+挟むようにした。**こちらも効くのは同時押しのときだけ。**
+
 親指Shiftを左右とも左Shiftに統一した (issue #37)。以前は右を `RSFT_T(KC_N)` に
 していたが、`S(KC_x)` の weak Shift は必ず左Shiftなので、右Shiftを押している間だけ
 ホストから見て「右Shiftを離す → 左Shiftを押す」と修飾が入れ替わり、その1打鍵だけ
