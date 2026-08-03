@@ -346,7 +346,7 @@ static void set_is_android(bool val) {
 }
 
 // IME切り替え待ち。効かない場合は増やし、もたつくなら減らす
-#define LT2_IME_WAIT_MS 30
+#define LT2_IME_WAIT_MS 10
 
 /* 記号レイヤーの数字・記号キーか (レイヤー配置と一致させること)。
  * 矢印キーとKC_TRNSで下位レイヤーに落ちるキーは含めない */
