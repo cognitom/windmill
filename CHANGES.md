@@ -1,6 +1,6 @@
 # 変更履歴
 
-## v3.0.0 (未リリース)
+## v3.0.2 (未リリース)
 
 親指Shiftを左右とも左Shiftに統一した (issue #37)。以前は右を `RSFT_T(KC_N)` に
 していたが、`S(KC_x)` の weak Shift は必ず左Shiftなので、右Shiftを押している間だけ
@@ -12,6 +12,10 @@ Shiftが効かない罠があった (issue #18、issue #17)。左に揃えると
 押したままもう片方を離す「持ち替え」でShiftが落ちてしまう。押しっぱなしのほうが
 残っているうちは離すイベントを `process_thumb_shift()` で消費し、持ち替えを
 途切れさせないようにした。**打鍵時の見た目の挙動は従来どおりで変わらない。**
+
+---
+
+## v3.0.1
 
 かなレイヤーの「も」(`LT(2,KC_M)`) をShiftを押しながらタップすると、半角「?」を
 入力できるようにした (issue #17)。Symレイヤーの数字・記号と同じ要領で、
@@ -25,6 +29,10 @@ Shiftが効かない罠があった (issue #18、issue #17)。左に揃えると
 起動時のベースレイヤーを かな → 英数 に変更した (issue #22)。英数/かなの
 切り替え (`MY_LCTL`) はEEPROMに保存しないので、`keyboard_post_init_kb()` で
 毎回の電源投入時に `default_layer_state` を直接書き換えて英数へ強制する。
+
+---
+
+## v3.0.0
 
 QMKを **0.14.25 → 0.33.11** へ更新。あわせて、当時のQMKに無かった機能を自前実装していた
 部分を捨てて、[geonix41/minipeg48](https://github.com/cognitom/qmk_firmware_geonix41/tree/geonix41-customized-layout/keyboards/geonix41/minipeg48)
