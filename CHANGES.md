@@ -13,6 +13,13 @@ Shiftが効かない罠があった (issue #18、issue #17)。左に揃えると
 残っているうちは離すイベントを `process_thumb_shift()` で消費し、持ち替えを
 途切れさせないようにした。**打鍵時の見た目の挙動は従来どおりで変わらない。**
 
+親指Shiftの左右統一 (issue #37) を受けて、`process_shift_pair()` と
+`process_kana_qmark()` を単純化した (issue #39)。どちらも issue #18 対策として
+「実Shiftを外す→shifted側のweak Shiftを付ける→外す」という入れ替えを避けていたが、
+実Shiftとweak Shiftが常に同じ左Shiftになったことで入れ替えそのものが起こらなく
+なったので、素直に unregister → 送出 → register の形へ戻した。外付けキーボードの
+右Shift併用は考えない。
+
 ---
 
 ## v3.0.1

@@ -252,42 +252,35 @@ static void td_double_confirm(void) {
  * Shift時に別の記号を出すキー
  */
 
-// shifted 側が Shift 付きのキーコード (S(KC_x)) かどうか
-static bool is_shifted_keycode(uint16_t keycode) {
-    return IS_QK_MODS(keycode) && (QK_MODS_GET_MODS(keycode) & MOD_LSFT);
-}
-
 /* Shift付きで押されたら shifted を、そうでなければ plain を送出する
  * (QMKのkey override相当)。
  *
- * shifted 側もShiftを要するキー (S(KC_COMM) → 「、」など) では、押されている
- * Shiftをそのまま使い、修飾の付け外しを一切しない。以前は必ず
+ * shifted へ切り替える間だけ実Shiftを外し、tap_code16() に任せる
+ * (shifted 自体が S(KC_COMM) のような weak Shift 付きキーコードなら、
+ * その付け外しも tap_code16() がやってくれる)。送出し終えたら実Shiftを戻す。
+ *
+ * 以前はここで
  *   実Shiftを外す → shifted のweak Shiftを付ける → 外す
- * としていたので、ホストには「右Shiftを離して左Shiftを押す」レポートが1本
- * 挟まっていた。この入れ替えが起きるのは親指Shiftを押してからの1打鍵目だけで、
- * そこだけShiftが効かない機種があった (issue #18)。
+ * という入れ替えが、ホストには「右Shiftを離して左Shiftを押す」レポートが
+ * 1本挟まる形に見え、親指Shiftを押してからの1打鍵目だけShiftが効かない
+ * 機種があった (issue #18)。del_mods()/set_mods() も使わなかった。この2つは
+ * real_mods を書き換えるだけでレポートを送らないため、親指Shiftを押し続けて
+ * いてもホスト側では文字ごとにShiftが離れた状態になっていた。
  *
- * あわせて del_mods()/set_mods() をやめる。この2つは real_mods を書き換える
- * だけでレポートを送らないため、親指Shiftを押し続けていてもホスト側では
- * 文字ごとにShiftが離れた状態になっていた。
- *
- * 親指Shiftを左に統一した (issue #37) ので、押されている実Shiftは weak Shift と
- * 同じ左Shiftになり、入れ替えは原理的に起こらなくなった。ただしそれに頼って
- * weak Shift を付け直す形へ戻すと、外付けキーボードの右Shift併用など
- * 左Shift以外が押されている場合に同じ罠が復活するので、このままにしておく。 */
+ * 親指Shiftを左右とも左Shiftに統一した (issue #37) ので、押されている実Shiftと
+ * shifted 側のweak Shiftは常に同じ左Shiftになり、上記の入れ替えは原理的に
+ * 起こらなくなった。外付けキーボードの右Shift併用までは考えないので
+ * (issue #39)、単純な形に戻す。 */
 static bool process_shift_pair(uint16_t plain, uint16_t shifted, keyrecord_t *record) {
     if (!record->event.pressed) return false;
 
     const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
-    if (!shift) {
-        tap_code16(plain);
-    } else if (is_shifted_keycode(shifted)) {
-        tap_code(QK_MODS_GET_BASIC_KEYCODE(shifted)); // 押されているShiftをそのまま使う
-    } else {
-        // shifted 側はShift無しで送る必要がある (バックスラッシュなど)
+    if (shift) {
         unregister_mods(shift);
         tap_code16(shifted);
-        register_mods(shift);
+        register_mods(shift); // register/unregisterでレポートを送り、戻ったことをホストに伝える
+    } else {
+        tap_code16(plain);
     }
     return false;
 }
@@ -397,23 +390,20 @@ static bool is_sym_ime_wrap_target(uint16_t keycode) {
  * 切り替えてから送出し、かなへ戻す (issue #17)。
  *
  * Symレイヤー側の is_sym_ime_wrap_target と違い、こちらは押しっぱなしの実Shift
- * (親指Shiftを含む) がある状態で走るので、Shiftの扱いに2つ気をつける点がある。
+ * (親指Shiftを含む) がある状態で走るので、KC_LNG2/KC_LNG1 にShiftが乗って
+ * しまわないよう、モード切り替えの間だけ実Shiftを外す。乗ったままだとIMEが
+ * 英数/かなキーとして受け取らず、モードがかなのまま KC_SLSH だけが届いて
+ * 「・」(JISかなのShift+/) が出てしまう。
  *
- * 1. KC_LNG2/KC_LNG1 にShiftが乗っているとIMEが英数/かなキーとして受け取らず、
- *    モードがかなのまま KC_SLSH だけが届いて「・」(JISかなのShift+/) が出る。
- *    そこでモード切り替えの間だけShiftを外す。
- * 2. 「?」のShiftは、外した実Shiftをそのまま戻して使う。以前は S(KC_SLSH) の
- *    weak Shift (左Shift) を自前で付けていたが、それだとホストからは
- *    「右Shiftを離す → 左Shiftを押す」と修飾が入れ替わって見え、言語切り替え
- *    直後の1打鍵目だけShiftが効かずに半角「/」が出ていた。issue #18 と同じ罠。
- *    親指Shiftを左に統一した (issue #37) 今は入れ替えの相手がいないが、
- *    外付けキーボードの右Shiftとの併用まで考えると実Shiftを使うほうが安全。
+ * 「?」自体は S(KC_SLSH) の weak Shift で送る。親指Shiftを左に統一した
+ * (issue #37) 今は実Shiftも weak Shiftも同じ左Shiftなので、以前 issue #18 の
+ * 原因になった「右Shiftを離す→左Shiftを押す」入れ替えは起こらない。外付け
+ * キーボードの右Shift併用までは考えない (issue #39)。
  *
- * 加えて、モードとShiftの変化はどちらもIMEが非同期に処理するので、レポートを
- * 送るたびにウェイトを挟んで順序を保証する。修飾の上げ下げにも1回ずつ要るのは、
- * Shiftを押した直後に KC_SLSH を送るとIMEが切り替え処理に紛れてShiftを取り
- * こぼすため。del_mods()/set_mods() ではなく register/unregister を使うのは、
- * ホスト側にもShiftの上げ下げを届ける必要があるから (これも issue #18)。
+ * モードとShiftの変化はどちらもIMEが非同期に処理するので、レポートを送る
+ * たびにウェイトを挟んで順序を保証する。del_mods()/set_mods() ではなく
+ * register/unregister を使うのは、ホスト側にもShiftの上げ下げを届ける必要が
+ * あるから (これも issue #18)。
  *
  * ホールド (Symレイヤーへの遷移) はQMKの通常のLT()処理に任せる */
 static bool process_kana_qmark(keyrecord_t *record) {
@@ -424,11 +414,7 @@ static bool process_kana_qmark(keyrecord_t *record) {
             wait_ms(LT2_IME_WAIT_MS);
             tap_code16(KC_LNG2); // 英数へ
             wait_ms(LT2_IME_WAIT_MS);
-            register_mods(shift); // 押されていたShiftをそのまま戻して「?」に使う
-            wait_ms(LT2_IME_WAIT_MS);
-            tap_code(KC_SLSH);
-            wait_ms(LT2_IME_WAIT_MS);
-            unregister_mods(shift);
+            tap_code16(S(KC_SLSH)); // 「?」。weak Shiftで送る
             wait_ms(LT2_IME_WAIT_MS);
             tap_code16(KC_LNG1); // かなへ
             wait_ms(LT2_IME_WAIT_MS);
