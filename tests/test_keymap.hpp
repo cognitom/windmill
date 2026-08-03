@@ -73,6 +73,9 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
 #define POS_NA 1, 7    // な  MY_U   Shift時 KC_MINS = ほ (Shiftを外す必要がある)
 #define POS_HA 2, 4    // は  KC_F   英数レイヤーでは "f"
 #define POS_MO 3, 7    // も  LT(2,KC_M)   Shift+タップで半角?
+#define POS_TSU 3, 1   // つ  LGUI_T(KC_Z) 英数レイヤーでは KC_LGUI
+#define POS_SA 3, 2    // さ  LALT_T(KC_X) 英数レイヤーでは KC_LALT
+#define POS_NU 0, 1    // ぬ  KC_1         英数レイヤーでは "q"
 
 class WindmillTest : public TestFixture {
    public:

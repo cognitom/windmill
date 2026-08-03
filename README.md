@@ -53,6 +53,8 @@ Windmill is a keymap for 40% keyboards.
 
 かな/英数切り替えは、Ctrlキーのタップ/ダブルタップで行います。
 
+かな入力中に Ctrl, GUI, Alt をホールドしている間は、一時的に英字配列になります。<kbd>Ctrl</kbd>+<kbd>C</kbd> や <kbd>GUI</kbd>+<kbd>V</kbd> といったショートカットが、かなに切り替えなくてもそのまま打てます。
+
 |  | L5 | L4| L3 | L2 | L1 | L0 | R0 | R1 | R2 |
 |--|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
 | ホールド | Ctrl | GUI | Alt | Fn | Sym | Shift | Shift | Sym | Fn |
