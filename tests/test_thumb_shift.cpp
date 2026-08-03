@@ -31,6 +31,7 @@
 using testing::_;
 using testing::AnyNumber;
 using testing::InSequence;
+using testing::InvokeWithoutArgs;
 
 class ThumbShift : public WindmillTest {};
 
@@ -122,6 +123,64 @@ TEST_F(ThumbShift, handover_right_to_left_keeps_shift) {
     run_one_scan_loop();
     idle_for(120);
     VERIFY_AND_CLEAR(driver);
+}
+
+/* 「こ」+「み」同時押しの半角スペース (issue #36)。
+ *
+ * 実機では、同時押しの1打鍵目だけスペースにShiftが乗っていた。以前は
+ * del_mods()/set_mods() で real_mods を書き換えていて、この2つはレポートを
+ * 送らない。そのためホストへ届く1本目が
+ *
+ *   [LSFT] (ホールド確定) → [KC_SPC]     ← Shiftを離すのとSpaceを押すのが同時
+ *
+ * という形になっていた。しかも HOLD_ON_OTHER_KEY_PRESS で「こ」のホールドは
+ * 「み」の押下で確定するので、同時押しではこの2本が1msしか離れない。
+ * 2打鍵目以降が無事なのは前のレポートから間が空いているだけの話で、
+ * process_shift_pair() の「Shiftを外して送る」経路 (issue #36) と同じ症状。
+ *
+ * そこでShiftを外すレポートが1本独立していることと、送出の間隔の両方を見る。 */
+TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    auto ko = key(POS_KO); // 左親指Shift
+    auto mi = key(POS_MI); // 右親指Shift
+
+    uint16_t at_hold = 0, at_drop = 0, at_space = 0;
+
+    {
+        InSequence s;
+        // こ ホールド確定 → Shiftを外す → スペース。この3本の間隔を控える
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)).WillOnce(InvokeWithoutArgs([&] { at_hold = timer_read(); }));
+        EXPECT_EMPTY_REPORT(driver).WillOnce(InvokeWithoutArgs([&] { at_drop = timer_read(); }));
+        EXPECT_REPORT(driver, (KC_SPACE)).WillOnce(InvokeWithoutArgs([&] { at_space = timer_read(); }));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));  // Shiftを戻す (ホストへ届くこと)
+        EXPECT_EMPTY_REPORT(driver);             // 2打鍵目。レポート列は1打鍵目と同じ
+        EXPECT_REPORT(driver, (KC_SPACE));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);             // こ 解放
+    }
+
+    ko.press();
+    run_one_scan_loop();
+    mi.press(); // 同時押し。TAPPING_TERM を待たず こ のホールドが確定する
+    run_one_scan_loop();
+    mi.release(); // すぐ離すのでタップ確定 = スペース
+    run_one_scan_loop();
+    idle_for(120);
+    tap_key(mi, 120); // 2打鍵目
+    idle_for(120);
+    ko.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+
+    // ホールド確定 → Shift外し → スペース が同じスキャンに固まっていないこと
+    EXPECT_GE(uint16_t(at_drop - at_hold), uint16_t(IME_WAIT_MS));
+    EXPECT_GE(uint16_t(at_space - at_drop), uint16_t(IME_WAIT_MS));
 }
 
 // 両方離せばShiftも落ちる。持ち替えの後始末が残っていないことの確認

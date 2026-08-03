@@ -252,6 +252,14 @@ static void td_double_confirm(void) {
  * Shift時に別の記号を出すキー
  */
 
+/* IMEがレポートを取りこぼさないためのウェイト。効かない場合は増やし、
+ * もたつくなら減らす。
+ *
+ * 修飾の上げ下げも英数/かなの切り替えもIMEが非同期に処理するので、
+ * レポートを続けて送ると前のぶんを取りこぼす。1本ごとに間を空けて
+ * ホスト側での順序を保証する (issue #17、issue #36)。 */
+#define IME_WAIT_MS 10
+
 // shifted 側が Shift 付きのキーコード (S(KC_x)) かどうか
 static bool is_shifted_keycode(uint16_t keycode) {
     return IS_QK_MODS(keycode) && (QK_MODS_GET_MODS(keycode) & MOD_LSFT);
@@ -284,8 +292,21 @@ static bool process_shift_pair(uint16_t plain, uint16_t shifted, keyrecord_t *re
     } else if (is_shifted_keycode(shifted)) {
         tap_code(QK_MODS_GET_BASIC_KEYCODE(shifted)); // 押されているShiftをそのまま使う
     } else {
-        // shifted 側はShift無しで送る必要がある (バックスラッシュなど)
+        /* shifted 側はShift無しで送る必要がある (「な」→「ほ」など)。
+         *
+         * 実Shiftを外す前後にウェイトを挟む。挟まないと、親指Shiftのホールドが
+         * 確定した直後の1打鍵目だけShiftが乗ったまま解釈されていた (issue #36)。
+         * 「な」なら「ほ」ではなく S(KC_MINS) の「ー」が出る。
+         *
+         * レポート列自体は1打鍵目も2打鍵目も同じで、違うのは間隔だけだった。
+         * 別キー割り込みでホールドが確定する (HOLD_ON_OTHER_KEY_PRESS) ため、
+         * 1打鍵目は
+         *   [LSFT] (ホールド確定) → [] (Shiftを外す) → [KC_MINS]
+         * が全て同じスキャンで出る。2打鍵目以降はホールド確定から間が空くので
+         * 正しく出ていた。つまりIMEがShiftの上げ下げを追い切れていない。 */
+        wait_ms(IME_WAIT_MS);
         unregister_mods(shift);
+        wait_ms(IME_WAIT_MS);
         tap_code16(shifted);
         register_mods(shift);
     }
@@ -330,12 +351,32 @@ static uint8_t thumb_shift_held = 0;
 // falseを返したらそのイベントは消費済み(以降の処理をスキップ)
 static bool process_thumb_shift(uint16_t keycode, keyrecord_t *record) {
     if (record->tap.count && record->event.pressed) { // tap確定
-        const uint8_t mods = get_mods();
-        if (mods & MOD_MASK_SHIFT) {
+        const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
+        if (shift) {
             if (!thumb_shift_dirty) {
-                del_mods(MOD_MASK_SHIFT);
+                /* 実Shiftを外してから半角スペースを送る。
+                 *
+                 * 以前は del_mods()/set_mods() で real_mods を書き換えていた。この2つは
+                 * レポートを送らないので、ホストへ届く1本目が
+                 *
+                 *   [LSFT] (ホールド確定) → [KC_SPC]
+                 *
+                 * と、「Shiftを離す」と「Spaceを押す」を1本にまとめた形になっていた。
+                 * しかも同時押しでは、もう片方の押下がホールドを確定させる
+                 * (HOLD_ON_OTHER_KEY_PRESS) ので、その1本はホールド確定の直後に出る。
+                 * IMEがShiftの上げ下げを追い切れず、1打鍵目だけShiftが乗ったままに
+                 * なっていた。2打鍵目以降が無事なのは前のレポートから間が空いている
+                 * だけの話で、process_shift_pair() の「Shiftを外して送る」経路と
+                 * 同じ症状 (issue #36)。
+                 *
+                 * register系に変えてShiftを外すレポートを1本独立させ、あわせて
+                 * そちらと同じウェイトを挟んで順序を保証する。 */
+                wait_ms(IME_WAIT_MS);
+                unregister_mods(shift);
+                wait_ms(IME_WAIT_MS);
                 tap_code16(KC_SPC);
-                set_mods(mods);
+                wait_ms(IME_WAIT_MS);
+                register_mods(shift);
             }
             return false; // ダーティ時は何も出さない
         }
@@ -365,9 +406,6 @@ static void set_is_android(bool val) {
     windmill_config.is_android = val;
     eeconfig_update_kb(windmill_config.raw);
 }
-
-// IME切り替え待ち。効かない場合は増やし、もたつくなら減らす
-#define LT2_IME_WAIT_MS 10
 
 /* 記号レイヤーの数字・記号キーか (レイヤー配置と一致させること)。
  * 矢印キーとKC_TRNSで下位レイヤーに落ちるキーは含めない */
@@ -421,17 +459,17 @@ static bool process_kana_qmark(keyrecord_t *record) {
         const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
         if (shift) {
             unregister_mods(shift); // モード切り替えの間だけ実Shiftを外す
-            wait_ms(LT2_IME_WAIT_MS);
+            wait_ms(IME_WAIT_MS);
             tap_code16(KC_LNG2); // 英数へ
-            wait_ms(LT2_IME_WAIT_MS);
+            wait_ms(IME_WAIT_MS);
             register_mods(shift); // 押されていたShiftをそのまま戻して「?」に使う
-            wait_ms(LT2_IME_WAIT_MS);
+            wait_ms(IME_WAIT_MS);
             tap_code(KC_SLSH);
-            wait_ms(LT2_IME_WAIT_MS);
+            wait_ms(IME_WAIT_MS);
             unregister_mods(shift);
-            wait_ms(LT2_IME_WAIT_MS);
+            wait_ms(IME_WAIT_MS);
             tap_code16(KC_LNG1); // かなへ
-            wait_ms(LT2_IME_WAIT_MS);
+            wait_ms(IME_WAIT_MS);
             register_mods(shift); // 押しっぱなしの実Shiftを戻す
             return false;
         }
@@ -477,9 +515,9 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             // IMEのモード切り替えは非同期なので、間にウェイトを挟まないと
             // 切り替え完了前にキーが届いて全角のまま入力される
             tap_code16(KC_LNG2);
-            wait_ms(LT2_IME_WAIT_MS);
+            wait_ms(IME_WAIT_MS);
             tap_code16(keycode);
-            wait_ms(LT2_IME_WAIT_MS);
+            wait_ms(IME_WAIT_MS);
             tap_code16(KC_LNG1);
         }
         return false; // releaseも消費 (未registerのunregisterを防ぐ)
