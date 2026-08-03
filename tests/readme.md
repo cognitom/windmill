@@ -36,6 +36,8 @@ issue #18 は「言語切り替え直後の1打鍵目だけ Shift が効かず�
 | `test.mk` | `firmware/windmill.c` をテストへリンクする |
 | `test_keymap.hpp` | テスト用キーマップと `WindmillTest` フィクスチャ |
 | `test_shift_pair.cpp` | 親指Shift + `process_shift_pair()` のレポート列 |
+| `test_kana_qmark.cpp` | かなレイヤーの「も」でのShift+タップ (半角`?`) のレポート列 |
+| `test_thumb_shift.cpp` | 左右の親指Shiftの持ち替え (ハンドオーバー) のレポート列 |
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、

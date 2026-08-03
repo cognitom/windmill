@@ -30,9 +30,15 @@
 #define LAYER_FN    3 // ファンクション・メディア・設定
 #define LAYER_SIZE  4
 
-/* 親指Shift。keymaps[] のレイヤー0で使っているものと一致させること */
+/* 親指Shift。keymaps[] のレイヤー0で使っているものと一致させること。
+ *
+ * 左右とも左Shiftにする (issue #37)。以前は右を RSFT_T(KC_N) にしていたが、
+ * `S(KC_x)` の weak Shift は必ず左Shiftなので、右Shiftを押している間だけ
+ * ホストから見て修飾が入れ替わり、その1打鍵だけShiftが効かない罠があった
+ * (issue #18、issue #17)。左に揃えれば実Shiftと weak Shift が同じビットになり、
+ * 入れ替えのレポートが原理的に発生しない。 */
 #define THUMB_SHIFT_B LSFT_T(KC_B)
-#define THUMB_SHIFT_N RSFT_T(KC_N)
+#define THUMB_SHIFT_N LSFT_T(KC_N)
 
 /* かなレイヤーの「も」。Shiftを押しながらタップすると半角「?」を出す
  * (process_kana_qmark 参照)。keymaps[] のレイヤー0で使っているものと一致させること */

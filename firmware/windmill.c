@@ -269,7 +269,12 @@ static bool is_shifted_keycode(uint16_t keycode) {
  *
  * あわせて del_mods()/set_mods() をやめる。この2つは real_mods を書き換える
  * だけでレポートを送らないため、親指Shiftを押し続けていてもホスト側では
- * 文字ごとにShiftが離れた状態になっていた。 */
+ * 文字ごとにShiftが離れた状態になっていた。
+ *
+ * 親指Shiftを左に統一した (issue #37) ので、押されている実Shiftは weak Shift と
+ * 同じ左Shiftになり、入れ替えは原理的に起こらなくなった。ただしそれに頼って
+ * weak Shift を付け直す形へ戻すと、外付けキーボードの右Shift併用など
+ * 左Shift以外が押されている場合に同じ罠が復活するので、このままにしておく。 */
 static bool process_shift_pair(uint16_t plain, uint16_t shifted, keyrecord_t *record) {
     if (!record->event.pressed) return false;
 
@@ -311,8 +316,19 @@ static const uint16_t my_shift_pairs[][2] = {
 // Shift(親指hold)開始後に他のキーが押されたらダーティ
 static bool thumb_shift_dirty = false;
 
+/* Shiftとしてホールド中の親指Shift。左右で1ビットずつ持つ。
+ *
+ * 左右とも左Shiftになった (issue #37) ので、QMKの修飾ビットは両者で共有される。
+ * 参照カウントが無いため、素のままだと先に離したほうの unregister_mods() で
+ * Shiftが落ち、もう片方を押していてもホストからはShiftが離れて見える。
+ * 押しっぱなしのほうが残っているうちは離すイベントごと消費して、
+ * 持ち替え (ハンドオーバー) を途切れさせない。 */
+static uint8_t thumb_shift_held = 0;
+
+#define THUMB_SHIFT_BIT(keycode) ((keycode) == THUMB_SHIFT_B ? 1 : 2)
+
 // falseを返したらそのイベントは消費済み(以降の処理をスキップ)
-static bool process_thumb_shift(keyrecord_t *record) {
+static bool process_thumb_shift(uint16_t keycode, keyrecord_t *record) {
     if (record->tap.count && record->event.pressed) { // tap確定
         const uint8_t mods = get_mods();
         if (mods & MOD_MASK_SHIFT) {
@@ -325,6 +341,11 @@ static bool process_thumb_shift(keyrecord_t *record) {
         }
     } else if (!record->tap.count && record->event.pressed) { // hold確定 = Shift開始
         thumb_shift_dirty = false;
+        thumb_shift_held |= THUMB_SHIFT_BIT(keycode);
+    } else if (!record->event.pressed && !record->tap.count) { // hold解放
+        thumb_shift_held &= ~THUMB_SHIFT_BIT(keycode);
+        // もう片方がまだShiftとして押されているなら、QMKに離させない
+        if (thumb_shift_held) return false;
     }
     return true; // 通常のtap(B/N)とholdはQMKに任せる
 }
@@ -385,6 +406,8 @@ static bool is_sym_ime_wrap_target(uint16_t keycode) {
  *    weak Shift (左Shift) を自前で付けていたが、それだとホストからは
  *    「右Shiftを離す → 左Shiftを押す」と修飾が入れ替わって見え、言語切り替え
  *    直後の1打鍵目だけShiftが効かずに半角「/」が出ていた。issue #18 と同じ罠。
+ *    親指Shiftを左に統一した (issue #37) 今は入れ替えの相手がいないが、
+ *    外付けキーボードの右Shiftとの併用まで考えると実Shiftを使うほうが安全。
  *
  * 加えて、モードとShiftの変化はどちらもIMEが非同期に処理するので、レポートを
  * 送るたびにウェイトを挟んで順序を保証する。修飾の上げ下げにも1回ずつ要るのは、
@@ -500,7 +523,7 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
         case THUMB_SHIFT_B: // 親指Shift
         case THUMB_SHIFT_N:
-            if (!process_thumb_shift(record)) {
+            if (!process_thumb_shift(keycode, record)) {
                 return false;
             }
             break; // 通常処理へ (tap=B/N, hold=Shift)
