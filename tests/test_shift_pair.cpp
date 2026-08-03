@@ -59,8 +59,9 @@ static void tap_lctl(WindmillTest* f, int times) {
  * 左Shiftを押し直すレポートが挟まっていた。technik ではその1文字だけ Shift が
  * 無視されて「、」ではなく「ね」になっていた。
  *
- * 現在は親指Shiftが左右とも左Shift (issue #37) なので、そもそも入れ替わりうる
- * 相手が無い。それでも回帰テストとして残す。 */
+ * 現在は親指Shiftが左右とも左Shift (issue #37) で、process_shift_pair() は
+ * 実Shiftを外してから同じ左Shiftで戻すだけなので、そもそも入れ替わりうる
+ * 相手が無い (issue #39)。それでも回帰テストとして残す。 */
 TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
     TestDriver driver;
     set_windmill_keymap();
@@ -79,10 +80,18 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));            // み ホールド確定
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_COMMA));  // 1打鍵目
+        EXPECT_EMPTY_REPORT(driver);                       // 1打鍵目: 実Shiftを外す
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));             // weak Shiftで戻す
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_COMMA));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_COMMA));  // 2打鍵目
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));             // 実Shiftを戻す
+        EXPECT_EMPTY_REPORT(driver);                       // 2打鍵目: 実Shiftを外す
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));             // weak Shiftで戻す
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_COMMA));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));             // 実Shiftを戻す
         EXPECT_EMPTY_REPORT(driver);                       // み 解放
     }
 
@@ -115,8 +124,8 @@ TEST_F(ShiftPair, without_shift_sends_plain_keycode) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* shifted 側が Shift 付きキーコードなら、押されている Shift をそのまま使う。
- * 修飾の付け外しレポートが挟まらないこと。 */
+/* shifted 側が Shift 付きキーコードのとき、実Shiftをいったん外して
+ * weak Shiftで送り、戻すこと。 */
 TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     TestDriver driver;
     set_windmill_keymap();
@@ -128,8 +137,12 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);           // 実Shiftを外す
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // weak Shiftで戻す
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_LEFT_BRACKET));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);           // また外す
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // 実Shiftを戻す
         EXPECT_EMPTY_REPORT(driver);
     }
 
