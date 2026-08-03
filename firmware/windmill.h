@@ -44,6 +44,11 @@
  * (process_kana_qmark 参照)。keymaps[] のレイヤー0で使っているものと一致させること */
 #define KANA_QMARK_KEY LT(2, KC_M)
 
+/* かなレイヤーの「つ」(Win) と「さ」(Alt)。ホールドしている間は英数レイヤーを
+ * 重ねる (process_kana_mod 参照)。keymaps[] のレイヤー0と一致させること */
+#define KANA_GUI_KEY LGUI_T(KC_Z)
+#define KANA_ALT_KEY LALT_T(KC_X)
+
 /* カスタムキーコードの開始位置。通常は QK_KB_0 から。ただし geonix41 のように
  * ベンダーのライブラリが QK_KB_0 から自前のキーコードを並べている機種では、
  * ぶつからないよう後ろにずらす必要があるので、機種の config.h で上書きする。 */

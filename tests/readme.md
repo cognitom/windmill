@@ -52,6 +52,7 @@ issue #36 は、そのレポート列すら1打鍵目と2打鍵目で完全に�
 | `test_shift_pair.cpp` | 親指Shift + `process_shift_pair()` のレポート列 |
 | `test_kana_qmark.cpp` | かなレイヤーの「も」でのShift+タップ (半角`?`) のレポート列 |
 | `test_thumb_shift.cpp` | 左右の親指Shiftの持ち替え (ハンドオーバー) と同時押しスペースのレポート列 |
+| `test_hold_layer.cpp` | Ctrl / Win(つ) / Alt(さ) のホールド中に英数レイヤーへ移ること |
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、

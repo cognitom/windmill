@@ -198,6 +198,35 @@ static bool process_led_timeout(uint16_t keycode, keyrecord_t *record) {
 #endif // WINDMILL_LED_ENABLE
 
 /*
+ * 修飾キーのホールド中だけ英数レイヤーを重ねる (Ctrl / Win / Alt 共通)
+ */
+
+/* かな入力のままでも Ctrl+C や Win+V が英字で打てるように、修飾キーを
+ * ホールドしている間は英数レイヤーを重ねる。Ctrl (MY_LCTL) だけだったのを
+ * Win(つ) と Alt(さ) にも揃えた (issue #34)。
+ *
+ * QMKのレイヤー状態は参照カウントを持たないので、Ctrl+Win のように2つ以上を
+ * 重ねて押すと、先に離したほうの layer_off で、まだ押している側のぶんまで
+ * レイヤーが落ちてしまう。押している顔ぶれをビットで持ち、全部離れてから消す。 */
+#define HOLD_LAYER LAYER_ALPHA
+
+#define HOLD_BIT_CTRL 1
+#define HOLD_BIT_GUI  2
+#define HOLD_BIT_ALT  4
+
+static uint8_t hold_layer_bits = 0;
+
+static void hold_layer_on(uint8_t bit) {
+    hold_layer_bits |= bit;
+    layer_on(HOLD_LAYER);
+}
+
+static void hold_layer_off(uint8_t bit) {
+    hold_layer_bits &= ~bit;
+    if (!hold_layer_bits) layer_off(HOLD_LAYER);
+}
+
+/*
  * MY_LCTL: tap = 英数, double-tap = かな, hold = Ctrl + 英数レイヤー
  *
  * 別キー割り込みで tapping term を待たず即ホールド確定する。
@@ -207,7 +236,6 @@ static bool process_led_timeout(uint16_t keycode, keyrecord_t *record) {
 #define TD_TAP_KC       KC_LNG2     // 1回タップ: 英数
 #define TD_DOUBLE_KC    KC_LNG1     // 2回タップ: かな
 #define TD_HOLD_MOD     KC_LCTL     // ホールド時の装飾
-#define TD_LAYER        LAYER_ALPHA // ホールド時のレイヤー。かな中でもCtrl+Cなどが英字で打てる
 #define TD_TAP_LAYER    LAYER_ALPHA // tap(英数)時のベースレイヤー
 #define TD_DOUBLE_LAYER LAYER_KANA  // double-tap(かな)時のベースレイヤー
 
@@ -226,12 +254,12 @@ static bool       td_hold_active = false;
 
 static void td_hold_on(void) {
     register_mods(MOD_BIT(TD_HOLD_MOD));
-    layer_on(TD_LAYER);
+    hold_layer_on(HOLD_BIT_CTRL);
     td_hold_active = true;
 }
 
 static void td_hold_off(void) {
-    layer_off(TD_LAYER);
+    hold_layer_off(HOLD_BIT_CTRL);
     unregister_mods(MOD_BIT(TD_HOLD_MOD));
     td_hold_active = false;
 }
@@ -246,6 +274,30 @@ static void td_tap_confirm(void) {
 static void td_double_confirm(void) {
     tap_code16(TD_DOUBLE_KC);
     default_layer_set((layer_state_t)1 << TD_DOUBLE_LAYER);
+}
+
+/*
+ * Win(つ) / Alt(さ) のホールド
+ */
+
+/* tap = つ/さ, hold = Win/Alt + 英数レイヤー。修飾そのものはQMKのmod-tapに
+ * 任せ、レイヤーの上げ下げだけを足す (issue #34)。
+ *
+ * 押下時の process_record_kb はタップかホールドかが確定してから呼ばれるので、
+ * ここで layer_on すれば割り込みキーの解決に間に合う。別キー割り込みで確定する
+ * 場合 (HOLD_ON_OTHER_KEY_PRESS)、割り込みキー側のキーコード解決はこの後に走る。
+ *
+ * MY_LCTL のように pre_process_record_kb で先回りする必要は無い。あちらは
+ * QMKのmod-tapではなく自前の状態機械なので、割り込みを自分で拾う必要がある。 */
+static void process_kana_mod(uint16_t keycode, keyrecord_t *record) {
+    const uint8_t bit = (keycode == KANA_GUI_KEY) ? HOLD_BIT_GUI : HOLD_BIT_ALT;
+
+    if (record->event.pressed) {
+        if (!record->tap.count) hold_layer_on(bit); // ホールド確定
+    } else if (hold_layer_bits & bit) {
+        // ホールドしていた分だけ戻す。タップ (つ/さ) の解放では何もしない
+        hold_layer_off(bit);
+    }
 }
 
 /*
@@ -558,6 +610,11 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                 return false;
             }
             break; // 通常のtap(も)とhold(Symレイヤー)はQMKに任せる
+
+        case KANA_GUI_KEY: // つ。ホールドで Win + 英数レイヤー
+        case KANA_ALT_KEY: // さ。ホールドで Alt + 英数レイヤー
+            process_kana_mod(keycode, record);
+            break; // タップ(つ/さ)と修飾の登録はQMKに任せる
 
         case THUMB_SHIFT_B: // 親指Shift
         case THUMB_SHIFT_N:
