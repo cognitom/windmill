@@ -1,24 +1,13 @@
-name: Build
+name: Release
 
 on:
   push:
-    branches: ['**']
     tags: ['v*']
-  pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: Unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Run tests
-        run: bash scripts/test.sh
-
   build:
     name: Build firmware
     runs-on: ubuntu-latest
@@ -47,7 +36,6 @@ jobs:
   release:
     name: Create release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
