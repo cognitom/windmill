@@ -375,6 +375,7 @@ static bool process_thumb_shift(uint16_t keycode, keyrecord_t *record) {
                 unregister_mods(shift);
                 wait_ms(IME_WAIT_MS);
                 tap_code16(KC_SPC);
+                wait_ms(IME_WAIT_MS);
                 register_mods(shift);
             }
             return false; // ダーティ時は何も出さない
