@@ -70,6 +70,7 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
 #define POS_NO 2, 8    // の  MY_K   Shift時 S(KC_COMM) = 、
 #define POS_RA 1, 9    // ら  MY_O   Shift時 S(KC_LBRC)
 #define POS_SU 1, 4    // す  MY_R   Shift時 KC_BSLS  (Shiftを外す必要がある)
+#define POS_NA 1, 7    // な  MY_U   Shift時 KC_MINS = ほ (Shiftを外す必要がある)
 #define POS_HA 2, 4    // は  KC_F   英数レイヤーでは "f"
 #define POS_MO 3, 7    // も  LT(2,KC_M)   Shift+タップで半角?
 
@@ -92,4 +93,5 @@ class WindmillTest : public TestFixture {
     }
 
     static constexpr unsigned TD_DTAP_TERM_MS = 180; // windmill.c の TD_DTAP_TERM
+    static constexpr unsigned IME_WAIT_MS     = 10;  // windmill.c の IME_WAIT_MS
 };

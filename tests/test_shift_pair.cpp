@@ -30,6 +30,7 @@
 using testing::_;
 using testing::AnyNumber;
 using testing::InSequence;
+using testing::InvokeWithoutArgs;
 
 class ShiftPair : public WindmillTest {};
 
@@ -97,6 +98,70 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
     run_one_scan_loop();
     idle_for(120);
     VERIFY_AND_CLEAR(driver);
+}
+
+/* issue #36 の再現手順。issue #18 と同じ形だが、こちらは shifted 側が
+ * Shift無しで送る側のキー。
+ *
+ *   MY_LCTL タップ         : 英数へ
+ *   は の位置 (英数では f) : 1文字入力
+ *   MY_LCTL ダブルタップ   : かなへ
+ *   み を押しながら な を2回
+ *
+ * 実機では1打鍵目だけ「ほ」ではなく「ー」(= S(KC_MINS) の出力) になっていた。
+ * 外したはずのShiftが乗ったまま KC_MINS が届いている、ということになる。
+ *
+ * ただしレポート列は1打鍵目も2打鍵目も同じで、違うのは間隔だけだった。
+ * 別キー割り込みでホールドが確定する (HOLD_ON_OTHER_KEY_PRESS) ので、
+ * 1打鍵目は [LSFT] → [] → [KC_MINS] が全て同じスキャンで出る。
+ * そこで、レポート列に加えて**送出の間隔**も固定する。 */
+TEST_F(ShiftPair, unshifted_pair_waits_for_ime_on_first_keypress) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    // 英数へ切り替えて1文字打ち、かなへ戻す。ここのレポートは問わない
+    EXPECT_ANY_REPORT(driver).Times(AnyNumber());
+    tap_lctl(this, 1);
+    tap_key(key(POS_HA), 120);
+    settle();
+    tap_lctl(this, 2);
+    VERIFY_AND_CLEAR(driver);
+
+    auto mi = key(POS_MI);
+    auto na = key(POS_NA);
+
+    uint16_t at_hold = 0, at_drop = 0, at_key = 0;
+
+    {
+        InSequence s;
+        // み ホールド確定 → Shiftを外す → 「ほ」。この3本の間隔を控える
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)).WillOnce(InvokeWithoutArgs([&] { at_hold = timer_read(); }));
+        EXPECT_EMPTY_REPORT(driver).WillOnce(InvokeWithoutArgs([&] { at_drop = timer_read(); }));
+        EXPECT_REPORT(driver, (KC_MINUS)).WillOnce(InvokeWithoutArgs([&] { at_key = timer_read(); }));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));  // Shiftを戻す
+        EXPECT_EMPTY_REPORT(driver);             // 2打鍵目。レポート列は1打鍵目と同じ
+        EXPECT_REPORT(driver, (KC_MINUS));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);             // み 解放
+    }
+
+    mi.press();
+    run_one_scan_loop();
+    idle_for(150); // TAPPING_TERM 未満。ホールドは な の押下で確定する
+    tap_key(na, 120);
+    idle_for(120);
+    tap_key(na, 120);
+    idle_for(120);
+    mi.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+
+    // ホールド確定 → Shift外し → キー送出 が同じスキャンに固まっていないこと
+    EXPECT_GE(uint16_t(at_drop - at_hold), uint16_t(IME_WAIT_MS));
+    EXPECT_GE(uint16_t(at_key - at_drop), uint16_t(IME_WAIT_MS));
 }
 
 // Shiftなしなら素のキーコードが出る
