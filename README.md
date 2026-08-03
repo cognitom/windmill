@@ -44,6 +44,7 @@ Windmill is a keymap for 40% keyboards.
 - 「ほ」「へ」「む」「ー」のみシフト側へ
 - 「こ」「み」同時押しでスペースキー
 - GUI, Alt, Fn, Sym, Shiftは、ホールド時に有効
+- Ctrl, GUI, Altのホールド中は英数レイヤーになるので、かな入力中でも <kbd>Ctrl</kbd>+<kbd>C</kbd> や <kbd>GUI</kbd>+<kbd>Q</kbd> が英字配列のまま打てる
 
 ![kana](docs/images/layout-kana.png)
 

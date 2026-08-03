@@ -65,6 +65,9 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
 
 /* かなレイヤー上の位置。コメントの文字は JISかな入力での出力 */
 #define POS_LCTL 3, 0  // 英数/かな
+#define POS_TSU 3, 1   // つ  LGUI_T(KC_Z)  英数レイヤーでは KC_LGUI
+#define POS_SA 3, 2    // さ  LALT_T(KC_X)  英数レイヤーでは KC_LALT
+#define POS_NU 0, 1    // ぬ  KC_1          英数レイヤーでは "q"
 #define POS_KO 3, 5    // こ  左親指Shift
 #define POS_MI 3, 6    // み  右親指Shift
 #define POS_NO 2, 8    // の  MY_K   Shift時 S(KC_COMM) = 、

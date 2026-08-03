@@ -40,6 +40,12 @@
 #define THUMB_SHIFT_B LSFT_T(KC_B)
 #define THUMB_SHIFT_N LSFT_T(KC_N)
 
+/* かなレイヤーの Win(つ) と Alt(さ)。ホールドしている間は Ctrl と同じく
+ * 英数レイヤーへ移す (process_kana_mod 参照)。
+ * keymaps[] のレイヤー0で使っているものと一致させること。 */
+#define KANA_GUI_KEY LGUI_T(KC_Z)
+#define KANA_ALT_KEY LALT_T(KC_X)
+
 /* かなレイヤーの「も」。Shiftを押しながらタップすると半角「?」を出す
  * (process_kana_qmark 参照)。keymaps[] のレイヤー0で使っているものと一致させること */
 #define KANA_QMARK_KEY LT(2, KC_M)
