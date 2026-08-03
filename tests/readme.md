@@ -42,6 +42,13 @@ issue #36 は、そのレポート列すら1打鍵目と2打鍵目で完全に�
 レポートを送らないぶん、1本目が `[LSFT]` → `[KC_SPC]` と「Shiftを離す」と「Spaceを押す」を
 まとめた形になっていて、レポート列と間隔の両方を見る必要がある。
 
+## レイヤーもレポートで見る
+
+issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ移す」は、`layer_state` を
+直接覗くのではなく**「ぬ」の位置を打って出力を見る**ことで判定している (`test_hold_layer.cpp`)。
+かなレイヤーでは `KC_1`、英数レイヤーでは `KC_Q` なので、どちらで解決されたかがレポートに出る。
+実装の内部状態ではなく、打鍵したときにホストへ何が届くかを固定するため。
+
 ## 構成
 
 | ファイル | 中身 |
@@ -52,6 +59,7 @@ issue #36 は、そのレポート列すら1打鍵目と2打鍵目で完全に�
 | `test_shift_pair.cpp` | 親指Shift + `process_shift_pair()` のレポート列 |
 | `test_kana_qmark.cpp` | かなレイヤーの「も」でのShift+タップ (半角`?`) のレポート列 |
 | `test_thumb_shift.cpp` | 左右の親指Shiftの持ち替え (ハンドオーバー) と同時押しスペースのレポート列 |
+| `test_hold_layer.cpp` | Ctrl / Win / Alt のホールド中だけ英数レイヤーへ移ることのレポート列 |
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、
