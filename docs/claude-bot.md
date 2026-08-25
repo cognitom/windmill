@@ -65,8 +65,8 @@ Claude は勝手に決めずに issue へ質問をコメントして止まる。
 持ち主の判定も `github.repository_owner` を見ているだけなので設定は要らない。
 移すときに直すのはこの2つ。
 
-- **`claude_args` の `--allowedTools`。** windmill では
-  `Bash(bash scripts/test.sh)` しか許していない。移った先のテストコマンドに変える
+- **`claude_args` の `--allowedTools`。** windmill では `Bash(bash scripts/lint.sh)`
+  と `Bash(bash scripts/test.sh)` しか許していない。移った先のコマンドに変える
 - **`prompt` の中身。** ビルドとテストの手順が windmill 固有
 
 移した先ごとに、App のインストール・Secrets・`claude` ラベルの3つは要る
@@ -96,5 +96,5 @@ windmill は public なので無料枠だが、非公開だと月あたりの無
 - **ワークフローはデフォルトブランチに入るまで動かない。** App のトークンは
   「そのワークフローがデフォルトブランチに存在するか」を見て発行されるので、
   ブランチに置いただけの状態では起動しない (`workflow_not_found_on_default_branch`)
-- ユニットテストはワークフローの中で走らせるが、`scripts/build.sh` は走らせない。
-  ビルドの確認はPR側の `Build` ワークフローに任せている
+- lint とユニットテストはワークフローの中で走らせるが、`scripts/build.sh` は
+  走らせない。4機種ぶんのコンパイルはタグを打ったときの Release ワークフローが持つ

@@ -10,7 +10,7 @@ minipeg48 / geonix41 の4つで、**キー処理の本体は `firmware/windmill.
 |--|--|
 | `firmware/windmill.c` `firmware/windmill.h` | 全機種共通のキー処理。レイヤー、Shift出し分け、親指Shift、LED |
 | `firmware/<機種>/` | `keyboard.json`, `rules.mk`, `keymaps/default/keymap.c` |
-| `scripts/` | Docker越しのビルド (`build.sh`) とテスト (`test.sh`)、リリース (`release.sh`) |
+| `scripts/` | Docker越しのlint (`lint.sh`) とテスト (`test.sh`)、ビルド (`build.sh`)、リリース (`release.sh`) |
 | `patches/` | QMK本体へ当てるパッチ。コンテナ内でのみ使う |
 | `tests/` | QMKのテスト基盤に載せたユニットテスト。詳細は `tests/readme.md` |
 | `docs/` | 導入方法、ビルド手順 |
@@ -19,19 +19,31 @@ minipeg48 / geonix41 の4つで、**キー処理の本体は `firmware/windmill.
 `output/` と `vendor/` は生成物なのでコミットしない (`.gitignore` 済み)。
 `vendor/` は geonix41 のベンダー配布物で、`scripts/fetch-vendor-blob.py` が取ってくる。
 
-## ビルドとテスト
+## lintとテストとビルド
 
-どちらも Docker が要る。QMKのバージョンは `scripts/Dockerfile` の `ARG QMK_VERSION` が正。
+どれも Docker が要る。QMKのバージョンは `scripts/Dockerfile` の `ARG QMK_VERSION` が正。
 
 ```bash
+bash scripts/lint.sh    # keyboard.json の静的チェック。イメージが在れば数秒
 bash scripts/test.sh    # ユニットテスト。イメージのビルドから走ると数分かかる
-bash scripts/build.sh   # 4機種ぶんのファームウェアを output/ に出す
+bash scripts/build.sh   # 4機種ぶんのファームウェアを output/ に出す。数分かかる
 ```
 
-コードを触ったら最低限 `scripts/test.sh` は通す。PRを出せば Test ワークフロー
-(`.github/workflows/test.yml`) が同じユニットテストを走らせる。4機種ぶんの
-コンパイルはタグを打ったときの Release ワークフローでしか走らないので、
-`firmware/` を触ったときは手元で `scripts/build.sh` も通しておく。
+**コードを触ったら `scripts/lint.sh` と `scripts/test.sh` を通す。`scripts/build.sh`
+は時間がかかるので普段は走らせなくてよい。** 4機種ぶんのコンパイルはタグを打った
+ときの Release ワークフローが持つ。PRを出せば Test ワークフロー
+(`.github/workflows/test.yml`) が lint とユニットテストを走らせる。
+
+ただし手元の2つが見る範囲は限られる。ここに引っかからない変更もある。
+
+- lint (`qmk lint --strict`) が読むのは `keyboard.json` とレイアウト定義だけ。
+  Cのコードは1行も見ない
+- テストは `firmware/windmill.c` をホスト向けにコンパイルして動かす。
+  機種ごとの `keymaps/default/keymap.c` と `rules.mk` は通らない
+  (テスト側は `tests/test_keymap.hpp` を使う)
+
+だから **`keymap.c` や `rules.mk` を触ったときは `scripts/build.sh` も通しておく**。
+`firmware/windmill.c` だけの変更なら lint とテストで足りる。
 
 ## リリース
 

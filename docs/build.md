@@ -17,12 +17,16 @@ $ bash scripts/build.sh
 
 `output`ディレクトリ内にファームウェアが作成されます。
 
-## テスト
+## lintとテスト
 
 キー処理のユニットテストがあります。同じくDockerだけあれば動きます。
 
 ```bash
-$ bash scripts/test.sh
+$ bash scripts/lint.sh   # keyboard.json の静的チェック。数秒で終わる
+$ bash scripts/test.sh   # ユニットテスト
 ```
+
+`lint.sh` は `build.sh` の中でも走っているものと同じで、ファームウェアの
+コンパイルまではしません。手早く確かめたいときに使えます。
 
 詳細は [tests/readme.md](../tests/readme.md) を参照してください。
