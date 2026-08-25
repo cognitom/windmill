@@ -26,5 +26,6 @@ docker run \
   --mount type=bind,source="$dirpath/vendor",target="/qmk_firmware/lib/rdr_lib",readonly \
   --mount type=bind,source="$dirpath/output",target="/output" \
   --mount type=bind,source="$dirpath/scripts/entrypoint.sh",target="/entrypoint.sh" \
+  --mount type=bind,source="$dirpath/scripts/lint-entrypoint.sh",target="/lint-entrypoint.sh",readonly \
   --entrypoint /bin/bash \
   "$image" /entrypoint.sh $project

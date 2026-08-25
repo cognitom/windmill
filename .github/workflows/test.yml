@@ -10,10 +10,13 @@ permissions:
 
 jobs:
   test:
-    name: Unit tests
+    name: Lint & unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      # test.sh と同じイメージを使うので、先に済ませても待ちは増えない
+      - name: Run lint
+        run: bash scripts/lint.sh
       - name: Run tests
         run: bash scripts/test.sh

@@ -54,23 +54,21 @@ jobs:
 
             1. まず CLAUDE.md を読む。このリポジトリの構成と守ってほしいことが書いてある
             2. issue の本文とコメントを読み、関連するコードとドキュメントを調べる
-            3. 実装したら `bash scripts/test.sh` でユニットテストを通す。
+            3. 実装したら `bash scripts/lint.sh` と `bash scripts/test.sh` を通す。
                Dockerイメージのビルドから走るので数分かかる。落ちたまま出さないこと
             4. ブランチへコミットする
             5. **`mcp__github__create_pull_request` を呼んでPRを作る。**
                action の既定の案内は「PR作成用のリンクを出す」で止まるが、
                それでは終わりにしない。本文には issue への参照を入れる
-            6. やったことを issue のコメントに返す
-
-            ファームウェアのビルド (`scripts/build.sh`) はこの場で走らせなくてよい。
-            PRを作れば Build ワークフローが4機種ぶんコンパイルする。
+            6. やったことを issue のコメントに返す。ただし、PRに書いたことは
+               そちらに書くので、issue には「PRを作った」だけでよい
 
             キー配置の好みや設計方針など、判断が割れそうなところは勝手に決めない。
             issue にコメントで質問して、そこで止まること。
           claude_args: |
             --model ${{ github.event.label.name == 'claude-opus' && 'claude-opus-5' || 'claude-sonnet-5' }}
             --max-turns 60
-            --allowedTools "Bash(bash scripts/test.sh),mcp__github__create_pull_request"
+            --allowedTools "Bash(bash scripts/lint.sh),Bash(bash scripts/test.sh),mcp__github__create_pull_request"
 
       # action の後処理は「PRがもう在るか」をAPIで確かめず、コメント本文に
       # compare URL が無ければ「Create PR」リンクを足す。PRを作らせている今の
@@ -144,4 +142,4 @@ jobs:
           claude_args: |
             --model ${{ contains(github.event.comment.body, '@claude opus') && 'claude-opus-5' || 'claude-sonnet-5' }}
             --max-turns 60
-            --allowedTools "Bash(bash scripts/test.sh),mcp__github__create_pull_request"
+            --allowedTools "Bash(bash scripts/lint.sh),Bash(bash scripts/test.sh),mcp__github__create_pull_request"
