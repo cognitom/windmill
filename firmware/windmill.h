@@ -40,6 +40,18 @@
 #define THUMB_SHIFT_B LSFT_T(KC_B)
 #define THUMB_SHIFT_N LSFT_T(KC_N)
 
+/* 英数レイヤーの親指Shift (SandS)。左右とも元から LSFT_T(KC_SPC) で同じ
+ * キーコードなので、かなレイヤーの THUMB_SHIFT_B/N と違ってタップ側の
+ * キーコードでは左右を区別できない。同じ行に並んでいるので列 (col) だけで
+ * 見分ける (issue #40)。
+ *
+ * LAYOUT_ortho_4x12 は全機種で行/列がそのまま matrix の row/col になる
+ * (各機種の keyboard.json の "layouts" 参照) ので、レイアウト上の位置を
+ * そのまま使える。keymaps[] のレイヤー1(英数)の並びと一致させること */
+#define ALPHA_THUMB_SHIFT       LSFT_T(KC_SPC)
+#define ALPHA_THUMB_SHIFT_L_COL 5
+#define ALPHA_THUMB_SHIFT_R_COL 6
+
 /* かなレイヤーの「も」。Shiftを押しながらタップすると半角「?」を出す
  * (process_kana_qmark 参照)。keymaps[] のレイヤー0で使っているものと一致させること */
 #define KANA_QMARK_KEY LT(2, KC_M)

@@ -418,6 +418,36 @@ static bool process_thumb_shift(uint16_t keycode, keyrecord_t *record) {
 }
 
 /*
+ * 英数レイヤーの親指Shift (SandS) のハンドオーバー
+ */
+
+/* 左右とも ALPHA_THUMB_SHIFT (LSFT_T(KC_SPC)) で同じキーコードなので、
+ * かなレイヤーの THUMB_SHIFT_BIT のようにキーコードでは左右を区別できない。
+ * windmill.h の説明どおり位置 (col) で見分ける (issue #40)。
+ *
+ * 参照カウントを持たないと片方を持ち替えたときにShiftごと落ちる理屈は
+ * process_thumb_shift と同じ。ただし英数レイヤーはIMEを介さないぶん単純で、
+ * Shift+タップ (半角スペース) はそのままQMKに任せてよく、ウェイトを挟んだ
+ * 送出のやり直しは要らない。 */
+static uint8_t alpha_thumb_shift_held = 0;
+
+#define ALPHA_THUMB_SHIFT_BIT(record) ((record)->event.key.col == ALPHA_THUMB_SHIFT_L_COL ? 1 : 2)
+
+// falseを返したらそのイベントは消費済み(以降の処理をスキップ)
+static bool process_alpha_thumb_shift(keyrecord_t *record) {
+    if (record->tap.count) return true; // タップ(スペース)はQMKに任せる
+
+    if (record->event.pressed) { // hold確定 = Shift開始
+        alpha_thumb_shift_held |= ALPHA_THUMB_SHIFT_BIT(record);
+    } else { // hold解放
+        alpha_thumb_shift_held &= ~ALPHA_THUMB_SHIFT_BIT(record);
+        // もう片方がまだShiftとして押されているなら、QMKに離させない
+        if (alpha_thumb_shift_held) return false;
+    }
+    return true; // 通常のtap(スペース)とholdはQMKに任せる
+}
+
+/*
  * かなレイヤー上での記号入力
  */
 
@@ -665,6 +695,12 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                 return false;
             }
             break; // 通常処理へ (tap=B/N, hold=Shift)
+
+        case ALPHA_THUMB_SHIFT: // 英数レイヤーの親指Shift (issue #40)
+            if (!process_alpha_thumb_shift(record)) {
+                return false;
+            }
+            break; // 通常処理へ (tap=スペース, hold=Shift)
 
         case MY_LCTL:
             if (record->event.pressed) {
