@@ -21,9 +21,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: vendor
-          key: rdr-lib-${{ hashFiles('scripts/fetch-vendor-blob.py') }}
+          key: rdr-lib-${{ hashFiles('scripts/geonix41/fetch-vendor-blob.py') }}
+      # QMK は compose.agent.yaml のコンテナの中で動かす (test.yml と同じ)
+      - name: Start QMK container
+        run: docker compose -f compose.agent.yaml up -d --wait
+      - name: Put qmk on PATH
+        run: echo "$GITHUB_WORKSPACE/scripts/bin" >> "$GITHUB_PATH"
+      # リリースするファームウェアは lint を通したものに限る
+      - name: Run lint
+        run: bash scripts/lint.sh
       - name: Build firmware
         run: bash scripts/build.sh
+      # geonix41 はコアにパッチを当てるので、使い捨てのコンテナで別に作る
+      - name: Build geonix41
+        run: bash scripts/geonix41/build.sh
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

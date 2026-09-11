@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # firmware/ は /qmk_firmware/keyboards/windmill へ、tests/ は
-# /qmk_firmware/tests/windmill へマウントされる (scripts/test.sh 参照)。
+# /qmk_firmware/tests/windmill へマウントされる (compose.agent.yaml 参照)。
 # テスト対象は windmill.c 本体そのもので、コピーは持たない。
 SRC   += keyboards/windmill/windmill.c
 VPATH += $(TOP_DIR)/keyboards/windmill

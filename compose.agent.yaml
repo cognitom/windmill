@@ -1,0 +1,43 @@
+# QMK を動かすコンテナ。scripts/lint.sh・test.sh・build.sh は、ここの qmk サービスの
+# `qmk` を呼ぶ前提で書いてある (ホストで打った `qmk` がこのコンテナへ届くようにしておく)。
+#
+#   docker compose -f compose.agent.yaml up -d --wait
+
+services:
+  qmk:
+    image: windmill-qmk
+    build: .
+    # up / run のたびにビルドする。固定タグのイメージを使い回すと、Dockerfile や
+    # テスト基盤のパッチを変えても古いまま動いてしまう。変わっていなければキャッシュで済む
+    pull_policy: build
+    volumes:
+      - .:/windmill
+      - ./firmware:/qmk_firmware/keyboards/windmill
+      - ./tests:/qmk_firmware/tests/windmill:ro
+      # QMK はファームウェアをまず .build/ に作る。scripts/build.sh はホスト側から
+      # ここを見て output/ へ拾う
+      - ./.build:/qmk_firmware/.build
+    labels:
+      polar.commands: "qmk"
+    # exec で入るだけなので、起きていればよい
+    command: sleep infinity
+    healthcheck:
+      test: ["CMD", "test", "-f", "/qmk_firmware/keyboards/windmill/windmill.c"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # geonix41 は QMK コアにパッチを当ててビルドする。当てた後の QMK では他の機種が
+  # 未定義参照で落ちるので、常駐の qmk とは分けて使い捨てで回す
+  # (scripts/geonix41/build.sh が `run --rm` する)。profile 付きなので up では起動しない
+  geonix41:
+    # イメージは qmk と同じもの
+    image: windmill-qmk
+    build: .
+    pull_policy: build
+    profiles: [geonix41]
+    volumes:
+      - .:/windmill
+      - ./firmware:/qmk_firmware/keyboards/windmill
+      - ./vendor:/qmk_firmware/lib/rdr_lib:ro
+    command: bash /windmill/scripts/geonix41/entrypoint.sh

@@ -15,7 +15,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      # test.sh と同じイメージを使うので、先に済ませても待ちは増えない
+      # 手元やエージェントと同じく、QMK は compose.agent.yaml のコンテナの中で動かし、
+      # scripts/bin/qmk でそこへ振り向ける。イメージのビルドはここで済ませる
+      - name: Start QMK container
+        run: docker compose -f compose.agent.yaml up -d --wait
+      - name: Put qmk on PATH
+        run: echo "$GITHUB_WORKSPACE/scripts/bin" >> "$GITHUB_PATH"
       - name: Run lint
         run: bash scripts/lint.sh
       - name: Run tests

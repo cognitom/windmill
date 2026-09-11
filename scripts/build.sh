@@ -1,31 +1,14 @@
 #! /usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")/.." # move to the current dir
-dirpath="$( pwd -P )" # study the dir path
+# qmk は compose.agent.yaml の qmk サービスのものを呼ぶ (lint.sh 参照)
+cd "$(dirname "$0")/.."
 project=windmill
 
-# Dockerfile の ARG と揃えること。
-# QMKのバージョンをイメージのタグに含めて、バージョンを上げたら作り直されるようにする
-qmk_version=$(sed -n 's/^ARG QMK_VERSION=//p' ./scripts/Dockerfile)
-image="$project-qmk:$qmk_version"
-
-if [ -z "$(docker image ls -q "$image")" ]; then
-  docker build -t "$image" -f ./scripts/Dockerfile .
-fi
-
-# geonix41 のベンダーブロブ。リポジトリには置けないので毎回ここで揃える
-# (取得済みなら何もしない)
-python3 ./scripts/fetch-vendor-blob.py
-
-# Run container and build firmware
-docker run \
-  --interactive --rm \
-  --mount type=bind,source="$dirpath/firmware",target="/qmk_firmware/keyboards/$project" \
-  --mount type=bind,source="$dirpath/patches",target="/patches",readonly \
-  --mount type=bind,source="$dirpath/vendor",target="/qmk_firmware/lib/rdr_lib",readonly \
-  --mount type=bind,source="$dirpath/output",target="/output" \
-  --mount type=bind,source="$dirpath/scripts/entrypoint.sh",target="/entrypoint.sh" \
-  --mount type=bind,source="$dirpath/scripts/lint-entrypoint.sh",target="/lint-entrypoint.sh",readonly \
-  --entrypoint /bin/bash \
-  "$image" /entrypoint.sh $project
+# geonix41 は QMK コアにパッチが要るので、ここでは作らない (scripts/geonix41/build.sh)
+for keyboard in technik ymd40 minipeg48; do
+  qmk compile -kb "$project/$keyboard" -km default
+  # ファームウェアはコンテナの中の .build/ にできる。compose.agent.yaml が
+  # そこをリポジトリの .build/ へマウントしているので、ホスト側から拾える
+  cp ".build/${project}_${keyboard}_default.hex" "output/${project}_${keyboard}.hex"
+done

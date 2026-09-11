@@ -1,0 +1,4 @@
+# QMK のビルド置き場。compose.agent.yaml が /qmk_firmware/.build へマウントする。
+# 無いと docker が root の持ち物として作ってしまうので、ディレクトリだけは置いておく
+*
+!.gitignore

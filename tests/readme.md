@@ -7,8 +7,8 @@ QMK のテスト基盤 (`make test:<name>`, gtest/gmock) に `firmware/windmill.
 $ bash scripts/test.sh
 ```
 
-`scripts/build.sh` と同じ Docker イメージ (`scripts/Dockerfile` の `QMK_VERSION`) を使う。
-geonix41 のベンダーブロブは使わないので、取得は走らない。
+`compose.agent.yaml` の `qmk` サービスの中で `qmk test-c` を走らせる
+(QMKのバージョンは `Dockerfile` の `QMK_VERSION`)。geonix41 のベンダーブロブは使わない。
 
 ## なぜレポート列を見るのか
 
@@ -69,7 +69,8 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 ## QMK 側へのパッチ
 
 `patches/qmk-test-harness.patch` で `tests/test_common/` に2箇所だけ手を入れている。
-コンテナは使い捨てなので剥がす処理はない。
+イメージのビルド時に当てている (`Dockerfile`)。`tests/test_common/` しか触らないので、
+同じイメージでファームウェアをビルドしても影響しない。
 
 - `matrix.c`: `matrix_scan_kb()` を weak にして `matrix_scan_user()` を呼ぶようにする。
   windmill.c が `matrix_scan_kb()` を実装しているため、そのままだと多重定義になる

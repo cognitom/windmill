@@ -1,5 +1,5 @@
 *.hex
 *.bin
 
-# ベンダー配布物。scripts/fetch-vendor-blob.py が取ってくる (再配布しない)
+# ベンダー配布物。scripts/geonix41/fetch-vendor-blob.py が取ってくる (再配布しない)
 /vendor/

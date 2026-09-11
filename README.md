@@ -108,5 +108,5 @@ Copyright (c) 2021-2026 Tsutomu Kawamura
 
 `geonix41` だけは無線・電源・LED制御にベンダー提供のクローズドソースなライブラリ
 (`librdrcommon.a`) を使っており、これはこのリポジトリには含まれていません。
-ビルド時に `scripts/fetch-vendor-blob.py` がベンダー配布物から取得します。
+ビルド時に `scripts/geonix41/fetch-vendor-blob.py` がベンダー配布物から取得します。
 詳しくは [firmware/geonix41/readme.md](firmware/geonix41/readme.md) を参照してください。
