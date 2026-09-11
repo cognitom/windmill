@@ -1,0 +1,4 @@
+# Dockerfile が取り込むのはテスト基盤のパッチだけ。
+# output/ や .build/ や vendor/ を毎回 docker へ送らないよう、他は全部落とす
+*
+!patches/qmk-test-harness.patch

@@ -25,8 +25,8 @@ BLUETOOTH_CUSTOM = yes
 DEBOUNCE_TYPE = asym_eager_defer_pk
 
 # ベンダーブロブ。無線 (BLE/2.4G)・電源管理・LEDドライバと、キースキャン後段の
-# Key_Value_Dispose() を提供する。scripts/fetch-vendor-blob.py がリポジトリの vendor/ に
-# 置き、build.sh が QMK ツリーの lib/rdr_lib/ へマウントする。
+# Key_Value_Dispose() を提供する。scripts/geonix41/fetch-vendor-blob.py がリポジトリの vendor/ に
+# 置き、compose.agent.yaml の geonix41 サービスが QMK ツリーの lib/rdr_lib/ へマウントする。
 #
 # 単一オブジェクト (rdr_common.o) なので、リンクすると del_key_from_report() など
 # コア関数の実装も一緒に入ってくる。patches/qmk-core-rdr-lib.patch を当てた

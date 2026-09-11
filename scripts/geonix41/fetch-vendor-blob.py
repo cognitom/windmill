@@ -26,7 +26,7 @@ URL = (
 
 # QMK ツリーの lib/rdr_lib/ に相当する。keyboards/ の下に置くと qmk lint が
 # 「あるはずのないファイル」として弾くので、外に出してある
-OUT_DIR = pathlib.Path(__file__).resolve().parent.parent / "vendor"
+OUT_DIR = pathlib.Path(__file__).resolve().parents[2] / "vendor"
 
 # zip 内のパス末尾 → (出力名, 改行をLFに正規化するか, 出力後の sha256)
 #

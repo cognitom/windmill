@@ -6,7 +6,7 @@ Windmill の4機種目。ES32 FS026 (Cortex-M0) を積んだ、USB / BLE×3 / 2.
 * Hardware Supported: Geonix REV.2.5 1U (RDMCTMZT)
 
 ```sh
-bash scripts/build.sh   # 4機種まとめてビルドされる
+bash scripts/geonix41/build.sh   # この機種だけ別に作る (他の3機種は scripts/build.sh)
 ```
 
 書き込みは MSC (USBドライブ) 型ブートローダー。Esc を押しながら USB 接続すると
@@ -21,8 +21,8 @@ Windmill の他の機種は素の QMK でビルドできるが、この機種だ
 
 無線 (BLE/2.4G)・電源管理・LEDドライバ・キースキャン後段の `Key_Value_Dispose()` は
 `librdrcommon.a` というクローズドソースのライブラリが持っている。再配布しないので
-リポジトリには置かず、`scripts/fetch-vendor-blob.py` がベンダー配布の zip から
-取り出して `vendor/` に置く (`build.sh` が自動で呼ぶ)。
+リポジトリには置かず、`scripts/geonix41/fetch-vendor-blob.py` がベンダー配布の zip から
+取り出して `vendor/` に置く (`scripts/geonix41/build.sh` が自動で呼ぶ)。
 
 配布 zip は約1GB あるが、必要なのは 2 ファイル・計 97KB だけなので、
 HTTP の Range リクエストで該当部分だけ抜いている (転送量 4.5MB / 10秒程度)。
@@ -43,7 +43,8 @@ HTTP の Range リクエストで該当部分だけ抜いている (転送量 4.
 ブロブは単一オブジェクトなので、リンクすると `del_key_from_report()` のような
 コア関数の実装まで一緒に入ってくる。パッチ側では同名の定義を落としてあり、
 **この状態で他の機種をビルドすると未定義参照で落ちる**。
-`scripts/entrypoint.sh` が他の3機種を先にビルドし、最後に geonix41 をやるのはこのため。
+この機種だけを使い捨てのコンテナでビルドしているのはこのため
+(`compose.agent.yaml` の `geonix41` サービスと `scripts/geonix41/entrypoint.sh`)。
 
 ### rules.mk と config.h を持つ
 

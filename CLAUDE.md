@@ -10,23 +10,29 @@ minipeg48 / geonix41 の4つで、**キー処理の本体は `firmware/windmill.
 |--|--|
 | `firmware/windmill.c` `firmware/windmill.h` | 全機種共通のキー処理。レイヤー、Shift出し分け、親指Shift、LED |
 | `firmware/<機種>/` | `keyboard.json`, `rules.mk`, `keymaps/default/keymap.c` |
-| `scripts/` | Docker越しのlint (`lint.sh`) とテスト (`test.sh`)、ビルド (`build.sh`)、リリース (`release.sh`) |
+| `compose.agent.yaml` | QMK を動かすコンテナ。`qmk` サービスが常駐し、geonix41 のビルドだけ使い捨ての `geonix41` サービスで回す |
+| `scripts/` | lint (`lint.sh`) とテスト (`test.sh`)、ビルド (`build.sh`。geonix41 だけのものは `geonix41/` の下)、リリース (`release.sh`) |
+| `Dockerfile` | QMK のイメージ。QMKのバージョンは `ARG QMK_VERSION` が正 |
 | `patches/` | QMK本体へ当てるパッチ。コンテナ内でのみ使う |
 | `tests/` | QMKのテスト基盤に載せたユニットテスト。詳細は `tests/readme.md` |
 | `docs/` | 導入方法、ビルド手順 |
 | `CHANGES.md` | 変更履歴。`release.sh` が生成する |
 
-`output/` と `vendor/` は生成物なのでコミットしない (`.gitignore` 済み)。
-`vendor/` は geonix41 のベンダー配布物で、`scripts/fetch-vendor-blob.py` が取ってくる。
+`output/` と `vendor/` と `.build/` は生成物なのでコミットしない (`.gitignore` 済み)。
+`vendor/` は geonix41 のベンダー配布物で、`scripts/geonix41/fetch-vendor-blob.py` が取ってくる。
 
 ## lintとテストとビルド
 
-どれも Docker が要る。QMKのバージョンは `scripts/Dockerfile` の `ARG QMK_VERSION` が正。
+`lint.sh` `test.sh` `build.sh` は `qmk` を直接呼ぶ。この `qmk` は `compose.agent.yaml` の
+`qmk` サービスの中で動くもので、ホストからそこへ届くようにしておく (繋ぎ方は `docs/build.md`。
+shim が無ければ `scripts/bin` を PATH に足す。CI もそうしている)。
+QMKのバージョンは `Dockerfile` の `ARG QMK_VERSION` が正。
 
 ```bash
-bash scripts/lint.sh    # keyboard.json の静的チェック。イメージが在れば数秒
-bash scripts/test.sh    # ユニットテスト。イメージのビルドから走ると数分かかる
-bash scripts/build.sh   # 4機種ぶんのファームウェアを output/ に出す。数分かかる
+bash scripts/lint.sh            # keyboard.json の静的チェック。4機種ぶん
+bash scripts/test.sh            # ユニットテスト
+bash scripts/build.sh           # geonix41 以外の3機種のファームウェアを output/ に出す
+bash scripts/geonix41/build.sh  # geonix41 のファームウェアを output/ に出す。docker を直接使う
 ```
 
 **コードを触ったら `scripts/lint.sh` と `scripts/test.sh` を通す。`scripts/build.sh`
@@ -44,6 +50,11 @@ bash scripts/build.sh   # 4機種ぶんのファームウェアを output/ に�
 
 だから **`keymap.c` や `rules.mk` を触ったときは `scripts/build.sh` も通しておく**。
 `firmware/windmill.c` だけの変更なら lint とテストで足りる。
+
+geonix41 は `build.sh` に入らない。QMK コアにパッチを当てるので、使い捨てのコンテナで
+回す `scripts/geonix41/build.sh` が別に持つ (`firmware/geonix41/readme.md`)。
+`firmware/geonix41/` や `patches/` を触ったときはこちらも要るが、docker を直接使えない
+環境では通せない。そのときは通せなかったことを書き残す。
 
 ## リリース
 
@@ -79,8 +90,8 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
   かわりに、PRのタイトルだけ読んで何が変わったか分かるように付ける
 - ユーザー向けの挙動が変わったら `docs/` を更新する。
   キー配列を変えたら `docs/images/layout-*.png` も古くなるので、その旨を伝える
-- QMKのバージョンを上げるときは `scripts/Dockerfile` の `ARG QMK_VERSION` を変える。
-  ビルドスクリプトとCIのキャッシュキーはそこを見ている
+- QMKのバージョンを上げるときは `Dockerfile` の `ARG QMK_VERSION` を変える。
+  イメージは `compose.agent.yaml` が起動のたびにビルドするので、タグを揃える作業は無い
 
 ## 用語
 
