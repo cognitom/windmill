@@ -6,6 +6,19 @@
 
 **v3.0.1 以前は手書きのまま残してある。**
 
+## v3.1.0 (2026-09-11)
+
+- 親指Shiftを左右とも左Shiftに統一 (issue #37) ([#38](https://github.com/cognitom/windmill/pull/38))
+- かな入力でShiftを外して送るキーの1打鍵目を直す (issue #36) ([#42](https://github.com/cognitom/windmill/pull/42))
+- Win(つ) / Alt(さ) のホールド中も英数レイヤーへ移す (issue #34) ([#44](https://github.com/cognitom/windmill/pull/44))
+- リリース手順を release.sh に寄せ、CHANGES.md を簡素化 ([#46](https://github.com/cognitom/windmill/pull/46))
+- lint をビルドから切り出して単体で走らせられるようにする ([#47](https://github.com/cognitom/windmill/pull/47))
+- Test ワークフローの push トリガを main に限定する ([#49](https://github.com/cognitom/windmill/pull/49))
+- 英数レイヤーの親指Shiftもハンドオーバー可能にする ([#50](https://github.com/cognitom/windmill/pull/50))
+- QMK を compose の常駐コンテナで動かし、geonix41 のビルドだけ使い捨てに分ける ([#52](https://github.com/cognitom/windmill/pull/52))
+
+---
+
 ## v3.0.1
 
 かなレイヤーの「も」(`LT(2,KC_M)`) をShiftを押しながらタップすると、半角「?」を
