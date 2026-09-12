@@ -49,7 +49,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     MD_USB,  MD_BLE1,      MD_BLE2,      MD_BLE3,     MD_24G,        KC_NO,          KC_NO,          MY_WIN,        MY_ANDR,        KC_NO,   QK_BOOT, MY_DARK,
     KC_F1,   KC_F2,        KC_F3,        KC_F4,       KC_F5,         KC_F6,          KC_F7,          KC_F8,         KC_F9,          KC_F10,  KC_F11,  KC_F12,
     KC_DEL,  KC_PSCR,      KC_NO,        KC_NO,       KC_NO,         KC_BRID,        KC_BRIU,        KC_MUTE,       KC_VOLD,        KC_VOLU, KC_UP,   KC_RGHT,
-    _______, _______,      _______,      _______,     _______,       _______,        _______,        _______,       _______,        _______, KC_LEFT, KC_DOWN
+    MY_IME,  _______,      _______,      _______,     _______,       _______,        _______,        _______,       _______,        _______, KC_LEFT, KC_DOWN
   ),
 
 };
@@ -97,7 +97,7 @@ uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode) {
   }
 
   switch (keycode) {
-    case MY_WIN: case MY_ANDR: case MY_DARK: case QK_BOOT:
+    case MY_WIN: case MY_ANDR: case MY_DARK: case MY_IME: case QK_BOOT:
     case MD_USB: case MD_BLE1: case MD_BLE2: case MD_BLE3: case MD_24G:
       return CL_CONFIG;
     case KC_ENT ... KC_TAB: case KC_DEL: case KC_RIGHT ... KC_UP:

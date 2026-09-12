@@ -41,6 +41,8 @@ using testing::InSequence;
 
 #define POS_FN 3, 3   // そ  LT(3,KC_C)  英数レイヤーでは MO(3)
 #define POS_ANDR 0, 3 // Fnレイヤーの MY_ANDR
+// Fnレイヤーの MY_IME。MY_LCTL と同じ位置なので Fn+Ctrl で出る
+#define POS_IME POS_LCTL
 
 class LangToggle : public WindmillTest {};
 
@@ -48,6 +50,27 @@ class LangToggle : public WindmillTest {};
  * QMKのテスト基盤はスイートの頭でEEPROMを初期化する (SetUpTestCase) ので、
  * 他のスイートへは持ち越さない */
 class LangToggleAndroid : public WindmillTest {};
+
+// Fnをホールドして、Fnレイヤー上のキーを1回叩く
+static void tap_with_fn(WindmillTest* f, uint8_t row, uint8_t col) {
+    auto fn = f->key(POS_FN);
+    fn.press();
+    f->run_one_scan_loop();
+    f->idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    f->tap_key(f->key(row, col), 50);
+    f->idle_for(50);
+    fn.release();
+    f->run_one_scan_loop();
+    f->idle_for(120);
+}
+
+// Fn+W (MY_ANDR) でAndroid向けにする。レポートは出ない
+static void select_android(WindmillTest* f, TestDriver& driver) {
+    EXPECT_NO_REPORT(driver);
+    tap_with_fn(f, POS_ANDR);
+    f->settle();
+    VERIFY_AND_CLEAR(driver);
+}
 
 // Windows向け (既定) の言語切替の1回ぶん。lng は KC_LNG1 (かな) か KC_LNG2 (英数)
 static void expect_switch_win(TestDriver& driver, uint8_t lng) {
@@ -137,6 +160,40 @@ TEST_F(LangToggle, key_right_after_tap_resolves_on_new_layer) {
     VERIFY_AND_CLEAR(driver);
 }
 
+/* Fn+Ctrl は今のベースレイヤーに合わせたキーをIMEへ送るだけ。
+ * ベースレイヤーは動かさないので、IME側だけがずれたときに揃えられる */
+TEST_F(LangToggle, fn_ctrl_switches_host_only) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto lctl = key(POS_LCTL);
+    auto nu   = key(POS_NU);
+
+    {
+        InSequence s;
+        expect_switch_win(driver, KC_LNG2); // 英数のまま。英数をもう一度指定する
+        EXPECT_REPORT(driver, (KC_Q));      // ベースレイヤーは英数のまま
+        EXPECT_EMPTY_REPORT(driver);
+        expect_switch_win(driver, KC_LNG1); // MY_LCTL タップ → かなへ
+        expect_switch_win(driver, KC_LNG1); // Fn+Ctrl。かなをもう一度指定する
+        EXPECT_REPORT(driver, (KC_1));      // ベースレイヤーはかなのまま
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    tap_with_fn(this, POS_IME);
+    settle();
+    tap_key(nu, 120);
+    idle_for(120);
+
+    tap_key(lctl, 120); // かなへ
+    settle();
+    tap_with_fn(this, POS_IME);
+    settle();
+    tap_key(nu, 120);
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
 /* ホールド (Ctrl) ではトグルを送らず、ベースレイヤーも動かさない。
  * 別キー割り込みで確定する経路 (HOLD_ON_OTHER_KEY_PRESS) で見る */
 TEST_F(LangToggle, hold_does_not_toggle) {
@@ -176,21 +233,10 @@ TEST_F(LangToggle, hold_does_not_toggle) {
 TEST_F(LangToggleAndroid, tap_sends_ctrl_space) {
     TestDriver driver;
     set_windmill_keymap();
+    select_android(this, driver);
 
-    auto fn   = key(POS_FN);
-    auto andr = key(POS_ANDR);
     auto lctl = key(POS_LCTL);
     auto nu   = key(POS_NU);
-
-    // Fn+MY_ANDR はレポートを出さない
-    EXPECT_NO_REPORT(driver);
-    fn.press();
-    run_one_scan_loop();
-    tap_key(andr, 50);
-    fn.release();
-    run_one_scan_loop();
-    settle();
-    VERIFY_AND_CLEAR(driver);
 
     {
         InSequence s;
@@ -203,6 +249,32 @@ TEST_F(LangToggleAndroid, tap_sends_ctrl_space) {
     }
 
     tap_key(lctl, 120);
+    settle();
+    tap_key(nu, 120);
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* Android でも Fn+Ctrl はIMEだけを切り替える。トグルしか送れないので、
+ * ずれているときに押して揃える使い方になる */
+TEST_F(LangToggleAndroid, fn_ctrl_sends_ctrl_space_without_layer_change) {
+    TestDriver driver;
+    set_windmill_keymap();
+    select_android(this, driver);
+
+    auto nu = key(POS_NU);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_CTRL));
+        EXPECT_REPORT(driver, (KC_LEFT_CTRL, KC_SPC));
+        EXPECT_REPORT(driver, (KC_LEFT_CTRL));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_Q)); // ベースレイヤーは英数のまま
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    tap_with_fn(this, POS_IME);
     settle();
     tap_key(nu, 120);
     idle_for(120);

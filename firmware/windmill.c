@@ -283,16 +283,22 @@ static void td_hold_off(void) {
     td_hold_active = false;
 }
 
+/* ホストのIMEを layer (LAYER_KANA / LAYER_ALPHA) の側へ切り替える。
+ * Android はモードを直接指定できないので layer は使わず、ただ切り替える */
+static void send_lang_to_host(uint8_t layer) {
+    if (is_android) {
+        tap_code16(LANG_TOGGLE_ANDR);
+    } else {
+        tap_code16(layer == LAYER_KANA ? KC_LNG1 : KC_LNG2);
+    }
+}
+
 /* tap 確定。ベースレイヤーを反転させ、IMEもそちらへ切り替える。
  * default_layer_set はEEPROMを書かないので頻繁な切り替えでも安全 */
 static void td_tap_confirm(void) {
     const uint8_t next = get_highest_layer(default_layer_state) == LAYER_KANA ? LAYER_ALPHA : LAYER_KANA;
 
-    if (is_android) {
-        tap_code16(LANG_TOGGLE_ANDR);
-    } else {
-        tap_code16(next == LAYER_KANA ? KC_LNG1 : KC_LNG2);
-    }
+    send_lang_to_host(next);
     default_layer_set((layer_state_t)1 << next);
 }
 
@@ -676,6 +682,23 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         case MY_ANDR:
             if (record->event.pressed) {
                 set_is_android(true);
+            }
+            return false;
+
+        /* Fn+Ctrl: ホスト側のIMEだけ切り替える。ベースレイヤーは動かさない。
+         *
+         * IMEの状態はキーボードからは読めないので、IME側だけが切り替わるとずれる。
+         * Windows は MY_LCTL のタップが KC_LNG1/KC_LNG2 でモードを直接指定するため
+         * タップし直せば揃うが、Android は Ctrl+Space のトグルしか無く、
+         * キーボードとIMEが同じ向きに動いてしまってずれたままになる。
+         * こちらはキーボードを動かさずにIMEだけを動かすので、ずれを解消できる。
+         *
+         * 送るのは今のベースレイヤーに合わせたほう。Windows ではモードの直接指定に
+         * なるので、ずれていなければ何も起きず、ずれていれば揃う。Android は
+         * トグルなので、揃っている状態で押すと逆にずれる (もう一度押せば戻る) */
+        case MY_IME:
+            if (record->event.pressed) {
+                send_lang_to_host(get_highest_layer(default_layer_state));
             }
             return false;
 

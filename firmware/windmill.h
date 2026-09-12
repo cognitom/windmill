@@ -88,6 +88,7 @@ enum windmill_keycodes {
     MY_WIN,         // 言語切替とMY_O/MY_PのShift時出力をWindows/デスクトップ向けに (EEPROM保存)
     MY_ANDR,        // 言語切替とMY_O/MY_PのShift時出力をAndroid向けに (EEPROM保存)
     MY_DARK,        // LEDの明るさ 強/弱 を切り替え (EEPROM保存。LED搭載機のみ)
+    MY_IME,         // ホスト側のIMEだけ切り替える (ベースレイヤーは動かさない)
 };
 
 #ifdef WINDMILL_LED_ENABLE
