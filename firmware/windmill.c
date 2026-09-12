@@ -54,7 +54,7 @@ static bool is_android = false;
  * 起動時のベースレイヤー
  */
 
-/* 英数/かなの切り替え (MY_LCTL) はEEPROMに保存しない (td_tap_confirm 参照)。
+/* 英数/かなの切り替え (MY_LCTL) はEEPROMに保存しない (switch_lang 参照)。
  * つまり起動時のベースレイヤーはEEPROMの値を復元するのではなく、電源を入れる
  * たびに固定で決まる。以前は eeconfig_init_kb() (EEPROM初期化直後のみ呼ばれる
  * コールバック) で英数に切り替えていたが、これは通常の電源投入時には呼ばれず
@@ -90,7 +90,13 @@ void windmill_init_keycolors(uint8_t *user_colorset) {
 }
 
 uint16_t windmill_base_keycode(uint16_t keycode) {
-    if (IS_QK_MOD_TAP(keycode)) return QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+    if (IS_QK_MOD_TAP(keycode)) {
+        /* タップ側が KC_NO のもの (MY_LCTL) は、タップの意味を windmill.c が
+         * 自前で持っている。展開すると KC_NO になって keymap.c 側が
+         * MY_LCTL として色を引けなくなるので、そのまま返す */
+        const uint16_t tap = QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+        return tap == KC_NO ? keycode : tap;
+    }
     if (IS_QK_LAYER_TAP(keycode)) return QK_LAYER_TAP_GET_TAP_KEYCODE(keycode);
     return keycode;
 }
@@ -232,8 +238,16 @@ static void hold_layer_off(uint8_t mod) {
 /*
  * MY_LCTL: tap = 言語切替 (英数⇔かな), hold = Ctrl + 英数レイヤー
  *
- * 別キー割り込みで tapping term を待たず即ホールド確定する。
- * タップ時はIMEへトグルを送り、ベースレイヤーも反転させて揃える。
+ * QMK標準の mod-tap (LCTL_T(KC_NO)、windmill.h 参照)。tapping term の計測も、
+ * 別キー割り込みでのホールド確定 (HOLD_ON_OTHER_KEY_PRESS) も、Ctrl の
+ * 上げ下げも QMK がやる。ここはタップ時の言語切替と、ホールド中だけ英数
+ * レイヤーへ移すぶんだけを持つ。Win(つ) / Alt(さ) と同じ扱い。
+ *
+ * タップした直後 (QUICK_TAP_TERM = TAPPING_TERM 以内) に押し直すと、QMKは
+ * ホールドではなくタップの繰り返しとみなす。MY_LCTL のタップ側は KC_NO で
+ * 繰り返す中身が無いので、言語切替がもう一度走り、Ctrlは取れない。
+ * get_quick_tap_term() で MY_LCTL だけ切れるが、そのために全機種へ config.h が
+ * 要る。切り替えた直後にCtrlを押し続ける打ち方はしないので、素のままにする。
  */
 
 /* 以前は 1回タップ = KC_LNG2 (英数)、2回タップ = KC_LNG1 (かな) と、モードを
@@ -259,30 +273,6 @@ static void hold_layer_off(uint8_t mod) {
  * 入力欄の中で完結するので Android でもそのまま使える。 */
 #define LANG_TOGGLE_ANDR C(KC_SPC)
 
-#define TD_HOLD_MOD KC_LCTL // ホールド時の装飾
-#define TD_TERM     TAPPING_TERM
-
-typedef enum {
-    TD_IDLE,
-    TD_PRESSED, // 押下中・未確定
-} td_phase_t;
-
-static td_phase_t td_phase       = TD_IDLE;
-static uint16_t   td_timer       = 0;
-static bool       td_hold_active = false;
-
-static void td_hold_on(void) {
-    register_mods(MOD_BIT(TD_HOLD_MOD));
-    hold_layer_on(MOD_BIT(TD_HOLD_MOD));
-    td_hold_active = true;
-}
-
-static void td_hold_off(void) {
-    hold_layer_off(MOD_BIT(TD_HOLD_MOD));
-    unregister_mods(MOD_BIT(TD_HOLD_MOD));
-    td_hold_active = false;
-}
-
 /* ホストのIMEを layer (LAYER_KANA / LAYER_ALPHA) の側へ切り替える。
  * Android はモードを直接指定できないので layer は使わず、ただ切り替える */
 static void send_lang_to_host(uint8_t layer) {
@@ -293,9 +283,9 @@ static void send_lang_to_host(uint8_t layer) {
     }
 }
 
-/* tap 確定。ベースレイヤーを反転させ、IMEもそちらへ切り替える。
+/* タップ確定。ベースレイヤーを反転させ、IMEもそちらへ切り替える。
  * default_layer_set はEEPROMを書かないので頻繁な切り替えでも安全 */
-static void td_tap_confirm(void) {
+static void switch_lang(void) {
     const uint8_t next = get_highest_layer(default_layer_state) == LAYER_KANA ? LAYER_ALPHA : LAYER_KANA;
 
     send_lang_to_host(next);
@@ -564,9 +554,9 @@ static bool process_kana_qmark(keyrecord_t *record) {
  * (LGUI_T(KC_Z) / LALT_T(KC_X)) のままで、レイヤーの上げ下げだけを見る。
  *
  * 上げるのは process_record_kb() のホールド確定時。ここはタップかホールドかが
- * 確定してから呼ばれるので、MY_LCTL のように pre_process_record_kb で先回り
- * しなくても、別キー割り込みで確定する場合 (HOLD_ON_OTHER_KEY_PRESS) の
- * 割り込みキーの解決に間に合う。
+ * 確定してから呼ばれるので、別キー割り込みで確定する場合
+ * (HOLD_ON_OTHER_KEY_PRESS) でも、割り込みキーの解決に間に合う。
+ * MY_LCTL も同じ mod-tap になったので、扱いは揃っている。
  *
  * Ctrlを先に押していると英数レイヤーが既に上がっていて、つ/さ の押下は mod-tap
  * ではなく英数レイヤー側の素の KC_LGUI / KC_LALT として解決される。そちらも
@@ -604,21 +594,22 @@ static void process_kana_mod(uint16_t keycode, keyrecord_t *record) {
  * まだ修飾を register していないスキャンがありうる。一度ホストへ出たのを
  * 確認してから下ろす。 */
 static void update_hold_layer(void) {
+    // {レイヤーを上げている印, ホストへ出ているか見る修飾} の対。左右どちらでも数える
+    static const uint8_t watch[][2] = {
+        {MOD_BIT(KC_LEFT_CTRL), MOD_MASK_CTRL},
+        {MOD_BIT(KC_LEFT_GUI), MOD_MASK_GUI},
+        {MOD_BIT(KC_LEFT_ALT), MOD_MASK_ALT},
+    };
     const uint8_t mods = get_mods();
 
-    if (hold_layer_mods & MOD_BIT(KC_LEFT_GUI)) {
-        if (mods & MOD_MASK_GUI) {
-            hold_layer_seen |= MOD_BIT(KC_LEFT_GUI);
-        } else if (hold_layer_seen & MOD_BIT(KC_LEFT_GUI)) {
-            hold_layer_off(MOD_BIT(KC_LEFT_GUI));
-        }
-    }
+    for (uint8_t i = 0; i < ARRAY_SIZE(watch); ++i) {
+        const uint8_t bit = watch[i][0], mask = watch[i][1];
+        if (!(hold_layer_mods & bit)) continue;
 
-    if (hold_layer_mods & MOD_BIT(KC_LEFT_ALT)) {
-        if (mods & MOD_MASK_ALT) {
-            hold_layer_seen |= MOD_BIT(KC_LEFT_ALT);
-        } else if (hold_layer_seen & MOD_BIT(KC_LEFT_ALT)) {
-            hold_layer_off(MOD_BIT(KC_LEFT_ALT));
+        if (mods & mask) {
+            hold_layer_seen |= bit;
+        } else if (hold_layer_seen & bit) {
+            hold_layer_off(bit);
         }
     }
 }
@@ -627,14 +618,8 @@ static void update_hold_layer(void) {
  * QMK callbacks
  */
 
-// キーコード確定「前」に呼ばれるため、ここで layer_on すれば
-// 割り込みキーがレイヤー1 + Ctrl で解決される
 bool pre_process_record_kb(uint16_t keycode, keyrecord_t *record) {
     windmill_board_pre_process_record(keycode, record);
-
-    if (keycode != MY_LCTL && record->event.pressed && td_phase == TD_PRESSED && !td_hold_active) {
-        td_hold_on(); // 割り込み → 即ホールド確定
-    }
     return pre_process_record_user(keycode, record);
 }
 
@@ -737,19 +722,17 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
             break; // 通常処理へ (tap=スペース, hold=Shift)
 
-        case MY_LCTL:
-            if (record->event.pressed) {
-                td_phase = TD_PRESSED;
-                td_timer = timer_read();
-            } else if (td_phase == TD_PRESSED) {
-                if (td_hold_active) {
-                    td_hold_off();
-                } else {
-                    td_tap_confirm(); // ホールドにならずに離した = タップ
+        case MY_LCTL: // 言語切替 (タップ) / Ctrl + 英数レイヤー (ホールド)
+            if (record->tap.count) {
+                if (record->event.pressed) {
+                    switch_lang();
                 }
-                td_phase = TD_IDLE;
+                return false; // タップ側は KC_NO なのでQMKへ渡さない
             }
-            return false;
+            if (record->event.pressed) {
+                hold_layer_on(MOD_BIT(KC_LEFT_CTRL)); // Ctrl自体はQMKのmod-tapが押す
+            }
+            break; // ホールドはQMKに任せる。レイヤーを下ろすのは update_hold_layer
     }
 
     return windmill_board_process_record(keycode, record);
@@ -761,10 +744,6 @@ void matrix_scan_kb(void) {
 #endif
 
     update_hold_layer();
-
-    if (td_phase == TD_PRESSED && !td_hold_active && timer_elapsed(td_timer) > TD_TERM) {
-        td_hold_on();
-    }
 
     matrix_scan_user();
 }

@@ -62,6 +62,17 @@
 #define KANA_GUI_KEY LGUI_T(KC_Z)
 #define KANA_ALT_KEY LALT_T(KC_X)
 
+/* 言語切替 (タップ) と Ctrl + 英数レイヤー (ホールド)。
+ *
+ * QMK標準の mod-tap。タップ側を KC_NO にしてあるので QMK はタップで何も送らず、
+ * タップとホールドの両方を windmill.c が横取りする (QMKの docs/mod_tap.md
+ * 「Changing both tap and hold」と同じ形)。以前はダブルタップ (かな) があった
+ * ので自前の状態機械で見分けていたが、トグルにした (issue #53) ことで
+ * tapping term の計測も別キー割り込みでのホールド確定も QMK に任せられる。
+ *
+ * keymaps[] のレイヤー0で使っているものと一致させること */
+#define MY_LCTL LCTL_T(KC_NO)
+
 /* カスタムキーコードの開始位置。通常は QK_KB_0 から。ただし geonix41 のように
  * ベンダーのライブラリが QK_KB_0 から自前のキーコードを並べている機種では、
  * ぶつからないよう後ろにずらす必要があるので、機種の config.h で上書きする。 */
@@ -75,7 +86,6 @@
 enum windmill_keycodes {
     MY_O = WINDMILL_KEYCODE_BASE, // Shift時: 「
     MY_P,           // Shift時: 」
-    MY_LCTL,        // tap: 言語切替 (英数⇔かな), hold: Ctrl + 英数レイヤー
     MY_W,           // Shift時: +
     MY_R,           // Shift時: バックスラッシュ
     MY_U,           // Shift時: -
