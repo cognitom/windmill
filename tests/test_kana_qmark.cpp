@@ -28,7 +28,7 @@
  *   付けると修飾が入れ替わって見え、実機で半角「/」が出る
  *
  * 起動直後のベースレイヤーは英数 (issue #22) なので、かなレイヤー上の
- * 挙動を見るには先に MY_LCTL をダブルタップしてかなへ切り替えておく必要がある。 */
+ * 挙動を見るには先に MY_LCTL をタップしてかなへ切り替えておく必要がある。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -43,19 +43,11 @@ using testing::InSequence;
 
 class KanaQmark : public WindmillTest {};
 
-// MY_LCTL ダブルタップでかなへ切り替える。レポートの中身は問わない
+// 起動直後の英数から MY_LCTL 1回タップでかなへ切り替える。レポートの中身は問わない
 static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
     EXPECT_ANY_REPORT(driver).Times(AnyNumber());
 
-    auto lctl = f->key(POS_LCTL);
-    for (int i = 0; i < 2; ++i) {
-        lctl.press();
-        f->run_one_scan_loop();
-        f->idle_for(120);
-        lctl.release();
-        f->run_one_scan_loop();
-        if (i == 0) f->idle_for(60); // TD_DTAP_TERM未満
-    }
+    f->tap_key(f->key(POS_LCTL), 120);
     f->settle();
 
     VERIFY_AND_CLEAR(driver);
