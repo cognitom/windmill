@@ -17,8 +17,8 @@
 #include QMK_KEYBOARD_H
 #include "windmill.h"
 
-/* レイヤー0(かな)とレイヤー1(英数)がベースレイヤーで、MY_LCTL のタップ/
- * ダブルタップで切り替わる。レイヤー1で透過のキーはレイヤー0へ落ちる。 */
+/* レイヤー0(かな)とレイヤー1(英数)がベースレイヤーで、MY_LCTL のタップで
+ * 交互に切り替わる。レイヤー1で透過のキーはレイヤー0へ落ちる。 */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [LAYER_KANA] = LAYOUT_ortho_4x12(

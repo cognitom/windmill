@@ -39,11 +39,16 @@ __attribute__((weak)) void windmill_board_led_begin(void) {}
 typedef union {
     uint32_t raw;
     struct {
-        bool is_android : 1;   // MY_O/MY_P のShift時出力をAndroid向けにする
+        bool is_android : 1;   // 言語切替と MY_O/MY_P のShift時出力をAndroid向けにする
         bool led_darkmode : 1; // LEDを暗いほうの配色にする (LED非搭載機では未使用)
     };
 } windmill_config_t;
 static windmill_config_t windmill_config;
+
+/* 言語切替 (MY_LCTL) のキーと MY_O/MY_P のShift時出力 (「」) はOSのIME実装で
+ * 必要なキーが異なるため、MY_WIN / MY_ANDR で切り替える。設定はEEPROMに永続化し、
+ * 挿し直しても保持する。EEPROMリセット時はWindows/デスクトップ向け(false)に戻る */
+static bool is_android = false;
 
 /*
  * 起動時のベースレイヤー
@@ -225,25 +230,41 @@ static void hold_layer_off(uint8_t mod) {
 }
 
 /*
- * MY_LCTL: tap = 英数, double-tap = かな, hold = Ctrl + 英数レイヤー
+ * MY_LCTL: tap = 言語切替 (英数⇔かな), hold = Ctrl + 英数レイヤー
  *
  * 別キー割り込みで tapping term を待たず即ホールド確定する。
- * tap/double-tap 時にIMEと揃えてベースレイヤーも切り替える。
+ * タップ時はIMEへトグルを送り、ベースレイヤーも反転させて揃える。
  */
 
-#define TD_TAP_KC       KC_LNG2     // 1回タップ: 英数
-#define TD_DOUBLE_KC    KC_LNG1     // 2回タップ: かな
-#define TD_HOLD_MOD     KC_LCTL     // ホールド時の装飾
-#define TD_TAP_LAYER    LAYER_ALPHA // tap(英数)時のベースレイヤー
-#define TD_DOUBLE_LAYER LAYER_KANA  // double-tap(かな)時のベースレイヤー
+/* 以前は 1回タップ = KC_LNG2 (英数)、2回タップ = KC_LNG1 (かな) と、モードを
+ * 直接指定していた。Android でも KC_LNGx 自体は効くが、日本語IMEは入力欄を
+ * 移るたびに既定のかなへ戻ってしまい、英数を保てない。そこでタップのたびに
+ * 英数⇔かなを入れ替える形に改め、Android ではIMEそのものを切り替える
+ * (issue #53)。ダブルタップを待つ必要が無いので、離した時点で確定する。
+ *
+ * キーボード側はIMEの状態を読めないので、ベースレイヤーは自分で反転させて追う。
+ * 起動時はどちらも英数から始まる前提 (reset_default_layer 参照)。
+ *
+ * IMEへ送るキーはOSで違うので MY_WIN / MY_ANDR (is_android) で出し分ける。
+ * - Windows: 反転後のベースレイヤーに合わせて KC_LNG1 (かな) / KC_LNG2 (英数) を
+ *   交互に送る。IME側をマウスなどで切り替えてずれても、LNGx はモードを直接
+ *   指定するので、もう一度タップすれば揃う。半角/全角のようなトグルのキーを
+ *   送ると、ずれたまま戻せなくなる
+ * - Android: Ctrl+Space で日本語IME⇔英語IMEを切り替える。英語IMEなら入力欄を
+ *   移っても勝手にかなへ戻らない。日本語IMEは移るたびにかなへ戻るが、それは
+ *   こちらのかなレイヤーと一致しているのでずれない。ただしトグルなので、IME側を
+ *   別の手段で切り替えてずれた場合は、IME側を合わせ直すしかない
+ *
+ * Symレイヤーの数字・記号などで使う一時的な KC_LNG2 → キー → KC_LNG1 は、同じ
+ * 入力欄の中で完結するので Android でもそのまま使える。 */
+#define LANG_TOGGLE_ANDR C(KC_SPC)
 
-#define TD_TERM      TAPPING_TERM
-#define TD_DTAP_TERM 180
+#define TD_HOLD_MOD KC_LCTL // ホールド時の装飾
+#define TD_TERM     TAPPING_TERM
 
 typedef enum {
     TD_IDLE,
-    TD_PRESSED,   // 押下中・未確定
-    TD_WAIT_DTAP, // 1タップ後、2回目待ち
+    TD_PRESSED, // 押下中・未確定
 } td_phase_t;
 
 static td_phase_t td_phase       = TD_IDLE;
@@ -262,16 +283,17 @@ static void td_hold_off(void) {
     td_hold_active = false;
 }
 
-/* tap/double-tap 確定。KC_LNGx と同時にベースレイヤーもIMEに揃える。
+/* tap 確定。ベースレイヤーを反転させ、IMEもそちらへ切り替える。
  * default_layer_set はEEPROMを書かないので頻繁な切り替えでも安全 */
 static void td_tap_confirm(void) {
-    tap_code16(TD_TAP_KC);
-    default_layer_set((layer_state_t)1 << TD_TAP_LAYER);
-}
+    const uint8_t next = get_highest_layer(default_layer_state) == LAYER_KANA ? LAYER_ALPHA : LAYER_KANA;
 
-static void td_double_confirm(void) {
-    tap_code16(TD_DOUBLE_KC);
-    default_layer_set((layer_state_t)1 << TD_DOUBLE_LAYER);
+    if (is_android) {
+        tap_code16(LANG_TOGGLE_ANDR);
+    } else {
+        tap_code16(next == LAYER_KANA ? KC_LNG1 : KC_LNG2);
+    }
+    default_layer_set((layer_state_t)1 << next);
 }
 
 /*
@@ -451,11 +473,6 @@ static bool process_alpha_thumb_shift(keyrecord_t *record) {
  * かなレイヤー上での記号入力
  */
 
-/* MY_O/MY_PのShift時出力 (「」) はOSのIME実装で必要なキーが異なるため、
- * MY_WIN / MY_ANDR で切り替える。設定はEEPROMに永続化し、挿し直しても保持する。
- * EEPROMリセット時はWindows/デスクトップ向け(false)に戻る */
-static bool is_android = false;
-
 static void set_is_android(bool val) {
     if (is_android == val) return; // 無変更ならEEPROMを書かない
     is_android                = val;
@@ -609,13 +626,8 @@ static void update_hold_layer(void) {
 bool pre_process_record_kb(uint16_t keycode, keyrecord_t *record) {
     windmill_board_pre_process_record(keycode, record);
 
-    if (keycode != MY_LCTL && record->event.pressed) {
-        if (td_phase == TD_PRESSED && !td_hold_active) {
-            td_hold_on(); // 割り込み → 即ホールド確定
-        } else if (td_phase == TD_WAIT_DTAP) {
-            td_phase = TD_IDLE;
-            td_tap_confirm(); // 保留中のタップを先にflush
-        }
+    if (keycode != MY_LCTL && record->event.pressed && td_phase == TD_PRESSED && !td_hold_active) {
+        td_hold_on(); // 割り込み → 即ホールド確定
     }
     return pre_process_record_user(keycode, record);
 }
@@ -704,23 +716,15 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
         case MY_LCTL:
             if (record->event.pressed) {
-                if (td_phase == TD_WAIT_DTAP) {
-                    td_phase = TD_IDLE;
-                    td_double_confirm(); // ダブルタップ確定
+                td_phase = TD_PRESSED;
+                td_timer = timer_read();
+            } else if (td_phase == TD_PRESSED) {
+                if (td_hold_active) {
+                    td_hold_off();
                 } else {
-                    td_phase = TD_PRESSED;
-                    td_timer = timer_read();
+                    td_tap_confirm(); // ホールドにならずに離した = タップ
                 }
-            } else {
-                if (td_phase == TD_PRESSED) {
-                    if (td_hold_active) {
-                        td_hold_off();
-                        td_phase = TD_IDLE;
-                    } else {
-                        td_phase = TD_WAIT_DTAP;
-                        td_timer = timer_read();
-                    }
-                }
+                td_phase = TD_IDLE;
             }
             return false;
     }
@@ -737,10 +741,6 @@ void matrix_scan_kb(void) {
 
     if (td_phase == TD_PRESSED && !td_hold_active && timer_elapsed(td_timer) > TD_TERM) {
         td_hold_on();
-    }
-    if (td_phase == TD_WAIT_DTAP && timer_elapsed(td_timer) > TD_DTAP_TERM) {
-        td_phase = TD_IDLE;
-        td_tap_confirm();
     }
 
     matrix_scan_user();

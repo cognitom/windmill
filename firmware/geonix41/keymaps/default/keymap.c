@@ -18,8 +18,8 @@
 #include "windmill.h"
 #include "../../../lib/rdr_lib/rdr_common.h"
 
-/* レイヤー0(かな)とレイヤー1(英数)がベースレイヤーで、MY_LCTL のタップ/
- * ダブルタップで切り替わる。レイヤー1で透過のキーはレイヤー0へ落ちる。
+/* レイヤー0(かな)とレイヤー1(英数)がベースレイヤーで、MY_LCTL のタップで
+ * 交互に切り替わる。レイヤー1で透過のキーはレイヤー0へ落ちる。
  *
  * MD_USB / MD_BLE1-3 / MD_24G は rdr_lib の無線モード切替キー (geonix41 専用)。 */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {

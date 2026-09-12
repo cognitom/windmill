@@ -75,7 +75,7 @@
 enum windmill_keycodes {
     MY_O = WINDMILL_KEYCODE_BASE, // Shift時: 「
     MY_P,           // Shift時: 」
-    MY_LCTL,        // tap: 英数, double-tap: かな, hold: Ctrl + 英数レイヤー
+    MY_LCTL,        // tap: 言語切替 (英数⇔かな), hold: Ctrl + 英数レイヤー
     MY_W,           // Shift時: +
     MY_R,           // Shift時: バックスラッシュ
     MY_U,           // Shift時: -
@@ -85,8 +85,8 @@ enum windmill_keycodes {
     MY_SCLN,        // Shift時: ?
     MY_QUOT,        // Shift時: _
     MY_A,           // Shift時: Z
-    MY_WIN,         // MY_O/MY_PのShift時出力をWindows/デスクトップ向けに (EEPROM保存)
-    MY_ANDR,        // MY_O/MY_PのShift時出力をAndroid向けに (EEPROM保存)
+    MY_WIN,         // 言語切替とMY_O/MY_PのShift時出力をWindows/デスクトップ向けに (EEPROM保存)
+    MY_ANDR,        // 言語切替とMY_O/MY_PのShift時出力をAndroid向けに (EEPROM保存)
     MY_DARK,        // LEDの明るさ 強/弱 を切り替え (EEPROM保存。LED搭載機のみ)
 };
 

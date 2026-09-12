@@ -17,8 +17,8 @@
 #include QMK_KEYBOARD_H
 #include "windmill.h"
 
-/* レイヤー0(かな)とレイヤー1(英数)がベースレイヤーで、MY_LCTL のタップ/
- * ダブルタップで切り替わる。レイヤー1で透過のキーはレイヤー0へ落ちる。
+/* レイヤー0(かな)とレイヤー1(英数)がベースレイヤーで、MY_LCTL のタップで
+ * 交互に切り替わる。レイヤー1で透過のキーはレイヤー0へ落ちる。
  *
  * technik / ymd40 と同じ配列。LED非搭載なので MY_DARK だけ置いていない。 */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {

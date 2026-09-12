@@ -64,7 +64,7 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
 // clang-format on
 
 /* かなレイヤー上の位置。コメントの文字は JISかな入力での出力 */
-#define POS_LCTL 3, 0  // 英数/かな
+#define POS_LCTL 3, 0  // 言語切替 (英数⇔かな)
 #define POS_KO 3, 5    // こ  左親指Shift
 #define POS_MI 3, 6    // み  右親指Shift
 #define POS_NO 2, 8    // の  MY_K   Shift時 S(KC_COMM) = 、
@@ -84,6 +84,12 @@ class WindmillTest : public TestFixture {
             for (uint8_t row = 0; row < MATRIX_ROWS; ++row)
                 for (uint8_t col = 0; col < MATRIX_COLS; ++col)
                     add_key(KeymapKey(layer, col, row, windmill_keymap[layer][row][col]));
+
+        /* 起動直後と同じ英数から始める。QMKのテスト基盤は keyboard_init() を
+         * テストスイートごとに一度しか呼ばず、default_layer_state をテストごとには
+         * 戻さない。MY_LCTL はトグル (issue #53) なので、前のテストがかなで
+         * 終わっていると、同じ1回タップでも行き先が逆になってしまう */
+        default_layer_set((layer_state_t)1 << LAYER_ALPHA);
     }
 
     KeymapKey key(uint8_t row, uint8_t col) {
@@ -92,9 +98,8 @@ class WindmillTest : public TestFixture {
 
     // 押しっぱなしのキーが無い、落ち着いた状態にする
     void settle() {
-        idle_for(TD_DTAP_TERM_MS + TAPPING_TERM);
+        idle_for(TAPPING_TERM * 2);
     }
 
-    static constexpr unsigned TD_DTAP_TERM_MS = 180; // windmill.c の TD_DTAP_TERM
-    static constexpr unsigned IME_WAIT_MS     = 10;  // windmill.c の IME_WAIT_MS
+    static constexpr unsigned IME_WAIT_MS = 10; // windmill.c の IME_WAIT_MS
 };

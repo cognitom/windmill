@@ -51,16 +51,17 @@ Windmill is a keymap for 40% keyboards.
 
 英字入力、かな入力ともに、最下段中央付近のキーをホールドすると、記号(Sym)またはファンクションキー(Fn)の入力になります。配置については英字配列の図で、各キーの添え字を参照。
 
-かな/英数切り替えは、Ctrlキーのタップ/ダブルタップで行います。
+かな/英数切り替えは、Ctrlキーのタップで行います。タップするたびに、かなと英数が入れ替わります。IMEへ送るキーはOSごとに異なり、[対象OSの切り替え](#対象osの切り替え)で選びます。
 
 かな入力中に Ctrl, GUI, Alt をホールドしている間は、一時的に英字配列になります。<kbd>Ctrl</kbd>+<kbd>C</kbd> や <kbd>GUI</kbd>+<kbd>V</kbd> といったショートカットが、かなに切り替えなくてもそのまま打てます。
 
 |  | L5 | L4| L3 | L2 | L1 | L0 | R0 | R1 | R2 |
 |--|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
 | ホールド | Ctrl | GUI | Alt | Fn | Sym | Shift | Shift | Sym | Fn |
-| タップ (英数) | 英数 | GUI | Alt | | \ | Space | Space | / | |
-| タップ (かな) | 英数 | つ | さ | そ | ひ | こ | み | も | ね |
-| ダブルタップ | かな | | | | | | | | |
+| タップ (英数) | かなへ | GUI | Alt | | \ | Space | Space | / | |
+| タップ (かな) | 英数へ | つ | さ | そ | ひ | こ | み | も | ね |
+
+キーボードはIMEの状態を読み取れないため、切り替えを自分で数えて追いかけています。電源を入れた直後は英数から始まります。マウスなどでIME側だけを切り替えると、かな/英数の配列とIMEがずれます。Windows ではかな/英数を直接指定して送るので、もう一度 Ctrl をタップすれば揃います。Android では日本語IMEと英語IMEそのものを切り替えます (日本語IMEの英数モードは、入力欄を移るたびにかなへ戻ってしまうため)。こちらは切り替えのキーしか送れないので、ずれた場合はIME側を合わせ直してください。
 
 ## 追加機能
 
@@ -78,10 +79,10 @@ Windmill is a keymap for 40% keyboards.
 
 各OSのIMEの差異を吸収するため、モードを切り替えることができます。
 
-| 独自キーコード | キー | 対象OS | 配列の認識 | IME |
-|--|--|--|--|--|
-| MY_WIN | <kbd>Fn</kbd>+<kbd>Q</kbd> | Windows 11 | English (US) | Microsof IME |
-| MY_AND | <kbd>Fn</kbd>+<kbd>W</kbd> | Android | English (US) | Gboard |
+| 独自キーコード | キー | 対象OS | 配列の認識 | IME | かな/英数切り替えで送るキー |
+|--|--|--|--|--|--|
+| MY_WIN | <kbd>Fn</kbd>+<kbd>Q</kbd> | Windows 11 | English (US) | Microsof IME | <kbd>かな</kbd> / <kbd>英数</kbd> を交互に (`KC_LNG1` / `KC_LNG2`) |
+| MY_AND | <kbd>Fn</kbd>+<kbd>W</kbd> | Android | English (US) | Gboard | <kbd>Ctrl</kbd>+<kbd>Space</kbd> (日本語⇔英語のIMEを切り替え) |
 
 ## v3での変更点
 
