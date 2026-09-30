@@ -34,26 +34,25 @@ using testing::InvokeWithoutArgs;
 
 class ShiftPair : public WindmillTest {};
 
-/* MY_LCTL 1回タップで英数、2回タップでかな。
- * 1回タップは TD_DTAP_TERM 経過後に matrix_scan_kb() が確定させる。 */
-static void tap_lctl(WindmillTest* f, int times) {
-    auto lctl = f->key(POS_LCTL);
-    for (int i = 0; i < times; ++i) {
-        lctl.press();
-        f->run_one_scan_loop();
-        f->idle_for(120);
-        lctl.release();
-        f->run_one_scan_loop();
-        if (i + 1 < times) f->idle_for(60); // TD_DTAP_TERM 未満
-    }
+// MY_LCTL 1回タップで英数⇔かなを切り替える (issue #53)
+static void tap_lctl(WindmillTest* f) {
+    f->tap_key(f->key(POS_LCTL), 120);
     f->settle();
+}
+
+/* 起動直後の英数からかなへ切り替える。レポートの中身は問わない。
+ * 以前はここを飛ばしても、同じスイートの前のテストが残したかなのまま
+ * 動いていた。テストごとに英数へ戻すようにした (issue #53) ので明示する */
+static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
+    EXPECT_ANY_REPORT(driver).Times(AnyNumber());
+    tap_lctl(f);
+    VERIFY_AND_CLEAR(driver);
 }
 
 /* issue #18 の再現手順そのもの。
  *
- *   MY_LCTL タップ         : 英数へ
- *   は の位置 (英数では f) : 1文字入力
- *   MY_LCTL ダブルタップ   : かなへ
+ *   は の位置 (英数では f) : 英数で1文字入力 (起動直後は英数)
+ *   MY_LCTL タップ         : かなへ
  *   み を押しながら の を2回
  *
  * 修正前は1打鍵目だけ [RSFT] -> [LSFT] -> [LSFT + KC_COMM] と、右Shiftを離して
@@ -66,12 +65,11 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
     TestDriver driver;
     set_windmill_keymap();
 
-    // 英数へ切り替えて1文字打ち、かなへ戻す。ここのレポートは問わない
+    // 英数 (起動直後) で1文字打ち、かなへ切り替える。ここのレポートは問わない
     EXPECT_ANY_REPORT(driver).Times(AnyNumber());
-    tap_lctl(this, 1);
     tap_key(key(POS_HA), 120);
     settle();
-    tap_lctl(this, 2);
+    tap_lctl(this);
     VERIFY_AND_CLEAR(driver);
 
     auto mi = key(POS_MI);
@@ -103,9 +101,8 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
 /* issue #36 の再現手順。issue #18 と同じ形だが、こちらは shifted 側が
  * Shift無しで送る側のキー。
  *
- *   MY_LCTL タップ         : 英数へ
- *   は の位置 (英数では f) : 1文字入力
- *   MY_LCTL ダブルタップ   : かなへ
+ *   は の位置 (英数では f) : 英数で1文字入力 (起動直後は英数)
+ *   MY_LCTL タップ         : かなへ
  *   み を押しながら な を2回
  *
  * 実機では1打鍵目だけ「ほ」ではなく「ー」(= S(KC_MINS) の出力) になっていた。
@@ -119,12 +116,11 @@ TEST_F(ShiftPair, unshifted_pair_waits_for_ime_on_first_keypress) {
     TestDriver driver;
     set_windmill_keymap();
 
-    // 英数へ切り替えて1文字打ち、かなへ戻す。ここのレポートは問わない
+    // 英数 (起動直後) で1文字打ち、かなへ切り替える。ここのレポートは問わない
     EXPECT_ANY_REPORT(driver).Times(AnyNumber());
-    tap_lctl(this, 1);
     tap_key(key(POS_HA), 120);
     settle();
-    tap_lctl(this, 2);
+    tap_lctl(this);
     VERIFY_AND_CLEAR(driver);
 
     auto mi = key(POS_MI);
@@ -168,7 +164,7 @@ TEST_F(ShiftPair, unshifted_pair_waits_for_ime_on_first_keypress) {
 TEST_F(ShiftPair, without_shift_sends_plain_keycode) {
     TestDriver driver;
     set_windmill_keymap();
-    settle();
+    switch_to_kana(this, driver);
 
     {
         InSequence s;
@@ -185,7 +181,7 @@ TEST_F(ShiftPair, without_shift_sends_plain_keycode) {
 TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     TestDriver driver;
     set_windmill_keymap();
-    settle();
+    switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
     auto ra = key(POS_RA); // MY_O -> S(KC_LBRC)
@@ -215,7 +211,7 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
 TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
     TestDriver driver;
     set_windmill_keymap();
-    settle();
+    switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
     auto su = key(POS_SU); // MY_R -> KC_BSLS

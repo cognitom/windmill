@@ -27,7 +27,7 @@
  * 貼りついたまま戻れなくなる (update_hold_layer 参照)。
  *
  * 起動直後のベースレイヤーは英数 (issue #22) なので、かなレイヤー上の挙動を
- * 見るには先に MY_LCTL をダブルタップしてかなへ切り替えておく必要がある。 */
+ * 見るには先に MY_LCTL をタップしてかなへ切り替えておく必要がある。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -42,19 +42,11 @@ using testing::InSequence;
 
 class HoldLayer : public WindmillTest {};
 
-// MY_LCTL ダブルタップでかなへ切り替える。レポートの中身は問わない
+// 起動直後の英数から MY_LCTL 1回タップでかなへ切り替える。レポートの中身は問わない
 static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
     EXPECT_ANY_REPORT(driver).Times(AnyNumber());
 
-    auto lctl = f->key(POS_LCTL);
-    for (int i = 0; i < 2; ++i) {
-        lctl.press();
-        f->run_one_scan_loop();
-        f->idle_for(120);
-        lctl.release();
-        f->run_one_scan_loop();
-        if (i == 0) f->idle_for(60); // TD_DTAP_TERM未満
-    }
+    f->tap_key(f->key(POS_LCTL), 120);
     f->settle();
 
     VERIFY_AND_CLEAR(driver);
@@ -284,11 +276,11 @@ TEST_F(HoldLayer, base_layer_switch_works_after_gui_hold) {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_GUI)); // Winホールド
         EXPECT_EMPTY_REPORT(driver);
-        EXPECT_REPORT(driver, (KC_LNG2));     // MY_LCTL 1回タップ → 英数
+        EXPECT_REPORT(driver, (KC_LNG2));     // MY_LCTL タップ → 英数
         EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_Q));
         EXPECT_EMPTY_REPORT(driver);
-        EXPECT_REPORT(driver, (KC_LNG1));     // ダブルタップ → かな
+        EXPECT_REPORT(driver, (KC_LNG1));     // もう一度タップ → かな
         EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_1));        // かなへ戻せている
         EXPECT_EMPTY_REPORT(driver);
@@ -306,14 +298,7 @@ TEST_F(HoldLayer, base_layer_switch_works_after_gui_hold) {
     tap_key(nu, 120);
     idle_for(120);
 
-    for (int i = 0; i < 2; ++i) { // かなへ
-        lctl.press();
-        run_one_scan_loop();
-        idle_for(50);
-        lctl.release();
-        run_one_scan_loop();
-        if (i == 0) idle_for(60); // TD_DTAP_TERM未満
-    }
+    tap_key(lctl, 50); // かなへ
     settle();
     tap_key(nu, 120);
     idle_for(120);
