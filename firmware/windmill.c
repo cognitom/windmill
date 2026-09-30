@@ -35,20 +35,53 @@ __attribute__((weak)) bool windmill_board_process_record(uint16_t keycode, keyre
     return true;
 }
 __attribute__((weak)) void windmill_board_led_begin(void) {}
+__attribute__((weak)) uint8_t windmill_board_host(void) {
+    return WINDMILL_HOST_USB;
+}
+
+/* 接続先のOS。言語切替 (MY_LCTL) のキーと MY_O/MY_P のShift時出力 (「」) は
+ * OSのIME実装で必要なキーが異なるため、MY_WIN / MY_ANDR で切り替える。
+ *
+ * 無線機では接続先を切り替えるたびにOSを設定し直すのが手間なので、接続先
+ * (WINDMILL_HOST_*) ごとに覚える (issue #58)。1つあたり2bitで、今使っているのは
+ * Windows と Android の2種だけだが、Mac / iOS を足せるよう4種ぶん確保してある。
+ * EEPROMリセット時は全ての接続先が Windows/デスクトップ向け (0) に戻る */
+#define OS_WIN  0 // Windows/デスクトップ
+#define OS_ANDR 1 // Android
+// 2, 3 は予約 (Mac / iOS 用)。読めても Windows と同じに扱う
+#define OS_BITS 2
+#define OS_MASK ((1u << OS_BITS) - 1)
 
 typedef union {
     uint32_t raw;
     struct {
-        bool is_android : 1;   // 言語切替と MY_O/MY_P のShift時出力をAndroid向けにする
-        bool led_darkmode : 1; // LEDを暗いほうの配色にする (LED非搭載機では未使用)
+        /* 旧形式 (接続先を区別しない) のAndroid設定。ビット位置を変えずに
+         * 残してあるのは、以前のファームウェアで Android にしていた人の設定を
+         * 起動時に引き継ぐため (keyboard_post_init_kb 参照)。移行後は常に0 */
+        bool     legacy_android : 1;
+        bool     led_darkmode : 1; // LEDを暗いほうの配色にする (LED非搭載機では未使用)
+        uint16_t host_os : WINDMILL_HOST_SIZE * OS_BITS; // 接続先ごとのOS。WINDMILL_HOST_* 番目の2bit
     };
 } windmill_config_t;
+_Static_assert(sizeof(windmill_config_t) == sizeof(uint32_t), "windmill_config_t が eeconfig_kb の32bitに収まっていない");
 static windmill_config_t windmill_config;
 
-/* 言語切替 (MY_LCTL) のキーと MY_O/MY_P のShift時出力 (「」) はOSのIME実装で
- * 必要なキーが異なるため、MY_WIN / MY_ANDR で切り替える。設定はEEPROMに永続化し、
- * 挿し直しても保持する。EEPROMリセット時はWindows/デスクトップ向け(false)に戻る */
-static bool is_android = false;
+/* 接続先の番号は機種側が返す。範囲外が来てもEEPROMの隣の接続先を壊さないよう、
+ * 有線扱いに丸める */
+static uint8_t current_host(void) {
+    const uint8_t host = windmill_board_host();
+    return host < WINDMILL_HOST_SIZE ? host : WINDMILL_HOST_USB;
+}
+
+/* 接続先の切り替えはキーを押した時点のものを引けば足りるので、キャッシュはせず
+ * 毎回EEPROMの写し (windmill_config) から読む */
+static uint8_t get_host_os(void) {
+    return (windmill_config.host_os >> (current_host() * OS_BITS)) & OS_MASK;
+}
+
+static bool is_android(void) {
+    return get_host_os() == OS_ANDR;
+}
 
 /*
  * 起動時のベースレイヤー
@@ -259,7 +292,7 @@ static void hold_layer_off(uint8_t mod) {
  * キーボード側はIMEの状態を読めないので、ベースレイヤーは自分で反転させて追う。
  * 起動時はどちらも英数から始まる前提 (reset_default_layer 参照)。
  *
- * IMEへ送るキーはOSで違うので MY_WIN / MY_ANDR (is_android) で出し分ける。
+ * IMEへ送るキーはOSで違うので MY_WIN / MY_ANDR (接続先ごとの設定) で出し分ける。
  * - Windows: 反転後のベースレイヤーに合わせて KC_LNG1 (かな) / KC_LNG2 (英数) を
  *   交互に送る。IME側をマウスなどで切り替えてずれても、LNGx はモードを直接
  *   指定するので、もう一度タップすれば揃う。半角/全角のようなトグルのキーを
@@ -276,7 +309,7 @@ static void hold_layer_off(uint8_t mod) {
 /* ホストのIMEを layer (LAYER_KANA / LAYER_ALPHA) の側へ切り替える。
  * Android はモードを直接指定できないので layer は使わず、ただ切り替える */
 static void send_lang_to_host(uint8_t layer) {
-    if (is_android) {
+    if (is_android()) {
         tap_code16(LANG_TOGGLE_ANDR);
     } else {
         tap_code16(layer == LAYER_KANA ? KC_LNG1 : KC_LNG2);
@@ -469,10 +502,12 @@ static bool process_alpha_thumb_shift(keyrecord_t *record) {
  * かなレイヤー上での記号入力
  */
 
-static void set_is_android(bool val) {
-    if (is_android == val) return; // 無変更ならEEPROMを書かない
-    is_android                = val;
-    windmill_config.is_android = val;
+// いま繋がっている接続先のOSだけを書き換える。他の接続先の設定は触らない
+static void set_host_os(uint8_t os) {
+    const uint8_t  shift = current_host() * OS_BITS;
+    const uint16_t next  = (windmill_config.host_os & ~(OS_MASK << shift)) | ((os & OS_MASK) << shift);
+    if (windmill_config.host_os == next) return; // 無変更ならEEPROMを書かない
+    windmill_config.host_os = next;
     eeconfig_update_kb(windmill_config.raw);
 }
 
@@ -660,13 +695,13 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
         case MY_WIN:
             if (record->event.pressed) {
-                set_is_android(false);
+                set_host_os(OS_WIN);
             }
             return false;
 
         case MY_ANDR:
             if (record->event.pressed) {
-                set_is_android(true);
+                set_host_os(OS_ANDR);
             }
             return false;
 
@@ -688,10 +723,10 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             return false;
 
         case MY_O: // O / 「 (OS依存)
-            return process_shift_pair(KC_O, is_android ? S(KC_RBRC) : KC_LCBR, record);
+            return process_shift_pair(KC_O, is_android() ? S(KC_RBRC) : KC_LCBR, record);
 
         case MY_P: // P / 」 (OS依存)
-            return process_shift_pair(KC_P, is_android ? S(KC_BSLS) : KC_RCBR, record);
+            return process_shift_pair(KC_P, is_android() ? S(KC_BSLS) : KC_RCBR, record);
 
         case MY_W ... MY_A: // Shiftで別の記号を出すキー
             return process_shift_pair(my_shift_pairs[keycode - MY_W][0], my_shift_pairs[keycode - MY_W][1], record);
@@ -752,7 +787,15 @@ void keyboard_post_init_kb(void) {
     reset_default_layer();
 
     windmill_config.raw = eeconfig_read_kb();
-    is_android          = windmill_config.is_android;
+    if (windmill_config.legacy_android) {
+        /* 以前は接続先を区別していなかったので、どの接続先もAndroidだったことになる。
+         * 移行は一度きりで、以後は legacy_android が立たない */
+        windmill_config.legacy_android = false;
+        for (uint8_t host = 0; host < WINDMILL_HOST_SIZE; ++host) {
+            windmill_config.host_os |= OS_ANDR << (host * OS_BITS);
+        }
+        eeconfig_update_kb(windmill_config.raw);
+    }
 #ifdef WINDMILL_LED_ENABLE
     led_darkmode = windmill_config.led_darkmode;
 #endif
