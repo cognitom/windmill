@@ -67,6 +67,16 @@ Windmill の `MY_*` はぶつからないよう `QK_KB_30` から始める
 (`config.h` の `WINDMILL_KEYCODE_BASE`)。ズレたら `geonix41.c` の
 `_Static_assert` が検知する。
 
+## 接続先ごとのOS設定
+
+対象OSの切り替え (`MY_WIN` / `MY_ANDR`) を、USB / BLE1〜3 / 2.4G の5つの接続先ごとに
+覚える (issue #58)。窓口は `windmill.h` の `windmill_board_os_slot()` で、この機種は
+ブロブの `Keyboard_Info` (`Key_Mode` と `Ble_Channel`) からスロット番号を返す。
+保存とスロットの使い分けは `windmill.c` 側にある。
+
+スロットの数は `config.h` の `WINDMILL_OS_SLOT_COUNT` で、割り当ての `enum` と
+食い違ったら `geonix41.c` の `_Static_assert` が止める。
+
 ## LED
 
 キー下 48個 (LED 0〜47) とアンダーグロー 29個 (48〜76)。

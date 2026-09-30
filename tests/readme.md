@@ -62,6 +62,7 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左右とも同じキーコード) の持ち替え (ハンドオーバー) のレポート列 |
 | `test_hold_layer.cpp` | Ctrl / Win / Alt のホールド中だけ英数レイヤーへ移ることのレポート列 |
 | `test_lang_toggle.cpp` | Ctrl (`MY_LCTL`) のタップでの言語切替。OSごとの送るキーとベースレイヤーの反転、Fn+Ctrl (`MY_IME`) がIMEだけを切り替えることのレポート列 |
+| `test_os_slot.cpp` | 接続先ごとのOS設定 (`MY_WIN` / `MY_ANDR`) のレポート列 |
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、

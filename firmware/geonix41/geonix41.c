@@ -165,3 +165,36 @@ bool windmill_board_process_record(uint16_t keycode, keyrecord_t *record) {
     // windmill が消費した MY_* は元の実装でもここへは来ていない
     return Key_Value_Dispose(keycode, record);
 }
+
+/* 接続先ごとのOS設定 (issue #58) のスロット割り当て。
+ *
+ * この機種は接続先を5つ持つので、MY_WIN / MY_ANDR の設定もその数だけ覚える。
+ * issue が挙げているのは USB と BLE1〜3 だが、2.4G も相手が変われば同じ話なので
+ * 揃えて1つ持たせている。 */
+enum os_slots {
+    OS_SLOT_USB = 0,
+    OS_SLOT_BLE1,
+    OS_SLOT_BLE2,
+    OS_SLOT_BLE3,
+    OS_SLOT_2P4G,
+    OS_SLOT_COUNT,
+};
+
+_Static_assert((int)OS_SLOT_COUNT == WINDMILL_OS_SLOT_COUNT,
+               "config.h の WINDMILL_OS_SLOT_COUNT が os_slots と合っていない");
+
+uint8_t windmill_board_os_slot(void) {
+    switch (Keyboard_Info.Key_Mode) {
+        case QMK_BLE_MODE:
+            /* Ble_Channel は QMK_BLE_CHANNEL_1〜3 (1始まり)。ブロブ側が未初期化の
+             * 値を持っていても USB のスロットへ混ざらないよう BLE1 に寄せる */
+            if (Keyboard_Info.Ble_Channel < QMK_BLE_CHANNEL_1 || Keyboard_Info.Ble_Channel > QMK_BLE_CHANNEL_3) {
+                return OS_SLOT_BLE1;
+            }
+            return (uint8_t)(OS_SLOT_BLE1 + (Keyboard_Info.Ble_Channel - QMK_BLE_CHANNEL_1));
+        case QMK_2P4G_MODE:
+            return OS_SLOT_2P4G;
+        default: // QMK_USB_MODE
+            return OS_SLOT_USB;
+    }
+}
