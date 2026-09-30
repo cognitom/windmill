@@ -24,7 +24,10 @@
  *
  * POS_KO / POS_MI はかなレイヤー上の位置を指す名前だが、実体は物理位置
  * (row=3, col=5/6) で、英数レイヤーが有効な間はそのまま英数側の
- * ALPHA_THUMB_SHIFT (LSFT_T(KC_SPC)) を指す。 */
+ * ALPHA_THUMB_SHIFT (LSFT_T(KC_SPC)) を指す。
+ *
+ * 起動直後のベースレイヤーは英数 (issue #22) なので、切り替えずにそのまま打つ。
+ * MY_LCTL はトグル (issue #53) で、タップするとかなへ移ってしまう。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -34,31 +37,14 @@
 #include "test_keymap.hpp"
 
 using testing::_;
-using testing::AnyNumber;
 using testing::InSequence;
 
 class AlphaThumbShift : public WindmillTest {};
-
-// MY_LCTL タップで英数へ切り替える。レポートの中身は問わない
-static void switch_to_alpha(WindmillTest* f, TestDriver& driver) {
-    EXPECT_ANY_REPORT(driver).Times(AnyNumber());
-
-    auto lctl = f->key(POS_LCTL);
-    lctl.press();
-    f->run_one_scan_loop();
-    f->idle_for(120);
-    lctl.release();
-    f->run_one_scan_loop();
-    f->settle();
-
-    VERIFY_AND_CLEAR(driver);
-}
 
 /* 左 → 右 の持ち替え。左を離しても、右が押されている限りShiftは続く */
 TEST_F(AlphaThumbShift, handover_left_to_right_keeps_shift) {
     TestDriver driver;
     set_windmill_keymap();
-    switch_to_alpha(this, driver);
 
     auto sft_l = key(POS_KO); // 左親指Shift (英数レイヤーでは LSFT_T(KC_SPC))
     auto sft_r = key(POS_MI); // 右親指Shift
@@ -93,7 +79,6 @@ TEST_F(AlphaThumbShift, handover_left_to_right_keeps_shift) {
 TEST_F(AlphaThumbShift, handover_right_to_left_keeps_shift) {
     TestDriver driver;
     set_windmill_keymap();
-    switch_to_alpha(this, driver);
 
     auto sft_l = key(POS_KO);
     auto sft_r = key(POS_MI);
@@ -128,7 +113,6 @@ TEST_F(AlphaThumbShift, handover_right_to_left_keeps_shift) {
 TEST_F(AlphaThumbShift, both_released_clears_shift) {
     TestDriver driver;
     set_windmill_keymap();
-    switch_to_alpha(this, driver);
 
     auto sft_l = key(POS_KO);
     auto sft_r = key(POS_MI);
