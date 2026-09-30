@@ -34,21 +34,6 @@ using testing::InvokeWithoutArgs;
 
 class ShiftPair : public WindmillTest {};
 
-/* MY_LCTL 1回タップで英数、2回タップでかな。
- * 1回タップは TD_DTAP_TERM 経過後に matrix_scan_kb() が確定させる。 */
-static void tap_lctl(WindmillTest* f, int times) {
-    auto lctl = f->key(POS_LCTL);
-    for (int i = 0; i < times; ++i) {
-        lctl.press();
-        f->run_one_scan_loop();
-        f->idle_for(120);
-        lctl.release();
-        f->run_one_scan_loop();
-        if (i + 1 < times) f->idle_for(60); // TD_DTAP_TERM 未満
-    }
-    f->settle();
-}
-
 /* issue #18 の再現手順そのもの。
  *
  *   MY_LCTL タップ         : 英数へ
@@ -68,10 +53,10 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
 
     // 英数へ切り替えて1文字打ち、かなへ戻す。ここのレポートは問わない
     EXPECT_ANY_REPORT(driver).Times(AnyNumber());
-    tap_lctl(this, 1);
+    tap_lctl(1);
     tap_key(key(POS_HA), 120);
     settle();
-    tap_lctl(this, 2);
+    tap_lctl(2);
     VERIFY_AND_CLEAR(driver);
 
     auto mi = key(POS_MI);
@@ -121,10 +106,10 @@ TEST_F(ShiftPair, unshifted_pair_waits_for_ime_on_first_keypress) {
 
     // 英数へ切り替えて1文字打ち、かなへ戻す。ここのレポートは問わない
     EXPECT_ANY_REPORT(driver).Times(AnyNumber());
-    tap_lctl(this, 1);
+    tap_lctl(1);
     tap_key(key(POS_HA), 120);
     settle();
-    tap_lctl(this, 2);
+    tap_lctl(2);
     VERIFY_AND_CLEAR(driver);
 
     auto mi = key(POS_MI);

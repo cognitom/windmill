@@ -61,10 +61,19 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_thumb_shift.cpp` | 左右の親指Shiftの持ち替え (ハンドオーバー) と同時押しスペースのレポート列 |
 | `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左右とも同じキーコード) の持ち替え (ハンドオーバー) のレポート列 |
 | `test_hold_layer.cpp` | Ctrl / Win / Alt のホールド中だけ英数レイヤーへ移ることのレポート列 |
+| `test_os_slot.cpp` | 接続先ごとのOS設定 (MY_WIN / MY_ANDR) のレポート列 |
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、
 ここだけ二重管理になっている。**キー配置を変えたら両方直すこと。**
+
+## ベースレイヤーは前のテストから持ち越される
+
+かな/英数の切り替え (`default_layer_state`) はテストの間でリセットされない。1つの実行に
+全テストが同居するので、**どちらを起点にするかはテスト側で `tap_lctl()` を呼んで
+決めること。** 起動直後は `reset_default_layer()` で英数になっているため、かな前提の
+テストが英数レイヤーで走ると、`MY_O` が素の `KC_O` として解決されて意図しない
+キーコードが出る。
 
 ## QMK 側へのパッチ
 

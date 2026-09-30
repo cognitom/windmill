@@ -80,8 +80,16 @@ Windmill is a keymap for 40% keyboards.
 
 | 独自キーコード | キー | 対象OS | 配列の認識 | IME |
 |--|--|--|--|--|
-| MY_WIN | <kbd>Fn</kbd>+<kbd>Q</kbd> | Windows 11 | English (US) | Microsof IME |
-| MY_AND | <kbd>Fn</kbd>+<kbd>W</kbd> | Android | English (US) | Gboard |
+| MY_WIN | <kbd>Fn</kbd>+<kbd>Esc</kbd> | Windows 11 | English (US) | Microsoft IME |
+| MY_ANDR | <kbd>Fn</kbd>+<kbd>3</kbd> | Android | English (US) | Gboard |
+
+Geonix Rev2.5 だけは、Fnレイヤーの左端に無線モードの切り替えキーが並ぶため、この2つが <kbd>Fn</kbd>+<kbd>7</kbd> / <kbd>Fn</kbd>+<kbd>8</kbd> になります。
+
+#### 接続先ごとに記憶します (Geonix Rev2.5 のみ)
+
+Geonix Rev2.5 は USB / Bluetooth 1〜3 / 2.4GHz の接続先ごとに、この設定を別々に覚えます。相手ごとに一度決めておけば、キーボードの接続先を切り替えるだけで対象OSも一緒に切り替わります。PCとAndroid端末を行き来するときに、そのたびに <kbd>Fn</kbd>+<kbd>7</kbd> / <kbd>Fn</kbd>+<kbd>8</kbd> を押し直す必要はありません。
+
+一度も設定していない接続先は Windows 向けです。
 
 ## v3での変更点
 

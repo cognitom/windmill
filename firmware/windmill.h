@@ -69,6 +69,15 @@
 #    define WINDMILL_KEYCODE_BASE QK_KB_0
 #endif
 
+/* 接続先ごとのOS設定 (MY_WIN / MY_ANDR) をいくつ持つか。
+ *
+ * 無線機は接続先を切り替えるたびに相手のOSも変わるので、接続先ごとに覚える
+ * (issue #58)。スロットの数と割り当ては機種が決め、config.h で上書きする。
+ * 接続先が1つしかない有線機は既定の1つで足りる。 */
+#ifndef WINDMILL_OS_SLOT_COUNT
+#    define WINDMILL_OS_SLOT_COUNT 1
+#endif
+
 /* geonix41/minipeg48 から移植したカスタムキーコード。
  * MY_W 〜 MY_A は my_shift_pairs[] のインデックス (keycode - MY_W) に
  * 使っているので、並び順を変えないこと。 */
@@ -124,3 +133,7 @@ bool windmill_board_process_record(uint16_t keycode, keyrecord_t *record);
 
 // LEDを流し込む直前。ベンダー側の描画を先に走らせてから配色を上書きするために使う
 void windmill_board_led_begin(void);
+
+/* 今つながっている先のOS設定スロット番号 (0 〜 WINDMILL_OS_SLOT_COUNT-1)。
+ * 無線の接続先を持つ機種 (geonix41) が実装する。既定は常に0。 */
+uint8_t windmill_board_os_slot(void);

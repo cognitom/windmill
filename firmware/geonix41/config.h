@@ -22,6 +22,11 @@
  * _Static_assert で行っている */
 #define WINDMILL_KEYCODE_BASE QK_KB_30
 
+/* 接続先ごとのOS設定 (MY_WIN / MY_ANDR) のスロット数 (issue #58)。
+ * USB / BLE1 / BLE2 / BLE3 / 2.4G の5つ。割り当ては geonix41.c の
+ * windmill_board_os_slot() が持ち、数のズレは同じ場所の _Static_assert が見る */
+#define WINDMILL_OS_SLOT_COUNT 5
+
 /* Mechanical locking support. Use KC_LCAP, KC_LNUM or KC_LSCR instead in keymap */
 #define LOCKING_SUPPORT_ENABLE
 /* Locking resynchronize hack */

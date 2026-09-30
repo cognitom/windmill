@@ -35,15 +35,26 @@ __attribute__((weak)) bool windmill_board_process_record(uint16_t keycode, keyre
     return true;
 }
 __attribute__((weak)) void windmill_board_led_begin(void) {}
+__attribute__((weak)) uint8_t windmill_board_os_slot(void) {
+    return 0;
+}
 
+/* EEPROMに残す設定 (eeconfig_read_kb / eeconfig_update_kb の4バイト)。
+ *
+ * android_slots は以前は単一の `bool is_android : 1` だった (issue #58 で接続先
+ * ごとに増やした)。ビットの意味が変わるので、この版へ上げた直後だけ以前の設定が
+ * ずれて見える。MY_WIN / MY_ANDR / MY_DARK を押し直せば済むため移行は入れない。 */
 typedef union {
     uint32_t raw;
     struct {
-        bool is_android : 1;   // MY_O/MY_P のShift時出力をAndroid向けにする
-        bool led_darkmode : 1; // LEDを暗いほうの配色にする (LED非搭載機では未使用)
+        uint8_t android_slots;    // 接続先ごと。ビット n が立っていればスロット n は Android
+        bool    led_darkmode : 1; // LEDを暗いほうの配色にする (LED非搭載機では未使用)
     };
 } windmill_config_t;
 static windmill_config_t windmill_config;
+
+_Static_assert(WINDMILL_OS_SLOT_COUNT >= 1 && WINDMILL_OS_SLOT_COUNT <= 8,
+               "WINDMILL_OS_SLOT_COUNT は 1〜8 (windmill_config.android_slots のビット数)");
 
 /*
  * 起動時のベースレイヤー
@@ -453,13 +464,29 @@ static bool process_alpha_thumb_shift(keyrecord_t *record) {
 
 /* MY_O/MY_PのShift時出力 (「」) はOSのIME実装で必要なキーが異なるため、
  * MY_WIN / MY_ANDR で切り替える。設定はEEPROMに永続化し、挿し直しても保持する。
- * EEPROMリセット時はWindows/デスクトップ向け(false)に戻る */
-static bool is_android = false;
+ * EEPROMリセット時はWindows/デスクトップ向け(false)に戻る。
+ *
+ * 無線機は接続先ごとに1ビット持つ (issue #58)。Bluetoothの相手を切り替えるたびに
+ * OS設定まで押し直すのは現実的でないため、windmill_board_os_slot() が返す
+ * スロットごとに覚える。接続先が1つしかない機種ではビット0だけを使う。 */
+static uint8_t android_slots = 0;
+
+// 機種側が範囲外を返しても踏み外さないよう丸めておく
+static uint8_t os_slot_bit(void) {
+    const uint8_t slot = windmill_board_os_slot();
+    return (uint8_t)1 << (slot < WINDMILL_OS_SLOT_COUNT ? slot : 0);
+}
+
+static bool is_android(void) {
+    return (android_slots & os_slot_bit()) != 0;
+}
 
 static void set_is_android(bool val) {
-    if (is_android == val) return; // 無変更ならEEPROMを書かない
-    is_android                = val;
-    windmill_config.is_android = val;
+    const uint8_t bit  = os_slot_bit();
+    const uint8_t next = val ? (uint8_t)(android_slots | bit) : (uint8_t)(android_slots & ~bit);
+    if (next == android_slots) return; // 無変更ならEEPROMを書かない
+    android_slots                 = next;
+    windmill_config.android_slots = next;
     eeconfig_update_kb(windmill_config.raw);
 }
 
@@ -668,10 +695,10 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             return false;
 
         case MY_O: // O / 「 (OS依存)
-            return process_shift_pair(KC_O, is_android ? S(KC_RBRC) : KC_LCBR, record);
+            return process_shift_pair(KC_O, is_android() ? S(KC_RBRC) : KC_LCBR, record);
 
         case MY_P: // P / 」 (OS依存)
-            return process_shift_pair(KC_P, is_android ? S(KC_BSLS) : KC_RCBR, record);
+            return process_shift_pair(KC_P, is_android() ? S(KC_BSLS) : KC_RCBR, record);
 
         case MY_W ... MY_A: // Shiftで別の記号を出すキー
             return process_shift_pair(my_shift_pairs[keycode - MY_W][0], my_shift_pairs[keycode - MY_W][1], record);
@@ -750,7 +777,7 @@ void keyboard_post_init_kb(void) {
     reset_default_layer();
 
     windmill_config.raw = eeconfig_read_kb();
-    is_android          = windmill_config.is_android;
+    android_slots       = windmill_config.android_slots;
 #ifdef WINDMILL_LED_ENABLE
     led_darkmode = windmill_config.led_darkmode;
 #endif

@@ -26,3 +26,8 @@
 // 各機種の keyboard.json / config.h と揃えること
 #define TAPPING_TERM 200
 #define HOLD_ON_OTHER_KEY_PRESS
+
+/* 接続先ごとのOS設定 (issue #58) を複数スロットで試せるよう、接続先のいちばん多い
+ * geonix41 と同じ5つにする。今どこへつながっているかは test_os_slot.cpp が
+ * windmill_board_os_slot() を差し替えて決める */
+#define WINDMILL_OS_SLOT_COUNT 5

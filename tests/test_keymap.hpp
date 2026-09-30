@@ -76,6 +76,11 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
 #define POS_TSU 3, 1   // つ  LGUI_T(KC_Z) 英数レイヤーでは KC_LGUI
 #define POS_SA 3, 2    // さ  LALT_T(KC_X) 英数レイヤーでは KC_LALT
 #define POS_NU 0, 1    // ぬ  KC_1         英数レイヤーでは "q"
+#define POS_SO 3, 3    // そ  LT(3,KC_C)   ホールドでFnレイヤー
+
+/* Fnレイヤー上の位置 (POS_SO をホールドして押す) */
+#define POS_WIN 0, 0   // MY_WIN   対象OSを Windows/デスクトップ へ
+#define POS_ANDR 0, 3  // MY_ANDR  対象OSを Android へ
 
 class WindmillTest : public TestFixture {
    public:
@@ -93,6 +98,24 @@ class WindmillTest : public TestFixture {
     // 押しっぱなしのキーが無い、落ち着いた状態にする
     void settle() {
         idle_for(TD_DTAP_TERM_MS + TAPPING_TERM);
+    }
+
+    /* MY_LCTL 1回タップで英数、2回タップでかな。
+     * 1回タップは TD_DTAP_TERM 経過後に matrix_scan_kb() が確定させる。
+     *
+     * ベースレイヤーは同じ実行の他のテストが残した状態を引き継ぐ (起動直後は
+     * reset_default_layer で英数)。どちらを起点にするかはテスト側で明示すること。 */
+    void tap_lctl(int times) {
+        auto lctl = key(POS_LCTL);
+        for (int i = 0; i < times; ++i) {
+            lctl.press();
+            run_one_scan_loop();
+            idle_for(120);
+            lctl.release();
+            run_one_scan_loop();
+            if (i + 1 < times) idle_for(60); // TD_DTAP_TERM 未満
+        }
+        settle();
     }
 
     static constexpr unsigned TD_DTAP_TERM_MS = 180; // windmill.c の TD_DTAP_TERM
