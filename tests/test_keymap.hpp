@@ -83,6 +83,7 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
 #define POS_TSU 3, 1   // つ  LGUI_T(KC_Z) 英数レイヤーでは KC_LGUI
 #define POS_SA 3, 2    // さ  LALT_T(KC_X) 英数レイヤーでは KC_LALT
 #define POS_NU 0, 1    // ぬ  KC_1         英数レイヤーでは "q"
+#define POS_RI 2, 9    // り  MY_L         英数レイヤーでは "."
 #define POS_FN_L 3, 3  // そ  LT(3,KC_C)     英数レイヤーでは MO(3)
 #define POS_FN_R 3, 8  // ね  LT(3,KC_COMMA) 英数レイヤーでは MO(3)
 

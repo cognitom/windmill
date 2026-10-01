@@ -650,6 +650,89 @@ static void update_hold_layer(void) {
 }
 
 /*
+ * Android での Win / Alt
+ */
+
+/* Android は Win (Meta) と Alt を特別扱いする (issue #57)。効いてくるのは次の2つで、
+ * どちらもキーそのものではなく押し離しの順序で決まる (AOSP の
+ * PhoneWindowManager / KeyGestureController)。
+ *
+ * - Win と Alt の片方を押している間にもう片方を押すと、どちらかを離した時点で
+ *   Caps Lock が切り替わる。間に他のキーを挟めば取り消される
+ * - Win を押して、他のキーを何も挟まずに離すと、アプリ一覧が開く
+ *
+ * かなレイヤーの「つ」「さ」は隣り合った Win / Alt なので、続けて打つだけで
+ * 前者を踏む。別キー割り込みで「つ」のホールドが確定し (HOLD_ON_OTHER_KEY_PRESS)、
+ * 「さ」は上がった英数レイヤーの素の KC_LALT になるため。 */
+
+/* 押下を握りつぶした修飾 (MOD_BIT)。離すイベントも消費するために覚える。
+ * 握りつぶしたほうは、先に押したほうを離しても出さない。出すと押した覚えの無い
+ * 修飾が遅れて効くことになる */
+static uint8_t android_blocked_mods = 0;
+
+/* Win と Alt は後から押したほうをホストへ出さない。
+ * falseを返したらそのイベントは消費済み(以降の処理をスキップ) */
+static bool process_android_gui_alt(uint16_t keycode, keyrecord_t *record) {
+    if (record->tap.count) return true; // タップ (つ / さ) は修飾ではない
+
+    const bool    is_gui = (keycode == KANA_GUI_KEY || keycode == KC_LGUI);
+    const uint8_t mod    = is_gui ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
+    const uint8_t other  = is_gui ? MOD_MASK_ALT : MOD_MASK_GUI;
+
+    if (!record->event.pressed) {
+        // 押下時のOS設定は見ない。押している間に設定を変えても離すぶんは消費する
+        if (!(android_blocked_mods & mod)) return true;
+        android_blocked_mods &= ~mod;
+        return false;
+    }
+    if (!is_android() || !(get_mods() & other)) return true;
+
+    android_blocked_mods |= mod;
+    return false;
+}
+
+/* Win を押したまま、Android に「Win を単独で押して離した」と見なされないようにする。
+ * 他のキーを1つ挟めば取り消されるので、何も起こさないキーを空打ちする。
+ * 右Ctrlにしたのは、このキーマップに無く (Ctrl は左だけ)、Win との組み合わせに
+ * ショートカットが無いため。QMK の DUMMY_MOD_NEUTRALIZER_KEYCODE でも
+ * 推奨されている */
+static void neutralize_gui_tap(void) {
+    tap_code(KC_RIGHT_CTRL);
+}
+
+// Win+. を Alt+. に読み替えて送ったあとの、ピリオドの解放待ち
+static bool android_gui_dot_sent = false;
+
+/* Win+. は Alt+. として送る。Windows の Win+. (絵文字) に揃えるため。
+ *
+ * Win を Alt に差し替えるには Win をいったん離すしかない (重ねると Caps Lock)。
+ * ただ離すだけだとアプリ一覧が開いてしまうので、離す前に空打ちを挟む。
+ * 押し直したあとも同じで、挟まないと指を離したときに開く。
+ *
+ * 押下の中で送り切るのは、Win を外している間にスキャンを挟まないため。
+ * 挟むと update_hold_layer() が Win を離したものと見て英数レイヤーを下ろす。
+ * falseを返したらそのイベントは消費済み(以降の処理をスキップ) */
+static bool process_android_gui_dot(keyrecord_t *record) {
+    if (!record->event.pressed) {
+        if (!android_gui_dot_sent) return true;
+        android_gui_dot_sent = false;
+        return false; // 押下で送り切ったので、未registerのunregisterを防ぐ
+    }
+
+    const uint8_t gui = get_mods() & MOD_MASK_GUI;
+    if (!is_android() || !gui) return true;
+
+    neutralize_gui_tap();
+    unregister_mods(gui);
+    tap_code16(A(KC_DOT));
+    register_mods(gui);
+    neutralize_gui_tap();
+
+    android_gui_dot_sent = true;
+    return false;
+}
+
+/*
  * 設定レイヤー
  */
 
@@ -787,8 +870,19 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         case KANA_ALT_KEY: // さ
         case KC_LGUI:      // 英数レイヤー側の同じ位置 (Ctrlと重ね押ししたとき)
         case KC_LALT:
+            /* レイヤーを上げるより先に見る。握りつぶした修飾はホストへ出ないので、
+             * 上げてしまうと update_hold_layer() が下ろす機会を失う */
+            if (!process_android_gui_alt(keycode, record)) {
+                return false;
+            }
             process_kana_mod(keycode, record);
             break; // 修飾そのものはQMKのmod-tapに任せる
+
+        case KC_DOT: // Android では Win+. を Alt+. に読み替える (issue #57)
+            if (!process_android_gui_dot(record)) {
+                return false;
+            }
+            break; // それ以外はQMKに任せる
 
         case KANA_FN_L: // そ。左右とも押している間は設定レイヤーへ (issue #62)
         case KANA_FN_R: // ね

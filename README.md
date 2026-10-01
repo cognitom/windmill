@@ -101,6 +101,11 @@ Windmill is a keymap for 40% keyboards.
 | MY_WIN | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | Windows 11 | English (US) | Microsof IME | <kbd>かな</kbd> / <kbd>英数</kbd> を交互に (`KC_LNG1` / `KC_LNG2`) |
 | MY_ANDR | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | Android | English (US) | Gboard | <kbd>Ctrl</kbd>+<kbd>Space</kbd> (日本語⇔英語のIMEを切り替え) |
 
+対象OSが Android のときは、GUI と Alt の扱いも変わります。
+
+- <kbd>GUI</kbd> と <kbd>Alt</kbd> の同時押しは、後から押したほうを送りません。Android はこの組み合わせを Caps Lock の切り替えとして扱うため、かな入力で「つ」「さ」を続けて打つだけで Caps Lock がかかってしまいます
+- <kbd>GUI</kbd>+<kbd>.</kbd> は <kbd>Alt</kbd>+<kbd>.</kbd> として送ります。Windows の <kbd>Win</kbd>+<kbd>.</kbd> と同じ操作にするためです
+
 ## v3での変更点
 
 前バージョンから4年ほど経つ中で、かなりQMKだけでできることが増えて来ました。Androidが「かな入力」にデフォルトで対応したりと、OS側の動きも大きいです。なので、今回はQMKを`v0.33.11`にした上で、なるべく独自実装を避けてVIALなどでも調整可能な範囲に収めることを主眼に置きました。[CHANGES.md](CHANGES.md)にClaudeが詳しく書いているのでそちらをどうぞ。
