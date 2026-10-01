@@ -27,8 +27,9 @@
 #define LAYER_KANA  0 // かな。OS側のIMEを「かな入力」にして使う
 #define LAYER_ALPHA 1 // 英数
 #define LAYER_SYM   2 // 数字・記号
-#define LAYER_FN    3 // ファンクション・メディア・設定
-#define LAYER_SIZE  4
+#define LAYER_FN    3 // ファンクション・メディア
+#define LAYER_CONF  4 // 設定。左右のFnを両方ホールドしている間だけ (process_fn 参照)
+#define LAYER_SIZE  5
 
 /* 親指Shift。keymaps[] のレイヤー0で使っているものと一致させること。
  *
@@ -61,6 +62,16 @@
  * keymaps[] のレイヤー0で使っているものと一致させること */
 #define KANA_GUI_KEY LGUI_T(KC_Z)
 #define KANA_ALT_KEY LALT_T(KC_X)
+
+/* Fn。左右を両方ホールドしている間だけ設定レイヤーへ移す (process_fn 参照、
+ * issue #62)。英数レイヤーは左右とも MO(3) で同じキーコードなので、
+ * ALPHA_THUMB_SHIFT と同じく列 (col) で左右を見分ける。
+ * keymaps[] のレイヤー0(かな)とレイヤー1(英数)の並びと一致させること */
+#define KANA_FN_L LT(3, KC_C)
+#define KANA_FN_R LT(3, KC_COMMA)
+#define ALPHA_FN  MO(3)
+#define FN_L_COL  3
+#define FN_R_COL  8
 
 /* 言語切替 (タップ) と Ctrl + 英数レイヤー (ホールド)。
  *

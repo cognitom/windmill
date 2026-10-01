@@ -55,10 +55,17 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
   },
 
   [LAYER_FN] = {
-    {MY_WIN,  KC_NO,        KC_NO,        MY_ANDR,     KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      QK_BOOT, MY_DARK},
+    {KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   MY_DARK},
     {KC_F1,   KC_F2,        KC_F3,        KC_F4,       KC_F5,         KC_F6,          KC_F7,          KC_F8,         KC_F9,          KC_F10,     KC_F11,  KC_F12},
     {KC_DEL,  KC_PSCR,      KC_NO,        KC_NO,       KC_NO,         KC_BRID,        KC_BRIU,        KC_MUTE,       KC_VOLD,        KC_VOLU,    KC_UP,   KC_RGHT},
     {MY_IME,  KC_TRNS,      KC_TRNS,      KC_TRNS,     KC_TRNS,       KC_TRNS,        KC_TRNS,        KC_TRNS,       KC_TRNS,        KC_TRNS,    KC_LEFT, KC_DOWN},
+  },
+
+  [LAYER_CONF] = {
+    {KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   QK_BOOT},
+    {KC_NO,   MY_WIN,       MY_ANDR,      KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   KC_NO},
+    {KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   KC_NO},
+    {KC_NO,   KC_NO,        KC_NO,        KC_TRNS,     KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_TRNS,        KC_NO,      KC_NO,   KC_NO},
   },
 };
 // clang-format on
@@ -76,6 +83,12 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
 #define POS_TSU 3, 1   // つ  LGUI_T(KC_Z) 英数レイヤーでは KC_LGUI
 #define POS_SA 3, 2    // さ  LALT_T(KC_X) 英数レイヤーでは KC_LALT
 #define POS_NU 0, 1    // ぬ  KC_1         英数レイヤーでは "q"
+#define POS_FN_L 3, 3  // そ  LT(3,KC_C)     英数レイヤーでは MO(3)
+#define POS_FN_R 3, 8  // ね  LT(3,KC_COMMA) 英数レイヤーでは MO(3)
+
+/* 設定レイヤー上の位置。左右のFnを両方ホールドしている間だけ出る (issue #62) */
+#define POS_WIN 1, 1   // MY_WIN   Fnレイヤーでは KC_F2
+#define POS_ANDR 1, 2  // MY_ANDR  Fnレイヤーでは KC_F3
 
 class WindmillTest : public TestFixture {
    public:
@@ -94,6 +107,24 @@ class WindmillTest : public TestFixture {
 
     KeymapKey key(uint8_t row, uint8_t col) {
         return KeymapKey(LAYER_KANA, col, row, windmill_keymap[LAYER_KANA][row][col]);
+    }
+
+    // 左右のFnを両方ホールドして、設定レイヤー上のキーを1回叩く
+    void tap_on_conf(uint8_t row, uint8_t col) {
+        auto fn_l = key(POS_FN_L);
+        auto fn_r = key(POS_FN_R);
+        fn_l.press();
+        run_one_scan_loop();
+        fn_r.press();
+        run_one_scan_loop();
+        idle_for(250); // TAPPING_TERM 超え。ホールド確定
+        tap_key(key(row, col), 50);
+        idle_for(50);
+        fn_r.release();
+        run_one_scan_loop();
+        fn_l.release();
+        run_one_scan_loop();
+        idle_for(120);
     }
 
     // 押しっぱなしのキーが無い、落ち着いた状態にする
