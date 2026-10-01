@@ -17,8 +17,9 @@
 /* Fnレイヤーのファンクションキーは数字キーに準じた位置に置く (issue #64)。
  * F1〜F10 は最上段の「1」〜「0」の位置、F11 / F12 は2段目の先頭2つ。
  *
- * 最左列の Esc / Tab は透過にしてあり、Fnをホールドしたままでもそのまま出る。
- * 以前は2段目の左端から F1〜F12 を並べていたので、Fn+Tab が F1 だった。
+ * 最左列の Esc は透過にしてあり、Fnをホールドしたままでもそのまま出る。
+ * その下の Tab の位置は Caps Lock (issue #56)。Android で意図せず Caps Lock が
+ * かかることがあり、キーボードから外す手段が要る。
  *
  * Fn は英数レイヤーでは MO(3)、かなレイヤーでは LT(3,KC_C) とキーコードが違う。
  * 透過キーの落ちる先はどちらのベースでも同じ (英数でも透過) なので、両方で通す。 */
@@ -45,9 +46,11 @@ static const struct {
     {0, 0, KC_ESC}, // 透過
     {0, 1, KC_F1},  {0, 2, KC_F2}, {0, 3, KC_F3}, {0, 4, KC_F4}, {0, 5, KC_F5},
     {0, 6, KC_F6},  {0, 7, KC_F7}, {0, 8, KC_F8}, {0, 9, KC_F9}, {0, 10, KC_F10},
-    {1, 0, KC_TAB}, // 透過
-    {1, 1, KC_F11}, {1, 2, KC_F12},
+    {1, 0, KC_CAPS}, // Tab の位置
+    {1, 1, KC_F11},  {1, 2, KC_F12},
 };
+
+#define POS_TAB 1, 0 // Fnレイヤーでは KC_CAPS
 
 // 起動直後の英数から MY_LCTL 1回タップでかなへ切り替える。レポートの中身は問わない
 static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
@@ -121,5 +124,38 @@ TEST_F(FnLayer, rest_of_second_row_is_empty) {
     fn.release();
     run_one_scan_loop();
     idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* Fn+Tab は Caps Lock (issue #56)。オンもオフも同じキーで、状態を持つのはホスト側。
+ * キーボードは押すたびに同じレポートを送るだけで、Fnを離せば Tab に戻る */
+TEST_F(FnLayer, fn_tab_sends_caps_lock_each_time) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto fn = key(POS_FN_L);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_CAPS)); // オン
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_CAPS)); // オフ
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_TAB)); // Fnを離したあと
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    fn.press();
+    run_one_scan_loop();
+    idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    tap_key(key(POS_TAB), 50);
+    idle_for(50);
+    tap_key(key(POS_TAB), 50);
+    idle_for(50);
+    fn.release();
+    run_one_scan_loop();
+    idle_for(120);
+    tap_key(key(POS_TAB), 50);
+    idle_for(50);
     VERIFY_AND_CLEAR(driver);
 }
