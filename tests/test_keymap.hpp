@@ -55,8 +55,8 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
   },
 
   [LAYER_FN] = {
-    {KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   MY_DARK},
-    {KC_F1,   KC_F2,        KC_F3,        KC_F4,       KC_F5,         KC_F6,          KC_F7,          KC_F8,         KC_F9,          KC_F10,     KC_F11,  KC_F12},
+    {KC_TRNS, KC_F1,        KC_F2,        KC_F3,       KC_F4,         KC_F5,          KC_F6,          KC_F7,         KC_F8,          KC_F9,      KC_F10,  MY_DARK},
+    {KC_TRNS, KC_F11,       KC_F12,       KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   KC_NO},
     {KC_DEL,  KC_PSCR,      KC_NO,        KC_NO,       KC_NO,         KC_BRID,        KC_BRIU,        KC_MUTE,       KC_VOLD,        KC_VOLU,    KC_UP,   KC_RGHT},
     {MY_IME,  KC_TRNS,      KC_TRNS,      KC_TRNS,     KC_TRNS,       KC_TRNS,        KC_TRNS,        KC_TRNS,       KC_TRNS,        KC_TRNS,    KC_LEFT, KC_DOWN},
   },
@@ -87,8 +87,8 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
 #define POS_FN_R 3, 8  // ね  LT(3,KC_COMMA) 英数レイヤーでは MO(3)
 
 /* 設定レイヤー上の位置。左右のFnを両方ホールドしている間だけ出る (issue #62) */
-#define POS_WIN 1, 1   // MY_WIN   Fnレイヤーでは KC_F2
-#define POS_ANDR 1, 2  // MY_ANDR  Fnレイヤーでは KC_F3
+#define POS_WIN 1, 1   // MY_WIN   Fnレイヤーでは KC_F11
+#define POS_ANDR 1, 2  // MY_ANDR  Fnレイヤーでは KC_F12
 
 class WindmillTest : public TestFixture {
    public:

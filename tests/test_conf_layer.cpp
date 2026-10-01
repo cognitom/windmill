@@ -17,7 +17,7 @@
 /* 設定レイヤーは左右のFnを両方ホールドしている間だけ有効になる (issue #62)。
  *
  * どのレイヤーで解決されたかは、他のテストと同じくレポートで判定する。
- * MY_WIN / MY_ANDR の位置は、Fnレイヤーでは KC_F2 / KC_F3 なのでレポートが出る。
+ * MY_WIN / MY_ANDR の位置は、Fnレイヤーでは KC_F11 / KC_F12 なのでレポートが出る。
  * 設定レイヤーではレポートが出ず、かわりにOSの設定が変わる。OSは言語切替
  * (MY_LCTL) のタップで見る。英数からのタップで、Windows は KC_LNG1、Android は
  * Ctrl+Space を送る (test_lang_toggle.cpp 参照)。
@@ -87,7 +87,7 @@ TEST_F(ConfLayer, single_fn_stays_on_fn_layer) {
     for (auto fn : {key(POS_FN_L), key(POS_FN_R)}) {
         {
             InSequence s;
-            EXPECT_REPORT(driver, (KC_F3)); // Fnレイヤーで解決される
+            EXPECT_REPORT(driver, (KC_F12)); // Fnレイヤーで解決される
             EXPECT_EMPTY_REPORT(driver);
         }
 
@@ -113,12 +113,12 @@ TEST_F(ConfLayer, releasing_left_fn_returns_to_fn_layer) {
 
     auto fn_l = key(POS_FN_L);
     auto fn_r = key(POS_FN_R);
-    auto win  = key(POS_WIN); // 設定 = MY_WIN (既定のままなので何も変わらない) / Fn = KC_F2 / 英数 = KC_A
+    auto win  = key(POS_WIN); // 設定 = MY_WIN (既定のままなので何も変わらない) / Fn = KC_F11 / 英数 = KC_A
 
     {
         InSequence s;
         // 設定レイヤーではレポートが出ない
-        EXPECT_REPORT(driver, (KC_F2)); // 左を離した後はFnレイヤー
+        EXPECT_REPORT(driver, (KC_F11)); // 左を離した後はFnレイヤー
         EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_A)); // 右も離した後は英数
         EXPECT_EMPTY_REPORT(driver);
@@ -155,7 +155,7 @@ TEST_F(ConfLayer, releasing_right_fn_returns_to_fn_layer_and_back) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_F2)); // 右を離した後はFnレイヤー
+        EXPECT_REPORT(driver, (KC_F11)); // 右を離した後はFnレイヤー
         EXPECT_EMPTY_REPORT(driver);
         // 右を押し直すと設定レイヤー。レポートは出ない
         EXPECT_REPORT(driver, (KC_A)); // 両方離した後は英数
@@ -196,11 +196,11 @@ TEST_F(ConfLayer, releasing_one_fn_on_kana_returns_to_fn_layer) {
 
     auto fn_l = key(POS_FN_L); // そ  LT(3,KC_C)
     auto fn_r = key(POS_FN_R); // ね  LT(3,KC_COMMA)
-    auto win  = key(POS_WIN);  // 設定 = MY_WIN / Fn = KC_F2 / かな = KC_Q
+    auto win  = key(POS_WIN);  // 設定 = MY_WIN / Fn = KC_F11 / かな = KC_Q
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_F2)); // 左を離した後はFnレイヤー
+        EXPECT_REPORT(driver, (KC_F11)); // 左を離した後はFnレイヤー
         EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_Q)); // 右も離した後はかな
         EXPECT_EMPTY_REPORT(driver);
