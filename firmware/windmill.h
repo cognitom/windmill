@@ -107,7 +107,7 @@ enum windmill_keycodes {
     MY_QUOT,        // Shift時: _
     MY_A,           // Shift時: Z
     MY_WIN,         // 言語切替とMY_O/MY_PのShift時出力をWindows/デスクトップ向けに (接続先ごとにEEPROM保存)
-    MY_ANDR,        // 言語切替とMY_O/MY_PのShift時出力をAndroid向けに (接続先ごとにEEPROM保存)
+    MY_ANDR,        // 同じくAndroid向けに。Win と Alt の扱いも変わる (windmill.c「Android での Win / Alt」参照)
     MY_DARK,        // LEDの明るさ 強/弱 を切り替え (EEPROM保存。LED搭載機のみ)
     MY_IME,         // ホスト側のIMEだけ切り替える (ベースレイヤーは動かさない)
 };
