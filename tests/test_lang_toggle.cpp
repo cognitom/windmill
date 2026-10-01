@@ -39,8 +39,6 @@
 using testing::_;
 using testing::InSequence;
 
-#define POS_FN 3, 3   // そ  LT(3,KC_C)  英数レイヤーでは MO(3)
-#define POS_ANDR 0, 3 // Fnレイヤーの MY_ANDR
 // Fnレイヤーの MY_IME。MY_LCTL と同じ位置なので Fn+Ctrl で出る
 #define POS_IME POS_LCTL
 
@@ -53,7 +51,7 @@ class LangToggleAndroid : public WindmillTest {};
 
 // Fnをホールドして、Fnレイヤー上のキーを1回叩く
 static void tap_with_fn(WindmillTest* f, uint8_t row, uint8_t col) {
-    auto fn = f->key(POS_FN);
+    auto fn = f->key(POS_FN_L);
     fn.press();
     f->run_one_scan_loop();
     f->idle_for(250); // TAPPING_TERM 超え。ホールド確定
@@ -64,10 +62,10 @@ static void tap_with_fn(WindmillTest* f, uint8_t row, uint8_t col) {
     f->idle_for(120);
 }
 
-// Fn+W (MY_ANDR) でAndroid向けにする。レポートは出ない
+// 設定レイヤーの MY_ANDR でAndroid向けにする。レポートは出ない
 static void select_android(WindmillTest* f, TestDriver& driver) {
     EXPECT_NO_REPORT(driver);
-    tap_with_fn(f, POS_ANDR);
+    f->tap_on_conf(POS_ANDR);
     f->settle();
     VERIFY_AND_CLEAR(driver);
 }

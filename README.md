@@ -65,6 +65,19 @@ Windmill is a keymap for 40% keyboards.
 
 ずれてしまったときは、<kbd>Fn</kbd>+<kbd>Ctrl</kbd> でキーボード側はそのままに、IME側だけを切り替えられます。Windows では今の配列に合わせたかな/英数を送り直すので、ずれていなければ何も起きません。Android は切り替えのキーしか送れないため、揃っているときに押すと逆にずれます (もう一度押せば戻ります)。
 
+### 設定レイヤー
+
+左右の <kbd>Fn</kbd> を両方ホールドしている間は、キーボードの設定用のレイヤーになります。配置は全機種で共通です (キー名は英字配列でのもの)。
+
+| キー | 独自キーコード | 設定 |
+|--|--|--|
+| <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | MY_WIN | [対象OS](#対象osの切り替え)を Windows に |
+| <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | MY_ANDR | 対象OSを Android に |
+| <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Enter</kbd> | QK_BOOT | ファームウェアを書き込めるモードへ |
+| <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Esc</kbd> / <kbd>Q</kbd> / <kbd>W</kbd> / <kbd>E</kbd> / <kbd>R</kbd> | MD_USB / MD_BLE1 / MD_BLE2 / MD_BLE3 / MD_24G | 接続先を USB / Bluetooth 1〜3 / 2.4G に (Geonix Rev2.5 のみ) |
+
+片方の <kbd>Fn</kbd> を離すと、残したほうでファンクションキーの入力へ戻ります。
+
 ## 追加機能
 
 ### LED (Technik, YMD40, Geonix Rev2.5 のみ)
@@ -79,12 +92,12 @@ Windmill is a keymap for 40% keyboards.
 
 ### 対象OSの切り替え
 
-各OSのIMEの差異を吸収するため、モードを切り替えることができます。
+各OSのIMEの差異を吸収するため、モードを切り替えることができます。キーは[設定レイヤー](#設定レイヤー)にあります。
 
 | 独自キーコード | キー | 対象OS | 配列の認識 | IME | かな/英数切り替えで送るキー |
 |--|--|--|--|--|--|
-| MY_WIN | <kbd>Fn</kbd>+<kbd>Q</kbd> | Windows 11 | English (US) | Microsof IME | <kbd>かな</kbd> / <kbd>英数</kbd> を交互に (`KC_LNG1` / `KC_LNG2`) |
-| MY_AND | <kbd>Fn</kbd>+<kbd>W</kbd> | Android | English (US) | Gboard | <kbd>Ctrl</kbd>+<kbd>Space</kbd> (日本語⇔英語のIMEを切り替え) |
+| MY_WIN | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | Windows 11 | English (US) | Microsof IME | <kbd>かな</kbd> / <kbd>英数</kbd> を交互に (`KC_LNG1` / `KC_LNG2`) |
+| MY_ANDR | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | Android | English (US) | Gboard | <kbd>Ctrl</kbd>+<kbd>Space</kbd> (日本語⇔英語のIMEを切り替え) |
 
 ## v3での変更点
 

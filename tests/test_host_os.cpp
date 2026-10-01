@@ -48,10 +48,6 @@ extern "C" uint8_t windmill_board_host(void) {
 
 extern "C" void keyboard_post_init_kb(void);
 
-#define POS_FN 3, 3   // そ  LT(3,KC_C)  英数レイヤーでは MO(3)
-#define POS_WIN 0, 0  // Fnレイヤーの MY_WIN
-#define POS_ANDR 0, 3 // Fnレイヤーの MY_ANDR
-
 /* 設定はEEPROMに残るので、テストごとに有線から始めるだけでは足りない。
  * QMKのテスト基盤はスイートの頭でEEPROMを初期化する (SetUpTestCase) ので、
  * 前提の違うテストはスイートを分ける */
@@ -69,23 +65,10 @@ class HostOsOutOfRange : public HostOs {};
 class HostOsWinBack : public HostOs {};
 class HostOsLegacy : public HostOs {};
 
-// Fnをホールドして、Fnレイヤー上のキーを1回叩く
-static void tap_with_fn(WindmillTest* f, uint8_t row, uint8_t col) {
-    auto fn = f->key(POS_FN);
-    fn.press();
-    f->run_one_scan_loop();
-    f->idle_for(250); // TAPPING_TERM 超え。ホールド確定
-    f->tap_key(f->key(row, col), 50);
-    f->idle_for(50);
-    fn.release();
-    f->run_one_scan_loop();
-    f->idle_for(120);
-}
-
-// Fn+Q (MY_WIN) / Fn+W (MY_ANDR) でOSを選ぶ。レポートは出ない
+// 設定レイヤーの MY_WIN / MY_ANDR でOSを選ぶ。レポートは出ない
 static void select_os(WindmillTest* f, TestDriver& driver, uint8_t row, uint8_t col) {
     EXPECT_NO_REPORT(driver);
-    tap_with_fn(f, row, col);
+    f->tap_on_conf(row, col);
     f->settle();
     VERIFY_AND_CLEAR(driver);
 }

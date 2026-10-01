@@ -21,7 +21,11 @@
 /* レイヤー0(かな)とレイヤー1(英数)がベースレイヤーで、MY_LCTL のタップで
  * 交互に切り替わる。レイヤー1で透過のキーはレイヤー0へ落ちる。
  *
- * MD_USB / MD_BLE1-3 / MD_24G は rdr_lib の無線モード切替キー (geonix41 専用)。 */
+ * MD_USB / MD_BLE1-3 / MD_24G は rdr_lib の無線モード切替キー (geonix41 専用)。
+ *
+ * レイヤー4(設定)は左右のFnを両方ホールドしている間だけ有効になる (issue #62)。
+ * 配置は全機種で共通。Fn の位置は透過のままにしておくこと
+ * (windmill.c の process_fn 参照)。 */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [LAYER_KANA] = LAYOUT_ortho_4x12(
@@ -46,10 +50,17 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   ),
 
   [LAYER_FN] = LAYOUT_ortho_4x12(
-    MD_USB,  MD_BLE1,      MD_BLE2,      MD_BLE3,     MD_24G,        KC_NO,          KC_NO,          MY_WIN,        MY_ANDR,        KC_NO,   QK_BOOT, MY_DARK,
+    KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,   KC_NO,   MY_DARK,
     KC_F1,   KC_F2,        KC_F3,        KC_F4,       KC_F5,         KC_F6,          KC_F7,          KC_F8,         KC_F9,          KC_F10,  KC_F11,  KC_F12,
     KC_DEL,  KC_PSCR,      KC_NO,        KC_NO,       KC_NO,         KC_BRID,        KC_BRIU,        KC_MUTE,       KC_VOLD,        KC_VOLU, KC_UP,   KC_RGHT,
     MY_IME,  _______,      _______,      _______,     _______,       _______,        _______,        _______,       _______,        _______, KC_LEFT, KC_DOWN
+  ),
+
+  [LAYER_CONF] = LAYOUT_ortho_4x12(
+    MD_USB,  MD_BLE1,      MD_BLE2,      MD_BLE3,     MD_24G,        KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,   KC_NO,   QK_BOOT,
+    KC_NO,   MY_WIN,       MY_ANDR,      KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,   KC_NO,   KC_NO,
+    KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,   KC_NO,   KC_NO,
+    KC_NO,   KC_NO,        KC_NO,        _______,     KC_NO,         KC_NO,          KC_NO,          KC_NO,         _______,        KC_NO,   KC_NO,   KC_NO
   ),
 
 };

@@ -98,5 +98,7 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
 - **SandS** — Spaceをホールドすると Shift になる。実装は `process_thumb_shift()`
 - **Shift出し分け** — `my_shift_pairs[]` のテーブル引きで、Shift時に別のキーを出す。
   実装は `process_shift_pair()`
-- **レイヤー** — `LAYER_KANA`(0) / `LAYER_ALPHA`(1) / `LAYER_SYM`(2) / `LAYER_FN`(3)。
-  0と1がベースレイヤーで `default_layer_set()` で切り替える
+- **レイヤー** — `LAYER_KANA`(0) / `LAYER_ALPHA`(1) / `LAYER_SYM`(2) / `LAYER_FN`(3) /
+  `LAYER_CONF`(4)。0と1がベースレイヤーで `default_layer_set()` で切り替える
+- **設定レイヤー** — `LAYER_CONF`。左右のFnを両方ホールドしている間だけ有効になる。
+  配置は全機種で共通。実装は `process_fn()`

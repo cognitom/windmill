@@ -650,6 +650,52 @@ static void update_hold_layer(void) {
 }
 
 /*
+ * 設定レイヤー
+ */
+
+/* 左右のFnを両方ホールドしている間だけ設定レイヤーへ移す (issue #62)。
+ *
+ * Fnレイヤーの Fn の位置へ MO(4) を置けばコードは要らないが、それだと設定レイヤーを
+ * 上げているのは後から押したほうのFnだけになる。先に押したほうを離しても
+ * 設定レイヤーが残り、「両方押している間だけ」にならない。そこでホールド中の
+ * Fnを左右1ビットずつ覚えて、レイヤーの上げ下げを自前で持つ。
+ *
+ * Fnレイヤーのほうは QMK の LT() / MO() のまま。ただしQMKのレイヤーは参照カウントを
+ * 持たないので、素のままだと先に離したほうの layer_off() が、まだ押している側の
+ * ぶんまで落としてしまう。片方が残っているうちは離すイベントごと消費して、
+ * Fnレイヤーへ戻れるようにする (親指Shiftのハンドオーバーと同じ理屈)。
+ *
+ * 設定レイヤーの Fn の位置は必ず透過にしておくこと。2つ目のFnの押下でここが
+ * レイヤーを上げると、QMKはそのキー自身のアクションを上げた後のレイヤーで
+ * 引き直す (process_kana_mod と同じ罠)。透過でないと解放がFnとして解決されず、
+ * 設定レイヤーへ貼りついたまま戻れなくなる。 */
+static uint8_t fn_held = 0;
+
+#define FN_BIT(record) ((record)->event.key.col == FN_L_COL ? 1 : 2)
+#define FN_BOTH 3
+
+// falseを返したらそのイベントは消費済み(以降の処理をスキップ)
+static bool process_fn(keyrecord_t *record) {
+    if (record->tap.count) return true; // タップ (そ / ね) はQMKに任せる
+
+    if (record->event.pressed) { // hold確定
+        fn_held |= FN_BIT(record);
+    } else { // hold解放
+        fn_held &= ~FN_BIT(record);
+    }
+
+    if (fn_held == FN_BOTH) {
+        layer_on(LAYER_CONF);
+    } else if (layer_state_is(LAYER_CONF)) {
+        layer_off(LAYER_CONF);
+    }
+
+    // もう片方がまだFnとして押されているなら、QMKにFnレイヤーを下ろさせない
+    if (!record->event.pressed && fn_held) return false;
+    return true; // Fnレイヤーの上げ下げはQMKに任せる
+}
+
+/*
  * QMK callbacks
  */
 
@@ -743,6 +789,14 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         case KC_LALT:
             process_kana_mod(keycode, record);
             break; // 修飾そのものはQMKのmod-tapに任せる
+
+        case KANA_FN_L: // そ。左右とも押している間は設定レイヤーへ (issue #62)
+        case KANA_FN_R: // ね
+        case ALPHA_FN:  // 英数レイヤー側のFn (左右とも同じキーコード)
+            if (!process_fn(record)) {
+                return false;
+            }
+            break; // 通常処理へ (tap=そ/ね, hold=Fnレイヤー)
 
         case THUMB_SHIFT_B: // 親指Shift
         case THUMB_SHIFT_N:
