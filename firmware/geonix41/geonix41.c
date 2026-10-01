@@ -153,6 +153,27 @@ void windmill_board_led_begin(void) {
     User_Led_Show();
 }
 
+/* 接続先。MY_WIN / MY_ANDR の設定はこの番号ごとに覚える (issue #58)。
+ * 接続先の切り替えはブロブが Keyboard_Info に書くので、それをそのまま読む。
+ * BLE はチャンネル (1〜3) で分ける。ペアリング先が別の機器になるため */
+uint8_t windmill_board_host(void) {
+    switch (Keyboard_Info.Key_Mode) {
+        case QMK_BLE_MODE:
+            switch (Keyboard_Info.Ble_Channel) {
+                case QMK_BLE_CHANNEL_1:
+                    return WINDMILL_HOST_BLE1;
+                case QMK_BLE_CHANNEL_2:
+                    return WINDMILL_HOST_BLE2;
+                case QMK_BLE_CHANNEL_3:
+                    return WINDMILL_HOST_BLE3;
+            }
+            break;
+        case QMK_2P4G_MODE:
+            return WINDMILL_HOST_2P4G;
+    }
+    return WINDMILL_HOST_USB;
+}
+
 /* スリープ抑止。MY_* のように windmill が途中で消費するキーでも効かせたいので、
  * process_record ではなく pre_process 側で行う */
 void windmill_board_pre_process_record(uint16_t keycode, keyrecord_t *record) {

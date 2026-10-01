@@ -95,8 +95,8 @@ enum windmill_keycodes {
     MY_SCLN,        // Shift時: ?
     MY_QUOT,        // Shift時: _
     MY_A,           // Shift時: Z
-    MY_WIN,         // 言語切替とMY_O/MY_PのShift時出力をWindows/デスクトップ向けに (EEPROM保存)
-    MY_ANDR,        // 言語切替とMY_O/MY_PのShift時出力をAndroid向けに (EEPROM保存)
+    MY_WIN,         // 言語切替とMY_O/MY_PのShift時出力をWindows/デスクトップ向けに (接続先ごとにEEPROM保存)
+    MY_ANDR,        // 言語切替とMY_O/MY_PのShift時出力をAndroid向けに (接続先ごとにEEPROM保存)
     MY_DARK,        // LEDの明るさ 強/弱 を切り替え (EEPROM保存。LED搭載機のみ)
     MY_IME,         // ホスト側のIMEだけ切り替える (ベースレイヤーは動かさない)
 };
@@ -118,6 +118,16 @@ uint16_t windmill_base_keycode(uint16_t keycode);
 
 #endif // WINDMILL_LED_ENABLE
 
+/* 接続先 (ホスト) の番号。無線機では接続先ごとに相手のOSが違うので、
+ * MY_WIN / MY_ANDR の設定を接続先ごとに覚える (issue #58)。
+ * 番号はEEPROM上の格納位置になるので、並びを変えないこと */
+#define WINDMILL_HOST_USB  0 // 有線。無線を持たない機種は常にここ
+#define WINDMILL_HOST_BLE1 1
+#define WINDMILL_HOST_BLE2 2
+#define WINDMILL_HOST_BLE3 3
+#define WINDMILL_HOST_2P4G 4
+#define WINDMILL_HOST_SIZE 5
+
 /* 機種固有の割り込み口。windmill.c が QMK の *_kb フックを占有しているので、
  * ベンダーのライブラリを呼ぶ必要がある機種 (geonix41) 向けに weak で開けてある。
  * 実装しない機種では何もしない。 */
@@ -132,6 +142,11 @@ void windmill_board_pre_process_record(uint16_t keycode, keyrecord_t *record);
 /* process_record_kb() の最後。windmill が消費しなかったキーだけが渡る。
  * false を返すとキーはそこで消費される。 */
 bool windmill_board_process_record(uint16_t keycode, keyrecord_t *record);
+
+/* いま繋がっている接続先 (WINDMILL_HOST_*)。OSの設定を引くたびに呼ばれるので、
+ * 接続先の切り替えを windmill 側で追いかける必要はない。
+ * 実装しない機種では WINDMILL_HOST_USB */
+uint8_t windmill_board_host(void);
 
 // LEDを流し込む直前。ベンダー側の描画を先に走らせてから配色を上書きするために使う
 void windmill_board_led_begin(void);
