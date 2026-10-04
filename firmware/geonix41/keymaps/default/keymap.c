@@ -108,12 +108,12 @@ uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode) {
   }
 
   switch (keycode) {
-    case MY_WIN: case MY_ANDR: case MY_DARK: case MY_IME: case QK_BOOT:
+    case MY_WIN: case MY_ANDR: case MY_DARK: case QK_BOOT:
     case MD_USB: case MD_BLE1: case MD_BLE2: case MD_BLE3: case MD_24G:
       return CL_CONFIG;
     case KC_ENT ... KC_TAB: case KC_CAPS: case KC_DEL: case KC_RIGHT ... KC_UP:
     case KC_APP: case KC_INT1 ... KC_LNG2: case KC_LCTL ... KC_RGUI:
-    case MY_LCTL: case QK_MOMENTARY ... QK_MOMENTARY_MAX:
+    case MY_LCTL: case MY_IME: case QK_MOMENTARY ... QK_MOMENTARY_MAX:
       return CL_SPECIAL;
     case KC_MINS ... KC_EQL: case KC_BSLS ... KC_SLSH:
     case S(KC_1) ... S(KC_8): case S(KC_MINS) ... S(KC_EQL):
