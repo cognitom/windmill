@@ -65,11 +65,20 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_conf_layer.cpp` | 左右のFnを両方ホールドしている間だけ設定レイヤーへ移ること。片方を離したときにFnレイヤーへ戻ること |
 | `test_fn_layer.cpp` | Fnレイヤーのファンクションキーが数字キーに準じた位置にあること。最左列の Esc が透過のまま出ること、Fn+Tab が Caps Lock になること |
 | `test_android_mods.cpp` | 対象OSが Android のときの Win / Alt。重ね押しで後から押したほうが出ないこと、Win+. が Alt+. として出ること。Win を外す前後に空打ちが挟まっていることも見る |
+| `geonix41/` | geonix41 の配線で親のテストを通し直す。`config.h` で最下段の matrix の列と、左右の Fn / 親指Shift の列 (`FN_L_COL` など) を geonix41 に合わせ、`test_conf_layer.cpp` と `test_alpha_thumb_shift.cpp` をそのまま取り込む (issue #68) |
 | `test_host_os.cpp` | `MY_WIN` / `MY_ANDR` の設定を接続先 (USB / BLE1〜3 / 2.4G) ごとに覚えること。接続先は `windmill_board_host()` をこのファイルで差し替えて切り替える。旧形式の設定の引き継ぎも見る |
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、
 ここだけ二重管理になっている。**キー配置を変えたら両方直すこと。**
+
+キーマップは見た目の位置で書いてある。windmill.c は左右の Fn / 親指Shift を
+matrix の列で見分けるが、geonix41 は最下段の列が見た目の並びと違うので、
+「位置＝列」の配線だけで通しても列の設定の誤りに気づけない (issue #68)。
+そこで `test_keymap.hpp` は最下段の列を `WINDMILL_TEST_ROW3_COLS` で引き直してから
+matrix へ載せ、`geonix41/` はそこを geonix41 の配線に差し替えて同じテストを走らせる。
+入れ子のテストは `qmk test-c -t windmill` では走らないので、`scripts/test.sh` が
+両方を指定している。
 
 ## QMK 側へのパッチ
 

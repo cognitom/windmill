@@ -22,6 +22,17 @@
  * _Static_assert で行っている */
 #define WINDMILL_KEYCODE_BASE QK_KB_30
 
+/* 最下段は配線の都合で matrix の列が見た目の並びと違う (keyboard.json の
+ * "layouts" 参照)。見た目の 3 (左Fn) が列4、5 (左親指) が列6、6 (右親指) が
+ * 列1 になる。windmill.c は左右の Fn / 親指Shift を列で見分けるので、
+ * 既定値 (見た目の位置) のままだと左右とも「右」になる (issue #68)。
+ * 右Fn は見た目の 8 と列8 が一致するが、対で読めるよう書いておく。
+ * 値を変えたら tests/geonix41/config.h も揃えること */
+#define FN_L_COL 4
+#define FN_R_COL 8
+#define ALPHA_THUMB_SHIFT_L_COL 6
+#define ALPHA_THUMB_SHIFT_R_COL 1
+
 /* Mechanical locking support. Use KC_LCAP, KC_LNUM or KC_LSCR instead in keymap */
 #define LOCKING_SUPPORT_ENABLE
 /* Locking resynchronize hack */

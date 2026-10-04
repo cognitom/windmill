@@ -474,7 +474,8 @@ static bool process_thumb_shift(uint16_t keycode, keyrecord_t *record) {
 
 /* 左右とも ALPHA_THUMB_SHIFT (LSFT_T(KC_SPC)) で同じキーコードなので、
  * かなレイヤーの THUMB_SHIFT_BIT のようにキーコードでは左右を区別できない。
- * windmill.h の説明どおり位置 (col) で見分ける (issue #40)。
+ * windmill.h の説明どおり matrix の列 (col) で見分ける (issue #40)。
+ * 列は機種ごとに違いうるので、値は windmill.h / 機種の config.h が持つ (issue #68)。
  *
  * 参照カウントを持たないと片方を持ち替えたときにShiftごと落ちる理屈は
  * process_thumb_shift と同じ。ただし英数レイヤーはIMEを介さないぶん単純で、

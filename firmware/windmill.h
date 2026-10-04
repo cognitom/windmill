@@ -46,12 +46,18 @@
  * キーコードでは左右を区別できない。同じ行に並んでいるので列 (col) だけで
  * 見分ける (issue #40)。
  *
- * LAYOUT_ortho_4x12 は全機種で行/列がそのまま matrix の row/col になる
- * (各機種の keyboard.json の "layouts" 参照) ので、レイアウト上の位置を
- * そのまま使える。keymaps[] のレイヤー1(英数)の並びと一致させること */
-#define ALPHA_THUMB_SHIFT       LSFT_T(KC_SPC)
-#define ALPHA_THUMB_SHIFT_L_COL 5
-#define ALPHA_THUMB_SHIFT_R_COL 6
+ * ここで見る列は keyrecord_t に載ってくる matrix の col で、LAYOUT_ortho_4x12 の
+ * 見た目の位置ではない。technik / ymd40 / minipeg48 は両者が一致するので既定値で
+ * よいが、geonix41 は最下段の配線が見た目の並びと違う (keyboard.json の "layouts"
+ * の "matrix" 参照)。そういう機種は config.h で上書きする (issue #68)。
+ * 値は keymaps[] のレイヤー1(英数)で ALPHA_THUMB_SHIFT を置いた位置の matrix の列 */
+#define ALPHA_THUMB_SHIFT LSFT_T(KC_SPC)
+#ifndef ALPHA_THUMB_SHIFT_L_COL
+#    define ALPHA_THUMB_SHIFT_L_COL 5
+#endif
+#ifndef ALPHA_THUMB_SHIFT_R_COL
+#    define ALPHA_THUMB_SHIFT_R_COL 6
+#endif
 
 /* かなレイヤーの「も」。Shiftを押しながらタップすると半角「?」を出す
  * (process_kana_qmark 参照)。keymaps[] のレイヤー0で使っているものと一致させること */
@@ -65,13 +71,18 @@
 
 /* Fn。左右を両方ホールドしている間だけ設定レイヤーへ移す (process_fn 参照、
  * issue #62)。英数レイヤーは左右とも MO(3) で同じキーコードなので、
- * ALPHA_THUMB_SHIFT と同じく列 (col) で左右を見分ける。
+ * ALPHA_THUMB_SHIFT と同じく matrix の列 (col) で左右を見分ける。列が見た目の
+ * 位置と違う機種は config.h で上書きする (ALPHA_THUMB_SHIFT_L_COL 参照)。
  * keymaps[] のレイヤー0(かな)とレイヤー1(英数)の並びと一致させること */
 #define KANA_FN_L LT(3, KC_C)
 #define KANA_FN_R LT(3, KC_COMMA)
 #define ALPHA_FN  MO(3)
-#define FN_L_COL  3
-#define FN_R_COL  8
+#ifndef FN_L_COL
+#    define FN_L_COL 3
+#endif
+#ifndef FN_R_COL
+#    define FN_R_COL 8
+#endif
 
 /* 言語切替 (タップ) と Ctrl + 英数レイヤー (ホールド)。
  *

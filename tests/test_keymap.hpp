@@ -16,7 +16,14 @@
 
 /* テスト用のキーマップ。firmware/technik/keymaps/default/keymap.c と同じ内容を
  * QMK のテスト基盤 (set_keymap) に載せられる形で持つ。geonix41 / minipeg48 /
- * ymd40 も、windmill.c が見る範囲は同じ配置なのでこれ1枚で足りる。
+ * ymd40 も、キーの並びは同じなのでこれ1枚で足りる。
+ *
+ * ただし windmill.c は左右の Fn / 親指Shift を matrix の列で見分けるので、
+ * 見た目の位置と matrix の列がずれる機種 (geonix41) は、並びが同じでも
+ * 同じテストを通るとは限らない (issue #68)。そこでキーマップは見た目の位置で
+ * 書いておき、matrix へ載せるときに WINDMILL_TEST_ROW3_COLS で最下段の列を
+ * 引き直す。既定は「位置＝列」(technik / ymd40 / minipeg48)。geonix41 の配線で
+ * 通すテストは tests/geonix41/ にある。
  *
  * 実機の keymap.c は LAYOUT_ortho_4x12 マクロと PROGMEM に依存していて
  * そのままは使えないため、ここだけ二重管理になる。配置を変えたら両方直すこと。 */
@@ -68,9 +75,20 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
     {KC_NO,   KC_NO,        KC_NO,        KC_TRNS,     KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_TRNS,        KC_NO,      KC_NO,   KC_NO},
   },
 };
+
+/* 最下段の、見た目の位置ごとの matrix の列。各機種の keyboard.json の
+ * "layouts" の "matrix" と揃えること。最下段以外は全機種で位置＝列 */
+#ifndef WINDMILL_TEST_ROW3_COLS
+#    define WINDMILL_TEST_ROW3_COLS {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+#endif
+static const uint8_t windmill_row3_cols[MATRIX_COLS] = WINDMILL_TEST_ROW3_COLS;
 // clang-format on
 
-/* かなレイヤー上の位置。コメントの文字は JISかな入力での出力 */
+static inline uint8_t windmill_matrix_col(uint8_t row, uint8_t col) {
+    return row == 3 ? windmill_row3_cols[col] : col;
+}
+
+/* かなレイヤー上の位置 (見た目の行と位置。matrix の列ではない)。コメントの文字は JISかな入力での出力 */
 #define POS_LCTL 3, 0  // 言語切替 (英数⇔かな)
 #define POS_KO 3, 5    // こ  左親指Shift
 #define POS_MI 3, 6    // み  右親指Shift
@@ -97,7 +115,7 @@ class WindmillTest : public TestFixture {
         for (uint8_t layer = 0; layer < LAYER_SIZE; ++layer)
             for (uint8_t row = 0; row < MATRIX_ROWS; ++row)
                 for (uint8_t col = 0; col < MATRIX_COLS; ++col)
-                    add_key(KeymapKey(layer, col, row, windmill_keymap[layer][row][col]));
+                    add_key(KeymapKey(layer, windmill_matrix_col(row, col), row, windmill_keymap[layer][row][col]));
 
         /* 起動直後と同じ英数から始める。QMKのテスト基盤は keyboard_init() を
          * テストスイートごとに一度しか呼ばず、default_layer_state をテストごとには
@@ -107,7 +125,7 @@ class WindmillTest : public TestFixture {
     }
 
     KeymapKey key(uint8_t row, uint8_t col) {
-        return KeymapKey(LAYER_KANA, col, row, windmill_keymap[LAYER_KANA][row][col]);
+        return KeymapKey(LAYER_KANA, windmill_matrix_col(row, col), row, windmill_keymap[LAYER_KANA][row][col]);
     }
 
     // 左右のFnを両方ホールドして、設定レイヤー上のキーを1回叩く
