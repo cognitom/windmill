@@ -68,6 +68,7 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_android_mods.cpp` | 対象OSが Android のときの Win / Alt。重ね押しで後から押したほうが出ないこと、Win+. が Alt+. として出ること。Win を外す前後に空打ちが挟まっていることも見る |
 | `geonix41/` | geonix41 の配線で親のテストを通し直す。`config.h` で最下段の matrix の列と、左右の Fn / 親指Shift の列 (`FN_L_COL` など) を geonix41 に合わせ、`test_conf_layer.cpp` と `test_alpha_thumb_shift.cpp` をそのまま取り込む (issue #68) |
 | `test_host_os.cpp` | `MY_WIN` / `MY_ANDR` の設定を接続先 (USB / BLE1〜3 / 2.4G) ごとに覚えること。接続先は `windmill_board_host()` をこのファイルで差し替えて切り替える。旧形式の設定の引き継ぎも見る |
+| `test_host_layout.cpp` | `MY_JIS` / `MY_US` の設定を接続先ごとに覚えること。既定が JIS であること、EEPROM上の位置、起動し直しても残ること、この設定が入る前のEEPROMが JIS として読めること。JIS の列が入るまでは、どちらを選んでも出力が US のままであることも見る (issue #74) |
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、

@@ -71,7 +71,7 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
   [LAYER_CONF] = {
     {KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   QK_BOOT},
     {KC_NO,   MY_WIN,       MY_ANDR,      KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   KC_NO},
-    {KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   KC_NO},
+    {KC_NO,   MY_JIS,       MY_US,        KC_NO,       KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_NO,          KC_NO,      KC_NO,   KC_NO},
     {KC_NO,   KC_NO,        KC_NO,        KC_TRNS,     KC_NO,         KC_NO,          KC_NO,          KC_NO,         KC_TRNS,        KC_NO,      KC_NO,   KC_NO},
   },
 };
@@ -108,6 +108,8 @@ static inline uint8_t windmill_matrix_col(uint8_t row, uint8_t col) {
 /* 設定レイヤー上の位置。左右のFnを両方ホールドしている間だけ出る (issue #62) */
 #define POS_WIN 1, 1   // MY_WIN   Fnレイヤーでは KC_F11
 #define POS_ANDR 1, 2  // MY_ANDR  Fnレイヤーでは KC_F12
+#define POS_JIS 2, 1   // MY_JIS   Fnレイヤーでは KC_PSCR
+#define POS_US 2, 2    // MY_US    Fnレイヤーでは KC_NO
 
 class WindmillTest : public TestFixture {
    public:

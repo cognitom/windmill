@@ -40,7 +40,8 @@
 using testing::_;
 using testing::InSequence;
 
-static uint8_t test_host = WINDMILL_HOST_USB;
+// test_host_layout.cpp も同じ差し替えで接続先を切り替えるので、static にしない
+uint8_t test_host = WINDMILL_HOST_USB;
 
 extern "C" uint8_t windmill_board_host(void) {
     return test_host;

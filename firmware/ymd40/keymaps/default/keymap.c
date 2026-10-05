@@ -57,7 +57,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   [LAYER_CONF] = LAYOUT_ortho_4x12(
     KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,       KC_NO,         KC_NO,         KC_NO,       KC_NO,          KC_NO,   KC_NO,   QK_BOOT,
     KC_NO,   MY_WIN,       MY_ANDR,      KC_NO,       KC_NO,       KC_NO,         KC_NO,         KC_NO,       KC_NO,          KC_NO,   KC_NO,   KC_NO,
-    KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,       KC_NO,         KC_NO,         KC_NO,       KC_NO,          KC_NO,   KC_NO,   KC_NO,
+    KC_NO,   MY_JIS,       MY_US,        KC_NO,       KC_NO,       KC_NO,         KC_NO,         KC_NO,       KC_NO,          KC_NO,   KC_NO,   KC_NO,
     KC_NO,   KC_NO,        KC_NO,        _______,     KC_NO,       KC_NO,         KC_NO,         KC_NO,       _______,        KC_NO,   KC_NO,   KC_NO
   ),
 
@@ -107,7 +107,7 @@ uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode) {
   }
 
   switch (keycode) {
-    case MY_WIN: case MY_ANDR: case MY_DARK: case QK_BOOT:
+    case MY_WIN: case MY_ANDR: case MY_JIS: case MY_US: case MY_DARK: case QK_BOOT:
       return CL_CONFIG;
     case KC_ENT ... KC_TAB: case KC_CAPS: case KC_DEL: case KC_RIGHT ... KC_UP:
     case KC_APP: case KC_INT1 ... KC_LNG2: case KC_LCTL ... KC_RGUI:

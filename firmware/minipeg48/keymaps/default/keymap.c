@@ -59,7 +59,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   [LAYER_CONF] = LAYOUT_ortho_4x12(
     KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,       KC_NO,         KC_NO,         KC_NO,       KC_NO,          KC_NO,   KC_NO,   QK_BOOT,
     KC_NO,   MY_WIN,       MY_ANDR,      KC_NO,       KC_NO,       KC_NO,         KC_NO,         KC_NO,       KC_NO,          KC_NO,   KC_NO,   KC_NO,
-    KC_NO,   KC_NO,        KC_NO,        KC_NO,       KC_NO,       KC_NO,         KC_NO,         KC_NO,       KC_NO,          KC_NO,   KC_NO,   KC_NO,
+    KC_NO,   MY_JIS,       MY_US,        KC_NO,       KC_NO,       KC_NO,         KC_NO,         KC_NO,       KC_NO,          KC_NO,   KC_NO,   KC_NO,
     KC_NO,   KC_NO,        KC_NO,        _______,     KC_NO,       KC_NO,         KC_NO,         KC_NO,       _______,        KC_NO,   KC_NO,   KC_NO
   ),
 

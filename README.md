@@ -75,8 +75,12 @@ Windmill is a keymap for 40% keyboards.
 |--|--|--|
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | MY_WIN | [対象OS](#対象osの切り替え)を Windows に |
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | MY_ANDR | 対象OSを Android に |
+| <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Z</kbd> | MY_JIS | 接続先のキーボード配列を JIS に (既定) |
+| <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>X</kbd> | MY_US | 接続先のキーボード配列を US に |
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Enter</kbd> | QK_BOOT | ファームウェアを書き込めるモードへ |
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Esc</kbd> / <kbd>Q</kbd> / <kbd>W</kbd> / <kbd>E</kbd> / <kbd>R</kbd> | MD_USB / MD_BLE1 / MD_BLE2 / MD_BLE3 / MD_24G | 接続先を USB / Bluetooth 1〜3 / 2.4G に (Geonix Rev2.5 のみ) |
+
+対象OSとキーボード配列は、接続先 (USB / Bluetooth 1〜3 / 2.4G) ごとに覚えます。キーボード配列は選べるようになっただけで、今はどちらを選んでも US 配列向けのキーを送ります (JIS 配列への対応は準備中)。
 
 片方の <kbd>Fn</kbd> を離すと、残したほうでファンクションキーの入力へ戻ります。
 
