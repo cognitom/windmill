@@ -32,7 +32,9 @@ using testing::AnyNumber;
 using testing::InSequence;
 using testing::InvokeWithoutArgs;
 
-class ShiftPair : public WindmillTest {};
+/* 期待値は接続先の配列が US のときのもの。「 と む は JIS だと別のキーになる
+ * (test_key_output_jis.cpp が見ている) */
+class ShiftPair : public WindmillUsTest {};
 
 // MY_LCTL 1回タップで英数⇔かなを切り替える (issue #53)
 static void tap_lctl(WindmillTest* f) {

@@ -63,6 +63,12 @@
  * (process_kana_qmark 参照)。keymaps[] のレイヤー0で使っているものと一致させること */
 #define KANA_QMARK_KEY LT(2, KC_M)
 
+/* 英数レイヤーの「\」(タップ) / 記号レイヤー (ホールド)。「\」と Shift時の「|」は
+ * JIS 配列では別のキーになるので、接続先が JIS のときだけタップを横取りする
+ * (windmill.c の jis_raw_key_outputs[] 参照、issue #75)。
+ * keymaps[] のレイヤー1で使っているものと一致させること */
+#define ALPHA_BSLS_KEY LT(2, KC_BSLS)
+
 /* かなレイヤーの Win(つ) / Alt(さ)。ホールドしている間は MY_LCTL と同じく
  * 英数レイヤーへ移す (process_kana_mod 参照、issue #34)。
  * keymaps[] のレイヤー0で使っているものと一致させること */
@@ -110,7 +116,8 @@
  *
  * LT() / MT() のタップ側には独自キーコードを置けない (8bitの基本キーコードしか
  * 入らない)。かなレイヤー最下段の つ さ そ ひ こ み も ね と、英数レイヤーの
- * LT(2,KC_BSLS) / LT(2,KC_SLSH) は素のキーコードのまま残してある。
+ * LT(2,KC_BSLS) / LT(2,KC_SLSH) は素のキーコードのまま残してある。このうち配列で
+ * 出力が変わるのは LT(2,KC_BSLS) だけで、windmill.c が横取りする (ALPHA_BSLS_KEY)。
  *
  * KN_NU 〜 SY_QUES は key_outputs[] のインデックス (keycode - KEY_OUTPUT_FIRST) に
  * 使っている。足すときは表にも行を足すこと (tests/test_key_output.cpp が
@@ -199,7 +206,8 @@ enum windmill_keycodes {
 #define KEY_OUTPUT_FIRST KN_NU
 #define KEY_OUTPUT_LAST  SY_QUES
 
-/* 出力表で引くキーなら、Shift無しでホストへ送るキーコードを返す。それ以外は
+/* 出力表で引くキーなら、いまの接続先の配列でShift無しのときにホストへ送る
+ * キーコードを返す。それ以外は
  * そのまま返す。キーマップのキーコードを素のキーコードとして読みたい機種側の
  * 処理 (geonix41 のブロブ) 向け */
 uint16_t windmill_output_keycode(uint16_t keycode);

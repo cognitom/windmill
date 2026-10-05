@@ -57,7 +57,8 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test.mk` | `firmware/windmill.c` をテストへリンクする |
 | `test_keymap.hpp` | テスト用キーマップと `WindmillTest` フィクスチャ |
 | `test_shift_pair.cpp` | 親指Shift + `process_shift_pair()` のレポート列 |
-| `test_key_output.cpp` | 記号とかなのキー (独自キーコード `KN_*` / `SY_*`) の出力を、かな・英数・記号の3レイヤーの全キーぶん総当たりで見る。期待値は独自キーコードにする前の出力そのもので、出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。押しっぱなしでリピートが効くこと、記号を続けて打っても Shift が次のキーへ漏れないことも見る (issue #73) |
+| `test_key_output.cpp` | 接続先の配列が US のとき。記号とかなのキー (独自キーコード `KN_*` / `SY_*`) の出力を、かな・英数・記号の3レイヤーの全キーぶん総当たりで見る。期待値は独自キーコードにする前の出力そのもので、出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。押しっぱなしでリピートが効くこと、記号を続けて打っても Shift が次のキーへ漏れないことも見る (issue #73) |
+| `test_key_output_jis.cpp` | 接続先の配列が JIS のとき。US のときと同じ文字になるキーが出ることを、同じく3レイヤーの全キーぶん総当たりで見る。Shift を押しながら打ったときも含む。US と Shift の有無が逆になる文字 (`:` `@` `^`、かなの「へ」「ー」) は Shift を外して送るので、親指Shiftのホールド直後の1打鍵目で間隔まで見る。`LT(2,KC_BSLS)` のタップ (`\` `|`) の横取り、押している間に Shift を離してもキーが残らないことも見る (issue #75) |
 | `test_kana_qmark.cpp` | かなレイヤーの「も」でのShift+タップ (半角`?`) のレポート列 |
 | `test_thumb_shift.cpp` | 左右の親指Shiftの持ち替え (ハンドオーバー) と同時押しスペースのレポート列 |
 | `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左右とも同じキーコード) の持ち替え (ハンドオーバー) のレポート列 |
@@ -68,7 +69,12 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_android_mods.cpp` | 対象OSが Android のときの Win / Alt。重ね押しで後から押したほうが出ないこと、Win+. が Alt+. として出ること。Win を外す前後に空打ちが挟まっていることも見る |
 | `geonix41/` | geonix41 の配線で親のテストを通し直す。`config.h` で最下段の matrix の列と、左右の Fn / 親指Shift の列 (`FN_L_COL` など) を geonix41 に合わせ、`test_conf_layer.cpp` と `test_alpha_thumb_shift.cpp` をそのまま取り込む (issue #68) |
 | `test_host_os.cpp` | `MY_WIN` / `MY_ANDR` の設定を接続先 (USB / BLE1〜3 / 2.4G) ごとに覚えること。接続先は `windmill_board_host()` をこのファイルで差し替えて切り替える。旧形式の設定の引き継ぎも見る |
-| `test_host_layout.cpp` | `MY_JIS` / `MY_US` の設定を接続先ごとに覚えること。既定が JIS であること、EEPROM上の位置、起動し直しても残ること、この設定が入る前のEEPROMが JIS として読めること。JIS の列が入るまでは、どちらを選んでも出力が US のままであることも見る (issue #74) |
+| `test_host_layout.cpp` | `MY_JIS` / `MY_US` の設定を接続先ごとに覚えること。既定が JIS であること、EEPROM上の位置、起動し直しても残ること、この設定が入る前のEEPROMが JIS として読めること。接続先を切り替えると、そちらで選んだ配列の出力になることも見る (issue #74) |
+
+配列の既定は JIS なので、何もしないスイートは JIS の出力を見ている
+(`test_kana_qmark.cpp` や `test_lang_toggle.cpp` の期待値は、配列に依らない)。
+US の出力を固定しているスイート (`test_key_output.cpp` と `test_shift_pair.cpp`) は、
+`test_keymap.hpp` の `WindmillUsTest` を継いで US を選んでから走る。
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、

@@ -25,6 +25,7 @@
  * 丸ごとコンパイルから外れる。 */
 
 #include "windmill.h"
+#include "keymap_japanese.h" // JP_*。出力表の JIS の列を、キーの位置ではなく文字で書くため
 
 #define KEY_COUNT (MATRIX_ROWS * MATRIX_COLS)
 
@@ -419,24 +420,18 @@ static bool process_shift_pair(uint16_t plain, uint16_t shifted, keyrecord_t *re
  * 直接置くとそこを吸収できないので、キーマップは「どの文字のキーか」だけを持ち、
  * 配列ごとの違いは表の列として並べる。
  *
- * 今ある列は US だけで、出力は表にする前と変わらない。JIS の列は後から足す。 */
+ * どちらの列でも同じ文字が出るようにしてある (issue #75)。US の列は表にする前の
+ * 出力そのままで、JIS の列はそれと同じ文字になるキーを並べた。 */
 enum {
-    KEY_OUTPUT_COL_US, // English (US)
+    KEY_OUTPUT_COL_US,  // English (US)
+    KEY_OUTPUT_COL_JIS, // 日本語 (JIS)
     KEY_OUTPUT_COL_SIZE,
 };
 
 /* 配列の設定 (WINDMILL_LAYOUT_*) から表の列を引く。設定の値をそのまま添字に
- * しないのは、設定のほうはEEPROMに残る値で、既定の JIS を 0 に固定してあるため。
- *
- * JIS の列がまだ無いので、どちらを選んでも US の列を返す (issue #74)。
- * 列を足したら、ここで JIS をそちらへ向ける */
+ * しないのは、設定のほうはEEPROMに残る値で、既定の JIS を 0 に固定してあるため */
 static uint8_t key_output_column(uint8_t layout) {
-    switch (layout) {
-        case WINDMILL_LAYOUT_JIS:
-        case WINDMILL_LAYOUT_US:
-        default:
-            return KEY_OUTPUT_COL_US;
-    }
+    return layout == WINDMILL_LAYOUT_US ? KEY_OUTPUT_COL_US : KEY_OUTPUT_COL_JIS;
 }
 
 typedef struct {
@@ -445,7 +440,7 @@ typedef struct {
 } key_output_t;
 
 #define AS_IS(keycode) {(keycode), KC_NO}             // Shiftで出し分けない。素のキーと同じに振る舞う
-#define PAIR(plain, shifted) {(plain), (shifted)}     // Shift時に別のキーを出す (process_shift_pair 参照)
+#define PAIR(plain, shifted) {(plain), (shifted)}     // Shift時に別のキーを出す
 #define ROW(keycode) ((keycode) - KEY_OUTPUT_FIRST)
 
 /* 行は独自キーコード、列は接続先の配列 (KEY_OUTPUT_COL_*)。
@@ -453,72 +448,85 @@ typedef struct {
  * かなはOSのIMEがキーの位置で決めるので、US の列は「JISかな配列でそのかなが
  * 載っている位置の、US配列でのキーコード」になる。Shift時のかなのうち、IMEが
  * 同じキーのShiftで出してくれるもの (ぁ、を など) は AS_IS のままでよく、別の
- * キーへ移したものだけ PAIR にしてある。 */
+ * キーへ移したものだけ PAIR にしてある。
+ *
+ * JIS の列のかなは、JISかな配列の刻印どおり。US では別のキーのShiftへ逃がされて
+ * いる「へ」「ー」が単独のキーになり、「む」「ろ」「」の位置も変わる。
+ *
+ * JIS の列の記号は keymap_japanese.h の JP_* で書く。JP_AT は「JIS 配列で @ が
+ * 出るキー」で、中身は KC_LBRC。US と Shift の有無が逆になる文字は PAIR になる。
+ *
+ * - US で Shift 無し、JIS で Shift 付き (' = など): plain が S() 付きになる
+ * - US で Shift 付き、JIS で Shift 無し (@ ^ :): shifted が S() 無しになる。
+ *   Shift 時は実Shiftを外して送る。記号レイヤーの「@」は Shift を押していても
+ *   「@」なので、plain と shifted に同じキーを書く
+ * - plain が S() 付きで、Shift 時も同じ文字のもの (! # など) は、押されている
+ *   Shift がそのまま乗るだけなので AS_IS で足りる */
 static const key_output_t PROGMEM key_outputs[][KEY_OUTPUT_COL_SIZE] = {
-    //                        US
-    [ROW(KN_NU)]           = {AS_IS(KC_1)},
-    [ROW(KN_FU)]           = {AS_IS(KC_2)},
-    [ROW(KN_A)]            = {AS_IS(KC_3)},
-    [ROW(KN_U)]            = {AS_IS(KC_4)},
-    [ROW(KN_E)]            = {AS_IS(KC_5)},
-    [ROW(KN_O)]            = {AS_IS(KC_6)},
-    [ROW(KN_YA)]           = {AS_IS(KC_7)},
-    [ROW(KN_YU)]           = {AS_IS(KC_8)},
-    [ROW(KN_YO)]           = {AS_IS(KC_9)},
-    [ROW(KN_WA)]           = {AS_IS(KC_0)},
-    [ROW(KN_TA)]           = {AS_IS(KC_Q)},
-    [ROW(KN_TE)]           = {PAIR(KC_W, S(KC_EQL))},     // へ
-    [ROW(KN_I)]            = {AS_IS(KC_E)},
-    [ROW(KN_SU)]           = {PAIR(KC_R, KC_BSLS)},       // む
-    [ROW(KN_KA)]           = {AS_IS(KC_T)},
-    [ROW(KN_N)]            = {AS_IS(KC_Y)},
-    [ROW(KN_NA)]           = {PAIR(KC_U, KC_MINS)},       // ほ
-    [ROW(KN_NI)]           = {AS_IS(KC_I)},
-    [ROW(KN_RA)]           = {PAIR(KC_O, S(KC_LBRC))},    // 「 (Android は os_key_outputs[])
-    [ROW(KN_SE)]           = {PAIR(KC_P, S(KC_RBRC))},    // 」 (同上)
-    [ROW(KN_DAKU)]         = {PAIR(KC_LBRC, KC_RBRC)},    // ゜
-    [ROW(KN_CHI)]          = {PAIR(KC_A, S(KC_Z))},       // っ
-    [ROW(KN_TO)]           = {AS_IS(KC_S)},
-    [ROW(KN_SHI)]          = {AS_IS(KC_D)},
-    [ROW(KN_HA)]           = {AS_IS(KC_F)},
-    [ROW(KN_KI)]           = {AS_IS(KC_G)},
-    [ROW(KN_KU)]           = {AS_IS(KC_H)},
-    [ROW(KN_MA)]           = {AS_IS(KC_J)},
-    [ROW(KN_NO)]           = {PAIR(KC_K, S(KC_COMM))},    // 、
-    [ROW(KN_RI)]           = {PAIR(KC_L, S(KC_DOT))},     // 。
-    [ROW(KN_RE)]           = {PAIR(KC_SCLN, S(KC_SLSH))}, // ・
-    [ROW(KN_KE)]           = {PAIR(KC_QUOT, S(KC_MINS))}, // ー
-    [ROW(KN_RU)]           = {AS_IS(KC_DOT)},
-    [ROW(KN_ME)]           = {AS_IS(KC_SLSH)},
-    [ROW(KN_RO)]           = {AS_IS(KC_GRV)},
+    //                        US                             JIS
+    [ROW(KN_NU)]           = {AS_IS(KC_1),                   AS_IS(KC_1)},
+    [ROW(KN_FU)]           = {AS_IS(KC_2),                   AS_IS(KC_2)},
+    [ROW(KN_A)]            = {AS_IS(KC_3),                   AS_IS(KC_3)},
+    [ROW(KN_U)]            = {AS_IS(KC_4),                   AS_IS(KC_4)},
+    [ROW(KN_E)]            = {AS_IS(KC_5),                   AS_IS(KC_5)},
+    [ROW(KN_O)]            = {AS_IS(KC_6),                   AS_IS(KC_6)},
+    [ROW(KN_YA)]           = {AS_IS(KC_7),                   AS_IS(KC_7)},
+    [ROW(KN_YU)]           = {AS_IS(KC_8),                   AS_IS(KC_8)},
+    [ROW(KN_YO)]           = {AS_IS(KC_9),                   AS_IS(KC_9)},
+    [ROW(KN_WA)]           = {AS_IS(KC_0),                   AS_IS(KC_0)},
+    [ROW(KN_TA)]           = {AS_IS(KC_Q),                   AS_IS(KC_Q)},
+    [ROW(KN_TE)]           = {PAIR(KC_W, S(KC_EQL)),         PAIR(KC_W, JP_CIRC)},          // へ
+    [ROW(KN_I)]            = {AS_IS(KC_E),                   AS_IS(KC_E)},
+    [ROW(KN_SU)]           = {PAIR(KC_R, KC_BSLS),           PAIR(KC_R, JP_RBRC)},          // む
+    [ROW(KN_KA)]           = {AS_IS(KC_T),                   AS_IS(KC_T)},
+    [ROW(KN_N)]            = {AS_IS(KC_Y),                   AS_IS(KC_Y)},
+    [ROW(KN_NA)]           = {PAIR(KC_U, KC_MINS),           PAIR(KC_U, JP_MINS)},          // ほ
+    [ROW(KN_NI)]           = {AS_IS(KC_I),                   AS_IS(KC_I)},
+    [ROW(KN_RA)]           = {PAIR(KC_O, S(KC_LBRC)),        PAIR(KC_O, S(JP_LBRC))},       // 「 (Android は os_key_outputs[])
+    [ROW(KN_SE)]           = {PAIR(KC_P, S(KC_RBRC)),        PAIR(KC_P, S(JP_RBRC))},       // 」 (同上)
+    [ROW(KN_DAKU)]         = {PAIR(KC_LBRC, KC_RBRC),        PAIR(JP_AT, JP_LBRC)},         // ゜
+    [ROW(KN_CHI)]          = {PAIR(KC_A, S(KC_Z)),           PAIR(KC_A, S(KC_Z))},          // っ
+    [ROW(KN_TO)]           = {AS_IS(KC_S),                   AS_IS(KC_S)},
+    [ROW(KN_SHI)]          = {AS_IS(KC_D),                   AS_IS(KC_D)},
+    [ROW(KN_HA)]           = {AS_IS(KC_F),                   AS_IS(KC_F)},
+    [ROW(KN_KI)]           = {AS_IS(KC_G),                   AS_IS(KC_G)},
+    [ROW(KN_KU)]           = {AS_IS(KC_H),                   AS_IS(KC_H)},
+    [ROW(KN_MA)]           = {AS_IS(KC_J),                   AS_IS(KC_J)},
+    [ROW(KN_NO)]           = {PAIR(KC_K, S(KC_COMM)),        PAIR(KC_K, S(JP_COMM))},       // 、
+    [ROW(KN_RI)]           = {PAIR(KC_L, S(KC_DOT)),         PAIR(KC_L, S(JP_DOT))},        // 。
+    [ROW(KN_RE)]           = {PAIR(KC_SCLN, S(KC_SLSH)),     PAIR(JP_SCLN, S(JP_SLSH))},    // ・
+    [ROW(KN_KE)]           = {PAIR(KC_QUOT, S(KC_MINS)),     PAIR(JP_COLN, JP_YEN)},        // ー
+    [ROW(KN_RU)]           = {AS_IS(KC_DOT),                 AS_IS(JP_DOT)},
+    [ROW(KN_ME)]           = {AS_IS(KC_SLSH),                AS_IS(JP_SLSH)},
+    [ROW(KN_RO)]           = {AS_IS(KC_GRV),                 AS_IS(JP_BSLS)},
 
-    [ROW(SY_SCLN_COLN)]    = {AS_IS(KC_SCLN)},
-    [ROW(SY_QUOT_DQUO)]    = {AS_IS(KC_QUOT)},
-    [ROW(SY_COMM_LABK)]    = {AS_IS(KC_COMM)},
-    [ROW(SY_DOT_RABK)]     = {AS_IS(KC_DOT)},
+    [ROW(SY_SCLN_COLN)]    = {AS_IS(KC_SCLN),                PAIR(JP_SCLN, JP_COLN)},
+    [ROW(SY_QUOT_DQUO)]    = {AS_IS(KC_QUOT),                PAIR(JP_QUOT, JP_DQUO)},
+    [ROW(SY_COMM_LABK)]    = {AS_IS(KC_COMM),                AS_IS(JP_COMM)},
+    [ROW(SY_DOT_RABK)]     = {AS_IS(KC_DOT),                 AS_IS(JP_DOT)},
 
-    [ROW(SY_EXLM)]         = {AS_IS(S(KC_1))},
-    [ROW(SY_AT)]           = {AS_IS(S(KC_2))},
-    [ROW(SY_HASH)]         = {AS_IS(S(KC_3))},
-    [ROW(SY_DLR)]          = {AS_IS(S(KC_4))},
-    [ROW(SY_PERC)]         = {AS_IS(S(KC_5))},
-    [ROW(SY_CIRC)]         = {AS_IS(S(KC_6))},
-    [ROW(SY_AMPR)]         = {AS_IS(S(KC_7))},
-    [ROW(SY_ASTR)]         = {AS_IS(S(KC_8))},
-    [ROW(SY_LPRN)]         = {AS_IS(S(KC_9))},
-    [ROW(SY_RPRN)]         = {AS_IS(S(KC_0))},
-    [ROW(SY_GRV)]          = {AS_IS(KC_GRV)},
-    [ROW(SY_EQL)]          = {AS_IS(KC_EQL)},
-    [ROW(SY_PLUS)]         = {AS_IS(S(KC_EQL))},
-    [ROW(SY_MINS)]         = {AS_IS(KC_MINS)},
-    [ROW(SY_UNDS)]         = {AS_IS(S(KC_MINS))},
-    [ROW(SY_LBRC)]         = {AS_IS(KC_LBRC)},
-    [ROW(SY_RBRC)]         = {AS_IS(KC_RBRC)},
-    [ROW(SY_TILD)]         = {AS_IS(S(KC_GRV))},
-    [ROW(SY_LCBR)]         = {AS_IS(S(KC_LBRC))},
-    [ROW(SY_RCBR)]         = {AS_IS(S(KC_RBRC))},
-    [ROW(SY_PIPE)]         = {AS_IS(S(KC_BSLS))},
-    [ROW(SY_QUES)]         = {AS_IS(S(KC_SLSH))},
+    [ROW(SY_EXLM)]         = {AS_IS(S(KC_1)),                AS_IS(JP_EXLM)},
+    [ROW(SY_AT)]           = {AS_IS(S(KC_2)),                PAIR(JP_AT, JP_AT)},
+    [ROW(SY_HASH)]         = {AS_IS(S(KC_3)),                AS_IS(JP_HASH)},
+    [ROW(SY_DLR)]          = {AS_IS(S(KC_4)),                AS_IS(JP_DLR)},
+    [ROW(SY_PERC)]         = {AS_IS(S(KC_5)),                AS_IS(JP_PERC)},
+    [ROW(SY_CIRC)]         = {AS_IS(S(KC_6)),                PAIR(JP_CIRC, JP_CIRC)},
+    [ROW(SY_AMPR)]         = {AS_IS(S(KC_7)),                AS_IS(JP_AMPR)},
+    [ROW(SY_ASTR)]         = {AS_IS(S(KC_8)),                AS_IS(JP_ASTR)},
+    [ROW(SY_LPRN)]         = {AS_IS(S(KC_9)),                AS_IS(JP_LPRN)},
+    [ROW(SY_RPRN)]         = {AS_IS(S(KC_0)),                AS_IS(JP_RPRN)},
+    [ROW(SY_GRV)]          = {AS_IS(KC_GRV),                 PAIR(JP_GRV, JP_TILD)},        // Shift時: ~
+    [ROW(SY_EQL)]          = {AS_IS(KC_EQL),                 PAIR(JP_EQL, JP_PLUS)},        // Shift時: +
+    [ROW(SY_PLUS)]         = {AS_IS(S(KC_EQL)),              AS_IS(JP_PLUS)},
+    [ROW(SY_MINS)]         = {AS_IS(KC_MINS),                PAIR(JP_MINS, JP_UNDS)},       // Shift時: _
+    [ROW(SY_UNDS)]         = {AS_IS(S(KC_MINS)),             AS_IS(JP_UNDS)},
+    [ROW(SY_LBRC)]         = {AS_IS(KC_LBRC),                AS_IS(JP_LBRC)},               // Shift時: {
+    [ROW(SY_RBRC)]         = {AS_IS(KC_RBRC),                AS_IS(JP_RBRC)},               // Shift時: }
+    [ROW(SY_TILD)]         = {AS_IS(S(KC_GRV)),              AS_IS(JP_TILD)},
+    [ROW(SY_LCBR)]         = {AS_IS(S(KC_LBRC)),             AS_IS(JP_LCBR)},
+    [ROW(SY_RCBR)]         = {AS_IS(S(KC_RBRC)),             AS_IS(JP_RCBR)},
+    [ROW(SY_PIPE)]         = {AS_IS(S(KC_BSLS)),             AS_IS(JP_PIPE)},
+    [ROW(SY_QUES)]         = {AS_IS(S(KC_SLSH)),             AS_IS(JP_QUES)},
 };
 _Static_assert(ARRAY_SIZE(key_outputs) == ROW(KEY_OUTPUT_LAST) + 1, "key_outputs[] の行が独自キーコードの数と合っていない");
 _Static_assert(WINDMILL_KEYCODE_END - 1 <= QK_USER_MAX, "独自キーコードが QK_USER の範囲に収まっていない");
@@ -526,16 +534,40 @@ _Static_assert(WINDMILL_KEYCODE_END - 1 <= QK_USER_MAX, "独自キーコード�
 /* 対象OS (MY_WIN / MY_ANDR) で出力が変わるキー。ここに行があれば key_outputs[] より
  * 優先する。列は同じく接続先の配列。
  *
- * 「」はIMEによって載っている位置が違う。Windows (Microsoft IME) は [ と ] の
- * Shiftで出るが、Android (Gboard) は ] と \ のShiftで出る。 */
+ * 「」はIMEによって載っている位置が違う。US 配列のとき、Windows (Microsoft IME) は
+ * [ と ] のShiftで出るが、Android (Gboard) は ] と \ のShiftで出る。Android のほうは
+ * JISかな配列の刻印どおりの位置なので、JIS の列は key_outputs[] と同じになる。 */
 static const struct {
     uint16_t     keycode;
     uint8_t      os;
     key_output_t outputs[KEY_OUTPUT_COL_SIZE];
 } PROGMEM os_key_outputs[] = {
-    //                 US
-    {KN_RA, OS_ANDR, {PAIR(KC_O, S(KC_RBRC))}}, // 「
-    {KN_SE, OS_ANDR, {PAIR(KC_P, S(KC_BSLS))}}, // 」
+    //                 US                        JIS
+    {KN_RA, OS_ANDR, {PAIR(KC_O, S(KC_RBRC)),   PAIR(KC_O, S(JP_LBRC))}}, // 「
+    {KN_SE, OS_ANDR, {PAIR(KC_P, S(KC_BSLS)),   PAIR(KC_P, S(JP_RBRC))}}, // 」
+};
+
+/* 独自キーコードにできずに素のキーコードのまま残したキーのうち、JIS では出力が
+ * 変わるもの。US のときはQMKに任せ、JIS のときだけここで横取りする
+ * (get_raw_key_output 参照)。
+ *
+ * - LT() のタップ側。8bitの基本キーコードしか入らないので独自キーコードを置けない。
+ *   「\」は JIS では右下の「ろ」のキー (KC_INT1)。「¥」のキー (KC_INT3) も Windows
+ *   では同じ文字になるが、Android では円記号 (U+00A5) になる。「|」は「¥」の Shift
+ * - 記号レイヤーの数字。Shift を押しながら打つと US では数字キーの Shift 側の記号が
+ *   出る。JIS は Shift 側の並びが違うので、US と同じ記号になるキーへ振り替える。
+ *   1 3 4 5 は JIS でも同じ記号 (! # $ %) なので行が無い */
+static const struct {
+    uint16_t     keycode;
+    key_output_t output;
+} PROGMEM jis_raw_key_outputs[] = {
+    {ALPHA_BSLS_KEY, PAIR(JP_BSLS, JP_PIPE)}, // \ |
+    {KC_2, PAIR(KC_2, JP_AT)},                // 2 @
+    {KC_6, PAIR(KC_6, JP_CIRC)},              // 6 ^
+    {KC_7, PAIR(KC_7, JP_AMPR)},              // 7 &
+    {KC_8, PAIR(KC_8, JP_ASTR)},              // 8 *
+    {KC_9, PAIR(KC_9, JP_LPRN)},              // 9 (
+    {KC_0, PAIR(KC_0, JP_RPRN)},              // 0 )
 };
 
 #undef AS_IS
@@ -558,6 +590,22 @@ static key_output_t get_key_output(uint16_t keycode) {
     return output;
 }
 
+/* 素のキーコードのまま残したキーが、いまの配列で横取りの対象なら output に出力を
+ * 入れて true を返す。LT() はタップのときだけ。ホールド (レイヤーの上げ下げ) は
+ * QMKに任せる */
+static bool get_raw_key_output(uint16_t keycode, keyrecord_t *record, key_output_t *output) {
+    if (windmill_host_layout() != WINDMILL_LAYOUT_JIS) return false;
+    if (IS_QK_LAYER_TAP(keycode) && !record->tap.count) return false;
+
+    for (uint8_t i = 0; i < ARRAY_SIZE(jis_raw_key_outputs); ++i) {
+        if (pgm_read_word(&jis_raw_key_outputs[i].keycode) == keycode) {
+            memcpy_P(output, &jis_raw_key_outputs[i].output, sizeof(*output));
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool is_key_output_target(uint16_t keycode) {
     return keycode >= KEY_OUTPUT_FIRST && keycode <= KEY_OUTPUT_LAST;
 }
@@ -566,11 +614,15 @@ uint16_t windmill_output_keycode(uint16_t keycode) {
     return is_key_output_target(keycode) ? get_key_output(keycode).plain : keycode;
 }
 
-/* 出力表で引くキーを送る。常に false (QMKには渡さない)。
+/* 押下で register したキー。キーの位置ごとに覚えておき、解放ではこれを unregister
+ * する。押している間に Shift を離したり押したりすると、解放の時点で表を引き直しても
+ * 押下のときとは別のキーになってしまい、ホストに押しっぱなしのキーが残る */
+static uint16_t held_outputs[MATRIX_ROWS][MATRIX_COLS];
+
+/* output を送る。常に false (QMKには渡さない)。
  *
- * 出し分けないキーは、QMKが素のキーコードを処理するのと同じレポート列にする。
- * 以前はキーマップに KC_1 や S(KC_1) を直接置いてQMKに任せていたので、そこから
- * 挙動を変えないため。
+ * QMKが素のキーコードを処理するのと同じレポート列にする。以前はキーマップに
+ * KC_1 や S(KC_1) を直接置いてQMKに任せていたので、そこから挙動を変えないため。
  *
  * - 押下で register、解放で unregister。process_shift_pair() のように押下の中で
  *   送り切ると、押しっぱなしにしてもキーリピートが効かなくなる
@@ -578,22 +630,60 @@ uint16_t windmill_output_keycode(uint16_t keycode) {
  *   いる。落とさないと、「!」(Shift+1) を離す前に「=」を押したとき、「!」の
  *   weak Shift が「=」にも乗って「+」に化ける
  * - 機種側の process_record にも、素のキーコードとして渡す。geonix41 のブロブは
- *   キーマップに直接置いていたころからこれらのキーを見ている */
-static bool process_key_output(uint16_t keycode, keyrecord_t *record) {
-    const key_output_t output = get_key_output(keycode);
-    if (output.shifted != KC_NO) {
-        return process_shift_pair(output.plain, output.shifted, record);
-    }
+ *   キーマップに直接置いていたころからこれらのキーを見ている
+ *
+ * Shift で出し分けるキー (JIS の列の記号) は、Shift が押されていたら shifted を送る。
+ *
+ * - shifted が S() 付きなら、押されている Shift をそのまま使う。weak Shift を
+ *   付け直すと修飾が入れ替わって見えることがある (process_shift_pair 参照)
+ * - shifted が S() 無しなら、実Shiftを外して送る。こちらは process_shift_pair() と
+ *   同じく押下の中で送り切り、外す前後に同じウェイトを挟む (issue #36)。Shift を
+ *   外したままスキャンを跨ぐと、その間に打った別のキーから Shift が抜けてしまう。
+ *   そのぶんキーリピートは効かない */
+static bool process_held_output(key_output_t output, keyrecord_t *record) {
+    const keypos_t pos = record->event.key;
+    if (pos.row >= MATRIX_ROWS || pos.col >= MATRIX_COLS) return false;
+    uint16_t *held = &held_outputs[pos.row][pos.col];
 
     if (!windmill_board_process_record(output.plain, record)) return false;
 
-    if (record->event.pressed) {
-        clear_weak_mods();
-        register_code16(output.plain);
-    } else {
-        unregister_code16(output.plain);
+    if (!record->event.pressed) {
+        if (*held != KC_NO) {
+            unregister_code16(*held);
+            *held = KC_NO;
+        }
+        return false;
     }
+
+    const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
+    clear_weak_mods();
+    if (!shift || output.shifted == KC_NO) {
+        *held = output.plain;
+    } else if (is_shifted_keycode(output.shifted)) {
+        *held = QK_MODS_GET_BASIC_KEYCODE(output.shifted); // 押されているShiftをそのまま使う
+    } else {
+        wait_ms(IME_WAIT_MS);
+        unregister_mods(shift);
+        wait_ms(IME_WAIT_MS);
+        tap_code16(output.shifted);
+        register_mods(shift);
+        return false;
+    }
+    register_code16(*held);
     return false;
+}
+
+/* 出力表で引くキーを送る。常に false (QMKには渡さない)。
+ *
+ * かなで Shift 時に別のかなを出すキーは process_shift_pair() が持つ。IMEを相手に
+ * するぶん修飾の出し方に罠が多く、そちらで1つずつ潰してきた形を動かさない。
+ * それ以外 (出し分けないかなと、記号) は process_held_output() */
+static bool process_key_output(uint16_t keycode, keyrecord_t *record) {
+    const key_output_t output = get_key_output(keycode);
+    if (keycode <= KN_RO && output.shifted != KC_NO) {
+        return process_shift_pair(output.plain, output.shifted, record);
+    }
+    return process_held_output(output, record);
 }
 
 /*
@@ -731,6 +821,9 @@ static bool is_sym_ime_wrap_target(uint16_t keycode) {
 /* LT(2,KC_M) (も) をShiftを押しながらタップしたら、半角「?」を送る。かな入力の
  * ままでは打てない記号なので、Symレイヤーの数字・記号と同じ要領で英数へ
  * 切り替えてから送出し、かなへ戻す (issue #17)。
+ *
+ * 「?」は US でも JIS でも / のキーの Shift なので、配列では出し分けない。
+ * KC_LNG1 / KC_LNG2 も配列に依らない (HIDの用途コードがそのまま「かな」「英数」)。
  *
  * Symレイヤー側の is_sym_ime_wrap_target と違い、こちらは押しっぱなしの実Shift
  * (親指Shiftを含む) がある状態で走るので、Shiftの扱いに2つ気をつける点がある。
@@ -1013,6 +1106,12 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             return false;
         }
         return process_key_output(keycode, record);
+    }
+
+    // 素のキーコードのまま残したキーのうち、接続先の配列で出力が変わるもの (issue #75)
+    key_output_t raw_output;
+    if (get_raw_key_output(keycode, record, &raw_output)) {
+        return process_held_output(raw_output, record);
     }
 
     switch (keycode) {

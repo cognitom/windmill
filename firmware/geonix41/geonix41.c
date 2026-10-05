@@ -189,7 +189,8 @@ void windmill_board_pre_process_record(uint16_t keycode, keyrecord_t *record) {
 
 bool windmill_board_process_record(uint16_t keycode, keyrecord_t *record) {
     // 無線モード切替など、ブロブ側のキーコードはここで処理される。
-    // windmill の独自キーコードは来ない。記号とかなのキーのうちShiftで出し分けない
-    // ものは、ホストへ送る素のキーコードに直されて来る (windmill.c の process_key_output)
+    // windmill の独自キーコードは来ない。記号とかなのキーは、ホストへ送る素のキーコードに
+    // 直されて来る (windmill.c の process_held_output)。かなのうちShift時に別のかなを
+    // 出すものだけは来ない
     return Key_Value_Dispose(keycode, record);
 }
