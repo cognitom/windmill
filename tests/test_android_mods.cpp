@@ -302,7 +302,7 @@ TEST_F(AndroidMods, kana_gui_dot_is_sent_as_alt_dot) {
     switch_to_kana(this, driver);
 
     auto tsu = key(POS_TSU);
-    auto ri  = key(POS_RI); // り  MY_L。英数レイヤーでは KC_DOT
+    auto ri  = key(POS_RI); // り  KN_RI。英数レイヤーでは SY_DOT_RABK (ピリオド)
     auto nu  = key(POS_NU);
 
     {

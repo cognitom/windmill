@@ -96,8 +96,11 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
 ## 用語
 
 - **SandS** — Spaceをホールドすると Shift になる。実装は `process_thumb_shift()`
-- **Shift出し分け** — `my_shift_pairs[]` のテーブル引きで、Shift時に別のキーを出す。
-  実装は `process_shift_pair()`
+- **出力表** — 記号とかなのキーは独自キーコード (`KN_*` / `SY_*`) で、ホストへ送るキーは
+  `key_outputs[]` のテーブル引きで決める。列は接続先の配列 (今は US だけ)。
+  実装は `process_key_output()`
+- **Shift出し分け** — 出力表で Shift時のキーを別に持つもの (`PAIR`) は、Shift時に
+  そちらを出す。実装は `process_shift_pair()`
 - **レイヤー** — `LAYER_KANA`(0) / `LAYER_ALPHA`(1) / `LAYER_SYM`(2) / `LAYER_FN`(3) /
   `LAYER_CONF`(4)。0と1がベースレイヤーで `default_layer_set()` で切り替える
 - **設定レイヤー** — `LAYER_CONF`。左右のFnを両方ホールドしている間だけ有効になる。

@@ -57,6 +57,7 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test.mk` | `firmware/windmill.c` をテストへリンクする |
 | `test_keymap.hpp` | テスト用キーマップと `WindmillTest` フィクスチャ |
 | `test_shift_pair.cpp` | 親指Shift + `process_shift_pair()` のレポート列 |
+| `test_key_output.cpp` | 記号とかなのキー (独自キーコード `KN_*` / `SY_*`) の出力を、かな・英数・記号の3レイヤーの全キーぶん総当たりで見る。期待値は独自キーコードにする前の出力そのもので、出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。押しっぱなしでリピートが効くこと、記号を続けて打っても Shift が次のキーへ漏れないことも見る (issue #73) |
 | `test_kana_qmark.cpp` | かなレイヤーの「も」でのShift+タップ (半角`?`) のレポート列 |
 | `test_thumb_shift.cpp` | 左右の親指Shiftの持ち替え (ハンドオーバー) と同時押しスペースのレポート列 |
 | `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左右とも同じキーコード) の持ち替え (ハンドオーバー) のレポート列 |

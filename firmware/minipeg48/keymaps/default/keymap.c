@@ -29,24 +29,24 @@
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [LAYER_KANA] = LAYOUT_ortho_4x12(
-    KC_ESC,  KC_1,         KC_2,         KC_3,        KC_4,        KC_5,          KC_6,          KC_7,        KC_8,           KC_9,    KC_0,    KC_ENT,
-    KC_TAB,  KC_Q,         MY_W,         KC_E,        MY_R,        KC_T,          KC_Y,          MY_U,        KC_I,           MY_O,    MY_P,    MY_LBRC,
-    KC_BSPC, MY_A,         KC_S,         KC_D,        KC_F,        KC_G,          KC_H,          KC_J,        MY_K,           MY_L,    MY_SCLN, MY_QUOT,
-    MY_LCTL, LGUI_T(KC_Z), LALT_T(KC_X), LT(3,KC_C),  LT(2,KC_V),  LSFT_T(KC_B),  LSFT_T(KC_N),  LT(2,KC_M),  LT(3,KC_COMMA), KC_DOT,  KC_SLSH, KC_GRV
+    KC_ESC,  KN_NU,        KN_FU,        KN_A,        KN_U,          KN_E,           KN_O,           KN_YA,         KN_YU,          KN_YO,      KN_WA,   KC_ENT,
+    KC_TAB,  KN_TA,        KN_TE,        KN_I,        KN_SU,         KN_KA,          KN_N,           KN_NA,         KN_NI,          KN_RA,      KN_SE,   KN_DAKU,
+    KC_BSPC, KN_CHI,       KN_TO,        KN_SHI,      KN_HA,         KN_KI,          KN_KU,          KN_MA,         KN_NO,          KN_RI,      KN_RE,   KN_KE,
+    MY_LCTL, LGUI_T(KC_Z), LALT_T(KC_X), LT(3,KC_C),  LT(2,KC_V),    LSFT_T(KC_B),   LSFT_T(KC_N),   LT(2,KC_M),    LT(3,KC_COMMA), KN_RU,      KN_ME,   KN_RO
   ),
 
   [LAYER_ALPHA] = LAYOUT_ortho_4x12(
-    _______, KC_Q,         KC_W,         KC_E,        KC_R,        KC_T,          KC_Y,          KC_U,        KC_I,           KC_O,    KC_P,    _______,
-    _______, KC_A,         KC_S,         KC_D,        KC_F,        KC_G,          KC_H,          KC_J,        KC_K,           KC_L,    KC_SCLN, KC_QUOT,
-    _______, KC_Z,         KC_X,         KC_C,        KC_V,        KC_B,          KC_N,          KC_M,        KC_COMM,        KC_DOT,  KC_UP,   KC_RGHT,
-    _______, KC_LGUI,      KC_LALT,      MO(3),       LT(2,KC_BSLS), LSFT_T(KC_SPC), LSFT_T(KC_SPC), LT(2,KC_SLSH), MO(3),    KC_APP,  KC_LEFT, KC_DOWN
+    _______, KC_Q,    KC_W,    KC_E,  KC_R,          KC_T,           KC_Y,           KC_U,          KC_I,         KC_O,        KC_P,         _______,
+    _______, KC_A,    KC_S,    KC_D,  KC_F,          KC_G,           KC_H,           KC_J,          KC_K,         KC_L,        SY_SCLN_COLN, SY_QUOT_DQUO,
+    _______, KC_Z,    KC_X,    KC_C,  KC_V,          KC_B,           KC_N,           KC_M,          SY_COMM_LABK, SY_DOT_RABK, KC_UP,        KC_RGHT,
+    _______, KC_LGUI, KC_LALT, MO(3), LT(2,KC_BSLS), LSFT_T(KC_SPC), LSFT_T(KC_SPC), LT(2,KC_SLSH), MO(3),        KC_APP,      KC_LEFT,      KC_DOWN
   ),
 
   [LAYER_SYM] = LAYOUT_ortho_4x12(
-    _______, KC_1,         KC_2,         KC_3,        KC_4,        KC_5,          KC_6,          KC_7,        KC_8,           KC_9,    KC_0,    _______,
-    _______, S(KC_1),      S(KC_2),      S(KC_3),     S(KC_4),     S(KC_5),       S(KC_6),       S(KC_7),     S(KC_8),        S(KC_9), S(KC_0), KC_GRV,
-    _______, KC_EQL,       S(KC_EQL),    KC_MINS,     S(KC_MINS),  KC_LBRC,       KC_RBRC,       S(KC_GRV),   S(KC_LBRC),     S(KC_RBRC), KC_UP, KC_RGHT,
-    _______, _______,      _______,      _______,     _______,     S(KC_BSLS),    S(KC_SLSH),    _______,     _______,        _______, KC_LEFT, KC_DOWN
+    _______, KC_1,         KC_2,         KC_3,        KC_4,          KC_5,           KC_6,           KC_7,          KC_8,           KC_9,       KC_0,    _______,
+    _______, SY_EXLM,      SY_AT,        SY_HASH,     SY_DLR,        SY_PERC,        SY_CIRC,        SY_AMPR,       SY_ASTR,        SY_LPRN,    SY_RPRN, SY_GRV,
+    _______, SY_EQL,       SY_PLUS,      SY_MINS,     SY_UNDS,       SY_LBRC,        SY_RBRC,        SY_TILD,       SY_LCBR,        SY_RCBR,    KC_UP,   KC_RGHT,
+    _______, _______,      _______,      _______,     _______,       SY_PIPE,        SY_QUES,        _______,       _______,        _______,    KC_LEFT, KC_DOWN
   ),
 
   [LAYER_FN] = LAYOUT_ortho_4x12(
