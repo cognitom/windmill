@@ -120,6 +120,8 @@ enum windmill_keycodes {
     MY_ANDR,            // 同じくAndroid向けに。Win と Alt の扱いも変わる (windmill.c「Android での Win / Alt」参照)
     MY_DARK,            // LEDの明るさ 強/弱 を切り替え (EEPROM保存。LED搭載機のみ)
     MY_IME,             // ホスト側のIMEだけ切り替える (ベースレイヤーは動かさない)
+    MY_JIS,             // 接続先のキーボード配列を JIS に (接続先ごとにEEPROM保存。既定)
+    MY_US,              // 同じく US に
 
     /* かなレイヤー。名前はShift無しで出るかな。Shift時に別のかなを出すものは
      * コメントに添えた。それ以外はOSのIMEに任せる (あ → ぁ、わ → を など) */
@@ -221,6 +223,7 @@ uint16_t windmill_base_keycode(uint16_t keycode);
 
 /* 接続先 (ホスト) の番号。無線機では接続先ごとに相手のOSが違うので、
  * MY_WIN / MY_ANDR の設定を接続先ごとに覚える (issue #58)。
+ * MY_JIS / MY_US の設定も同じ (issue #74)。
  * 番号はEEPROM上の格納位置になるので、並びを変えないこと */
 #define WINDMILL_HOST_USB  0 // 有線。無線を持たない機種は常にここ
 #define WINDMILL_HOST_BLE1 1
@@ -228,6 +231,14 @@ uint16_t windmill_base_keycode(uint16_t keycode);
 #define WINDMILL_HOST_BLE3 3
 #define WINDMILL_HOST_2P4G 4
 #define WINDMILL_HOST_SIZE 5
+
+/* 接続先のキーボード配列。相手のOSがこのキーボードをどの配列として受け取るか。
+ * 値はEEPROMに残るので変えないこと。0 が既定 (windmill.c の LAYOUT_BITS 参照) */
+#define WINDMILL_LAYOUT_JIS 0 // 日本語 (JIS)
+#define WINDMILL_LAYOUT_US  1 // English (US)
+
+// いま繋がっている接続先の配列 (WINDMILL_LAYOUT_*)
+uint8_t windmill_host_layout(void);
 
 /* 機種固有の割り込み口。windmill.c が QMK の *_kb フックを占有しているので、
  * ベンダーのライブラリを呼ぶ必要がある機種 (geonix41) 向けに weak で開けてある。

@@ -52,6 +52,16 @@ __attribute__((weak)) uint8_t windmill_board_host(void) {
 #define OS_BITS 2
 #define OS_MASK ((1u << OS_BITS) - 1)
 
+/* 接続先のキーボード配列 (WINDMILL_LAYOUT_*)。同じ文字でも送るべきキーコードは
+ * 相手がどの配列として受け取るかで変わるので、MY_JIS / MY_US で選ぶ (issue #74)。
+ * OSと同じく接続先ごとに覚える。
+ *
+ * JIS を 0 にしてあるのは既定にするため。EEPROMリセット時だけでなく、この設定が
+ * 入る前のファームウェアで使っていた機体も、ここのビットは 0 のまま起動してくる。
+ * 2bitなのはOSと揃えただけで、今は2種しか無い */
+#define LAYOUT_BITS 2
+#define LAYOUT_MASK ((1u << LAYOUT_BITS) - 1)
+
 typedef union {
     uint32_t raw;
     struct {
@@ -61,6 +71,10 @@ typedef union {
         bool     legacy_android : 1;
         bool     led_darkmode : 1; // LEDを暗いほうの配色にする (LED非搭載機では未使用)
         uint16_t host_os : WINDMILL_HOST_SIZE * OS_BITS; // 接続先ごとのOS。WINDMILL_HOST_* 番目の2bit
+        /* 接続先ごとの配列。WINDMILL_HOST_* 番目の2bit。
+         * 型を uint16_t にすると、host_os の続きに置くか16bit境界まで送るかが
+         * AVR とそれ以外で分かれ、EEPROM上の位置が機種で変わってしまう */
+        uint32_t host_layout : WINDMILL_HOST_SIZE * LAYOUT_BITS;
     };
 } windmill_config_t;
 _Static_assert(sizeof(windmill_config_t) == sizeof(uint32_t), "windmill_config_t が eeconfig_kb の32bitに収まっていない");
@@ -81,6 +95,11 @@ static uint8_t get_host_os(void) {
 
 static bool is_android(void) {
     return get_host_os() == OS_ANDR;
+}
+
+uint8_t windmill_host_layout(void) {
+    const uint8_t layout = (windmill_config.host_layout >> (current_host() * LAYOUT_BITS)) & LAYOUT_MASK;
+    return layout == WINDMILL_LAYOUT_US ? WINDMILL_LAYOUT_US : WINDMILL_LAYOUT_JIS; // 予約の値は既定に倒す
 }
 
 /*
@@ -400,16 +419,24 @@ static bool process_shift_pair(uint16_t plain, uint16_t shifted, keyrecord_t *re
  * 直接置くとそこを吸収できないので、キーマップは「どの文字のキーか」だけを持ち、
  * 配列ごとの違いは表の列として並べる。
  *
- * 今ある列は US だけで、出力は表にする前と変わらない。配列の設定と JIS の列は
- * 後から足す。 */
+ * 今ある列は US だけで、出力は表にする前と変わらない。JIS の列は後から足す。 */
 enum {
-    HOST_LAYOUT_US, // English (US)
-    HOST_LAYOUT_SIZE,
+    KEY_OUTPUT_COL_US, // English (US)
+    KEY_OUTPUT_COL_SIZE,
 };
 
-// 接続先のキーボード配列。まだ設定が無いので US 固定
-static uint8_t get_host_layout(void) {
-    return HOST_LAYOUT_US;
+/* 配列の設定 (WINDMILL_LAYOUT_*) から表の列を引く。設定の値をそのまま添字に
+ * しないのは、設定のほうはEEPROMに残る値で、既定の JIS を 0 に固定してあるため。
+ *
+ * JIS の列がまだ無いので、どちらを選んでも US の列を返す (issue #74)。
+ * 列を足したら、ここで JIS をそちらへ向ける */
+static uint8_t key_output_column(uint8_t layout) {
+    switch (layout) {
+        case WINDMILL_LAYOUT_JIS:
+        case WINDMILL_LAYOUT_US:
+        default:
+            return KEY_OUTPUT_COL_US;
+    }
 }
 
 typedef struct {
@@ -421,13 +448,13 @@ typedef struct {
 #define PAIR(plain, shifted) {(plain), (shifted)}     // Shift時に別のキーを出す (process_shift_pair 参照)
 #define ROW(keycode) ((keycode) - KEY_OUTPUT_FIRST)
 
-/* 行は独自キーコード、列は接続先の配列 (HOST_LAYOUT_*)。
+/* 行は独自キーコード、列は接続先の配列 (KEY_OUTPUT_COL_*)。
  *
  * かなはOSのIMEがキーの位置で決めるので、US の列は「JISかな配列でそのかなが
  * 載っている位置の、US配列でのキーコード」になる。Shift時のかなのうち、IMEが
  * 同じキーのShiftで出してくれるもの (ぁ、を など) は AS_IS のままでよく、別の
  * キーへ移したものだけ PAIR にしてある。 */
-static const key_output_t PROGMEM key_outputs[][HOST_LAYOUT_SIZE] = {
+static const key_output_t PROGMEM key_outputs[][KEY_OUTPUT_COL_SIZE] = {
     //                        US
     [ROW(KN_NU)]           = {AS_IS(KC_1)},
     [ROW(KN_FU)]           = {AS_IS(KC_2)},
@@ -504,7 +531,7 @@ _Static_assert(WINDMILL_KEYCODE_END - 1 <= QK_USER_MAX, "独自キーコード�
 static const struct {
     uint16_t     keycode;
     uint8_t      os;
-    key_output_t outputs[HOST_LAYOUT_SIZE];
+    key_output_t outputs[KEY_OUTPUT_COL_SIZE];
 } PROGMEM os_key_outputs[] = {
     //                 US
     {KN_RA, OS_ANDR, {PAIR(KC_O, S(KC_RBRC))}}, // 「
@@ -517,17 +544,17 @@ static const struct {
 
 // keycode は KEY_OUTPUT_FIRST 〜 KEY_OUTPUT_LAST であること
 static key_output_t get_key_output(uint16_t keycode) {
-    const uint8_t layout = get_host_layout();
+    const uint8_t column = key_output_column(windmill_host_layout());
     const uint8_t os     = get_host_os();
     key_output_t  output;
 
     for (uint8_t i = 0; i < ARRAY_SIZE(os_key_outputs); ++i) {
         if (pgm_read_word(&os_key_outputs[i].keycode) == keycode && pgm_read_byte(&os_key_outputs[i].os) == os) {
-            memcpy_P(&output, &os_key_outputs[i].outputs[layout], sizeof(output));
+            memcpy_P(&output, &os_key_outputs[i].outputs[column], sizeof(output));
             return output;
         }
     }
-    memcpy_P(&output, &key_outputs[keycode - KEY_OUTPUT_FIRST][layout], sizeof(output));
+    memcpy_P(&output, &key_outputs[keycode - KEY_OUTPUT_FIRST][column], sizeof(output));
     return output;
 }
 
@@ -675,6 +702,15 @@ static void set_host_os(uint8_t os) {
     const uint16_t next  = (windmill_config.host_os & ~(OS_MASK << shift)) | ((os & OS_MASK) << shift);
     if (windmill_config.host_os == next) return; // 無変更ならEEPROMを書かない
     windmill_config.host_os = next;
+    eeconfig_update_kb(windmill_config.raw);
+}
+
+// 配列も同じく、いま繋がっている接続先のぶんだけを書き換える
+static void set_host_layout(uint8_t layout) {
+    const uint8_t  shift = current_host() * LAYOUT_BITS;
+    const uint32_t next  = (windmill_config.host_layout & ~((uint32_t)LAYOUT_MASK << shift)) | ((uint32_t)(layout & LAYOUT_MASK) << shift);
+    if (windmill_config.host_layout == next) return; // 無変更ならEEPROMを書かない
+    windmill_config.host_layout = next;
     eeconfig_update_kb(windmill_config.raw);
 }
 
@@ -997,6 +1033,18 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         case MY_ANDR:
             if (record->event.pressed) {
                 set_host_os(OS_ANDR);
+            }
+            return false;
+
+        case MY_JIS:
+            if (record->event.pressed) {
+                set_host_layout(WINDMILL_LAYOUT_JIS);
+            }
+            return false;
+
+        case MY_US:
+            if (record->event.pressed) {
+                set_host_layout(WINDMILL_LAYOUT_US);
             }
             return false;
 
