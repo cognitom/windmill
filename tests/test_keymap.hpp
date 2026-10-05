@@ -93,8 +93,8 @@ static inline uint8_t windmill_matrix_col(uint8_t row, uint8_t col) {
 #define POS_KO 3, 5    // こ  左親指Shift
 #define POS_MI 3, 6    // み  右親指Shift
 #define POS_NO 2, 8    // の  KN_NO  Shift時 S(KC_COMM) = 、
-#define POS_RA 1, 9    // ら  KN_RA  Shift時 S(KC_LBRC)
-#define POS_SU 1, 4    // す  KN_SU  Shift時 KC_BSLS  (Shiftを外す必要がある)
+#define POS_RA 1, 9    // ら  KN_RA  Shift時 S(KC_LBRC)  (US のとき。JIS は S(KC_RBRC))
+#define POS_SU 1, 4    // す  KN_SU  Shift時 KC_BSLS  (Shiftを外す必要がある。JIS は KC_NUHS)
 #define POS_NA 1, 7    // な  KN_NA  Shift時 KC_MINS = ほ (Shiftを外す必要がある)
 #define POS_HA 2, 4    // は  KN_HA  英数レイヤーでは "f"
 #define POS_MO 3, 7    // も  LT(2,KC_M)   Shift+タップで半角?
@@ -154,4 +154,19 @@ class WindmillTest : public TestFixture {
     }
 
     static constexpr unsigned IME_WAIT_MS = 10; // windmill.c の IME_WAIT_MS
+};
+
+/* 接続先の配列を US にして走らせるテスト向け。
+ *
+ * 配列の既定は JIS (issue #74) なので、何もしなければテストは JIS の出力を見る。
+ * US の出力を固定しているスイートはこちらを継ぐ。設定はEEPROMに残り、スイートが
+ * 変わると初期化されるので、テストごとに選び直しても害は無い。
+ * 設定レイヤーのキーはレポートを出さないので、期待値を置く前に呼んでよい */
+class WindmillUsTest : public WindmillTest {
+   public:
+    void set_windmill_keymap() {
+        WindmillTest::set_windmill_keymap();
+        tap_on_conf(POS_US);
+        settle();
+    }
 };

@@ -75,12 +75,12 @@ Windmill is a keymap for 40% keyboards.
 |--|--|--|
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | MY_WIN | [対象OS](#対象osの切り替え)を Windows に |
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | MY_ANDR | 対象OSを Android に |
-| <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Z</kbd> | MY_JIS | 接続先のキーボード配列を JIS に (既定) |
+| <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Z</kbd> | MY_JIS | [接続先のキーボード配列](#キーボード配列の切り替え)を JIS に (既定) |
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>X</kbd> | MY_US | 接続先のキーボード配列を US に |
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Enter</kbd> | QK_BOOT | ファームウェアを書き込めるモードへ |
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Esc</kbd> / <kbd>Q</kbd> / <kbd>W</kbd> / <kbd>E</kbd> / <kbd>R</kbd> | MD_USB / MD_BLE1 / MD_BLE2 / MD_BLE3 / MD_24G | 接続先を USB / Bluetooth 1〜3 / 2.4G に (Geonix Rev2.5 のみ) |
 
-対象OSとキーボード配列は、接続先 (USB / Bluetooth 1〜3 / 2.4G) ごとに覚えます。キーボード配列は選べるようになっただけで、今はどちらを選んでも US 配列向けのキーを送ります (JIS 配列への対応は準備中)。
+対象OSとキーボード配列は、接続先 (USB / Bluetooth 1〜3 / 2.4G) ごとに覚えます。
 
 片方の <kbd>Fn</kbd> を離すと、残したほうでファンクションキーの入力へ戻ります。
 
@@ -102,13 +102,28 @@ Windmill is a keymap for 40% keyboards.
 
 | 独自キーコード | キー | 対象OS | 配列の認識 | IME | かな/英数切り替えで送るキー |
 |--|--|--|--|--|--|
-| MY_WIN | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | Windows 11 | English (US) | Microsof IME | <kbd>かな</kbd> / <kbd>英数</kbd> を交互に (`KC_LNG1` / `KC_LNG2`) |
-| MY_ANDR | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | Android | English (US) | Gboard | <kbd>Ctrl</kbd>+<kbd>Space</kbd> (日本語⇔英語のIMEを切り替え) |
+| MY_WIN | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | Windows 11 | 日本語 (JIS) / English (US) | Microsof IME | <kbd>かな</kbd> / <kbd>英数</kbd> を交互に (`KC_LNG1` / `KC_LNG2`) |
+| MY_ANDR | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | Android | 日本語 (JIS) / English (US) | Gboard | <kbd>Ctrl</kbd>+<kbd>Space</kbd> (日本語⇔英語のIMEを切り替え) |
+
+「配列の認識」は、OSがこのキーボードをどの配列として扱っているかです。どちらでも使えますが、キーボードの側にも同じものを[設定](#キーボード配列の切り替え)しておきます。
 
 対象OSが Android のときは、GUI と Alt の扱いも変わります。
 
 - <kbd>GUI</kbd> と <kbd>Alt</kbd> の同時押しは、後から押したほうを送りません。Android はこの組み合わせを Caps Lock の切り替えとして扱うため、かな入力で「つ」「さ」を続けて打つだけで Caps Lock がかかってしまいます
 - <kbd>GUI</kbd>+<kbd>.</kbd> は <kbd>Alt</kbd>+<kbd>.</kbd> として送ります。Windows の <kbd>Win</kbd>+<kbd>.</kbd> と同じ操作にするためです
+
+### キーボード配列の切り替え
+
+同じ文字でも、キーボードが送るべきキーは、OSがこのキーボードをどの配列として扱っているかで変わります。たとえば <kbd>@</kbd> は、US 配列なら <kbd>Shift</kbd>+<kbd>2</kbd>、JIS 配列なら単独のキーです。OS側の設定に合わせてキーボード側の配列を選んでおくと、どちらでも同じ文字が出ます。キーは[設定レイヤー](#設定レイヤー)にあります。
+
+| 独自キーコード | キー | OSがキーボードを扱う配列 |
+|--|--|--|
+| MY_JIS | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Z</kbd> | 日本語 (JIS)。既定 |
+| MY_US | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>X</kbd> | English (US) |
+
+対象OSと同じく、接続先ごとに覚えます。記号が刻印どおりに出ないとき (<kbd>@</kbd> を打つと <kbd>"</kbd> や <kbd>[</kbd> になる、など) は、ここがOS側の設定と食い違っています。
+
+配列で送るキーが変わるのは、英字入力時の記号と、かな入力時の「へ」「む」「ー」「ろ」「」です。<kbd>Shift</kbd> を押しながら打った文字が、JIS 配列では単独のキーになっていることがあります (<kbd>:</kbd> など)。そのときは <kbd>Shift</kbd> を一瞬外してから送るので、こうした文字だけは押しっぱなしにしても連続入力されません。
 
 ## v3での変更点
 

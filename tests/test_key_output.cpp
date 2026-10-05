@@ -26,8 +26,8 @@
  * キーコードを処理するのと同じレポート列になることを見ている。押している間は
  * 押しっぱなしになること (キーリピートが効くこと) も含む。
  *
- * 接続先の配列 (US / JIS) で出力を切り替えるようになったら、ここは US の列の
- * 期待値になる。 */
+ * ここは接続先の配列が US のときの期待値。JIS のときは test_key_output_jis.cpp
+ * (issue #75)。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -40,11 +40,11 @@ using testing::_;
 using testing::AnyNumber;
 using testing::InSequence;
 
-class KeyOutput : public WindmillTest {};
+class KeyOutput : public WindmillUsTest {};
 
 /* 対象OSはEEPROMに残るので、Android向けのテストはスイートを分ける
  * (test_android_mods.cpp と同じ) */
-class KeyOutputAndroid : public WindmillTest {};
+class KeyOutputAndroid : public WindmillUsTest {};
 
 // 英数から MY_LCTL 1回タップでかなへ切り替える。レポートの中身は問わない
 static void switch_to_kana(WindmillTest* f, TestDriver& driver) {

@@ -97,10 +97,12 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
 
 - **SandS** — Spaceをホールドすると Shift になる。実装は `process_thumb_shift()`
 - **出力表** — 記号とかなのキーは独自キーコード (`KN_*` / `SY_*`) で、ホストへ送るキーは
-  `key_outputs[]` のテーブル引きで決める。列は接続先の配列 (今は US だけ)。
-  実装は `process_key_output()`
+  `key_outputs[]` のテーブル引きで決める。列は接続先の配列 (US / JIS) で、
+  どちらの列でも同じ文字が出るように並べてある。実装は `process_key_output()`。
+  独自キーコードにできなかったキー (`LT()` のタップ側、記号レイヤーの数字) のうち
+  JIS で変わるものは `jis_raw_key_outputs[]`
 - **Shift出し分け** — 出力表で Shift時のキーを別に持つもの (`PAIR`) は、Shift時に
-  そちらを出す。実装は `process_shift_pair()`
+  そちらを出す。実装は、かなが `process_shift_pair()`、記号が `process_held_output()`
 - **レイヤー** — `LAYER_KANA`(0) / `LAYER_ALPHA`(1) / `LAYER_SYM`(2) / `LAYER_FN`(3) /
   `LAYER_CONF`(4)。0と1がベースレイヤーで `default_layer_set()` で切り替える
 - **設定レイヤー** — `LAYER_CONF`。左右のFnを両方ホールドしている間だけ有効になる。

@@ -16,9 +16,9 @@
 
 /* MY_JIS / MY_US の設定を接続先ごとに覚える (issue #74)。
  *
- * 出力表にまだ JIS の列が無く、どちらを選んでもホストへ送るキーは変わらない。
- * レポートでは設定を見分けられないので、windmill_host_layout() とEEPROMの値で見る。
- * JIS の列が入ったら、レポートで見るテストは test_key_output.cpp の側へ足す。
+ * 設定がどこに残るかを見たいので、windmill_host_layout() とEEPROMの値で見る。
+ * 配列ごとにホストへ何を送るかは test_key_output.cpp (US) と
+ * test_key_output_jis.cpp (JIS) が全キーぶん見ている。
  *
  * 接続先は test_host_os.cpp が差し替えている windmill_board_host() で切り替える。 */
 
@@ -207,33 +207,50 @@ TEST_F(HostLayoutReserved, unknown_value_is_jis) {
     expect_layouts(ALL_HOSTS, WINDMILL_LAYOUT_JIS);
 }
 
-/* JIS の列が入るまでは、どちらを選んでも US の出力のまま。
- * 英数レイヤーの「;」で見る。US 配列では KC_SCLN がそのまま「;」 */
-TEST_F(HostLayoutOutput, both_layouts_send_us_keys) {
+/* 選んだ配列の出力になる。英数レイヤーの「'」で見る。US 配列では KC_QUOT が
+ * そのまま「'」で、JIS 配列では Shift+7。接続先を切り替えれば、そちらで選んだ
+ * 配列に従う (issue #75) */
+TEST_F(HostLayoutOutput, output_follows_layout_of_current_host) {
     TestDriver driver;
     set_windmill_keymap();
 
-    auto scln = key(1, 10); // 英数 = SY_SCLN_COLN
+    auto quot = key(1, 11); // 英数 = SY_QUOT_DQUO
 
-    auto expect_scln = [&]() {
+    auto expect_jis = [&]() {
         {
             InSequence s;
-            EXPECT_REPORT(driver, (KC_SCLN));
+            EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+            EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_7));
+            EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
             EXPECT_EMPTY_REPORT(driver);
         }
-        tap_key(scln, 50);
+        tap_key(quot, 50);
+        settle();
+        VERIFY_AND_CLEAR(driver);
+    };
+    auto expect_us = [&]() {
+        {
+            InSequence s;
+            EXPECT_REPORT(driver, (KC_QUOT));
+            EXPECT_EMPTY_REPORT(driver);
+        }
+        tap_key(quot, 50);
         settle();
         VERIFY_AND_CLEAR(driver);
     };
 
     ASSERT_EQ(windmill_host_layout(), WINDMILL_LAYOUT_JIS);
-    expect_scln();
+    expect_jis();
 
     select_layout(this, driver, POS_US);
-    ASSERT_EQ(windmill_host_layout(), WINDMILL_LAYOUT_US);
-    expect_scln();
+    expect_us();
+
+    // 他の接続先は JIS のまま
+    test_host = WINDMILL_HOST_BLE1;
+    expect_jis();
+    test_host = WINDMILL_HOST_USB;
+    expect_us();
 
     select_layout(this, driver, POS_JIS);
-    ASSERT_EQ(windmill_host_layout(), WINDMILL_LAYOUT_JIS);
-    expect_scln();
+    expect_jis();
 }
