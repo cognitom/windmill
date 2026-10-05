@@ -17,11 +17,6 @@
  */
 #pragma once
 
-/* rdr_lib が QK_KB_0 から30個の自前キーコード (Custom_Keycodes) を並べているので、
- * windmill の MY_* はその後ろから始める。ズレの検知は geonix41.c の
- * _Static_assert で行っている */
-#define WINDMILL_KEYCODE_BASE QK_KB_30
-
 /* 最下段は配線の都合で matrix の列が見た目の並びと違う (keyboard.json の
  * "layouts" 参照)。見た目の 3 (左Fn) が列4、5 (左親指) が列6、6 (右親指) が
  * 列1 になる。windmill.c は左右の Fn / 親指Shift を列で見分けるので、

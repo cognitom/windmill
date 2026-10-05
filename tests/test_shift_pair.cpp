@@ -184,7 +184,7 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
-    auto ra = key(POS_RA); // MY_O -> S(KC_LBRC)
+    auto ra = key(POS_RA); // KN_RA -> S(KC_LBRC)
 
     {
         InSequence s;
@@ -205,7 +205,7 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* shifted 側が Shift 不要なキー (MY_R -> バックスラッシュ) では、いったん
+/* shifted 側が Shift 不要なキー (KN_SU -> バックスラッシュ) では、いったん
  * Shift を外して戻す。del_mods()/set_mods() はレポートを送らないので、
  * ここは register 系でなければ戻りがホストへ伝わらない。 */
 TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
@@ -214,7 +214,7 @@ TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
     switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
-    auto su = key(POS_SU); // MY_R -> KC_BSLS
+    auto su = key(POS_SU); // KN_SU -> KC_BSLS
 
     {
         InSequence s;

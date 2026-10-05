@@ -39,8 +39,8 @@ __attribute__((weak)) uint8_t windmill_board_host(void) {
     return WINDMILL_HOST_USB;
 }
 
-/* 接続先のOS。言語切替 (MY_LCTL) のキーと MY_O/MY_P のShift時出力 (「」) は
- * OSのIME実装で必要なキーが異なるため、MY_WIN / MY_ANDR で切り替える。
+/* 接続先のOS。言語切替 (MY_LCTL) のキーと、かなレイヤーの「」(KN_RA / KN_SE の
+ * Shift時出力) はOSのIME実装で必要なキーが異なるため、MY_WIN / MY_ANDR で切り替える。
  *
  * 無線機では接続先を切り替えるたびにOSを設定し直すのが手間なので、接続先
  * (WINDMILL_HOST_*) ごとに覚える (issue #58)。1つあたり2bitで、今使っているのは
@@ -390,18 +390,184 @@ static bool process_shift_pair(uint16_t plain, uint16_t shifted, keyrecord_t *re
     return false;
 }
 
-// MY_W〜MY_A の {Shiftなし, Shiftあり} 出力表。windmill.h のenum順と一致させること
-static const uint16_t my_shift_pairs[][2] = {
-    [MY_W - MY_W]    = {KC_W, S(KC_EQL)},     // +
-    [MY_R - MY_W]    = {KC_R, KC_BSLS},       // バックスラッシュ
-    [MY_U - MY_W]    = {KC_U, KC_MINS},       // -
-    [MY_LBRC - MY_W] = {KC_LBRC, KC_RBRC},    // ]
-    [MY_K - MY_W]    = {KC_K, S(KC_COMM)},    // <
-    [MY_L - MY_W]    = {KC_L, S(KC_DOT)},     // >
-    [MY_SCLN - MY_W] = {KC_SCLN, S(KC_SLSH)}, // ?
-    [MY_QUOT - MY_W] = {KC_QUOT, S(KC_MINS)}, // _
-    [MY_A - MY_W]    = {KC_A, S(KC_Z)},       // Z
+/*
+ * 記号とかなのキーの出力表
+ */
+
+/* 記号とかなのキー (KN_* / SY_*) は独自キーコードで、ホストへ送るキーはここの表で
+ * 引く (issue #73)。同じ文字でも、送るべきキーコードは接続先のキーボード配列で
+ * 変わる (「@」は US なら Shift+2、JIS なら単独のキー)。キーマップに素のキーコードを
+ * 直接置くとそこを吸収できないので、キーマップは「どの文字のキーか」だけを持ち、
+ * 配列ごとの違いは表の列として並べる。
+ *
+ * 今ある列は US だけで、出力は表にする前と変わらない。配列の設定と JIS の列は
+ * 後から足す。 */
+enum {
+    HOST_LAYOUT_US, // English (US)
+    HOST_LAYOUT_SIZE,
 };
+
+// 接続先のキーボード配列。まだ設定が無いので US 固定
+static uint8_t get_host_layout(void) {
+    return HOST_LAYOUT_US;
+}
+
+typedef struct {
+    uint16_t plain;   // Shift無しで送るキー
+    uint16_t shifted; // Shift時に送るキー。KC_NO なら出し分けない (process_key_output 参照)
+} key_output_t;
+
+#define AS_IS(keycode) {(keycode), KC_NO}             // Shiftで出し分けない。素のキーと同じに振る舞う
+#define PAIR(plain, shifted) {(plain), (shifted)}     // Shift時に別のキーを出す (process_shift_pair 参照)
+#define ROW(keycode) ((keycode) - KEY_OUTPUT_FIRST)
+
+/* 行は独自キーコード、列は接続先の配列 (HOST_LAYOUT_*)。
+ *
+ * かなはOSのIMEがキーの位置で決めるので、US の列は「JISかな配列でそのかなが
+ * 載っている位置の、US配列でのキーコード」になる。Shift時のかなのうち、IMEが
+ * 同じキーのShiftで出してくれるもの (ぁ、を など) は AS_IS のままでよく、別の
+ * キーへ移したものだけ PAIR にしてある。 */
+static const key_output_t PROGMEM key_outputs[][HOST_LAYOUT_SIZE] = {
+    //                        US
+    [ROW(KN_NU)]           = {AS_IS(KC_1)},
+    [ROW(KN_FU)]           = {AS_IS(KC_2)},
+    [ROW(KN_A)]            = {AS_IS(KC_3)},
+    [ROW(KN_U)]            = {AS_IS(KC_4)},
+    [ROW(KN_E)]            = {AS_IS(KC_5)},
+    [ROW(KN_O)]            = {AS_IS(KC_6)},
+    [ROW(KN_YA)]           = {AS_IS(KC_7)},
+    [ROW(KN_YU)]           = {AS_IS(KC_8)},
+    [ROW(KN_YO)]           = {AS_IS(KC_9)},
+    [ROW(KN_WA)]           = {AS_IS(KC_0)},
+    [ROW(KN_TA)]           = {AS_IS(KC_Q)},
+    [ROW(KN_TE)]           = {PAIR(KC_W, S(KC_EQL))},     // へ
+    [ROW(KN_I)]            = {AS_IS(KC_E)},
+    [ROW(KN_SU)]           = {PAIR(KC_R, KC_BSLS)},       // む
+    [ROW(KN_KA)]           = {AS_IS(KC_T)},
+    [ROW(KN_N)]            = {AS_IS(KC_Y)},
+    [ROW(KN_NA)]           = {PAIR(KC_U, KC_MINS)},       // ほ
+    [ROW(KN_NI)]           = {AS_IS(KC_I)},
+    [ROW(KN_RA)]           = {PAIR(KC_O, S(KC_LBRC))},    // 「 (Android は os_key_outputs[])
+    [ROW(KN_SE)]           = {PAIR(KC_P, S(KC_RBRC))},    // 」 (同上)
+    [ROW(KN_DAKU)]         = {PAIR(KC_LBRC, KC_RBRC)},    // ゜
+    [ROW(KN_CHI)]          = {PAIR(KC_A, S(KC_Z))},       // っ
+    [ROW(KN_TO)]           = {AS_IS(KC_S)},
+    [ROW(KN_SHI)]          = {AS_IS(KC_D)},
+    [ROW(KN_HA)]           = {AS_IS(KC_F)},
+    [ROW(KN_KI)]           = {AS_IS(KC_G)},
+    [ROW(KN_KU)]           = {AS_IS(KC_H)},
+    [ROW(KN_MA)]           = {AS_IS(KC_J)},
+    [ROW(KN_NO)]           = {PAIR(KC_K, S(KC_COMM))},    // 、
+    [ROW(KN_RI)]           = {PAIR(KC_L, S(KC_DOT))},     // 。
+    [ROW(KN_RE)]           = {PAIR(KC_SCLN, S(KC_SLSH))}, // ・
+    [ROW(KN_KE)]           = {PAIR(KC_QUOT, S(KC_MINS))}, // ー
+    [ROW(KN_RU)]           = {AS_IS(KC_DOT)},
+    [ROW(KN_ME)]           = {AS_IS(KC_SLSH)},
+    [ROW(KN_RO)]           = {AS_IS(KC_GRV)},
+
+    [ROW(SY_SCLN_COLN)]    = {AS_IS(KC_SCLN)},
+    [ROW(SY_QUOT_DQUO)]    = {AS_IS(KC_QUOT)},
+    [ROW(SY_COMM_LABK)]    = {AS_IS(KC_COMM)},
+    [ROW(SY_DOT_RABK)]     = {AS_IS(KC_DOT)},
+
+    [ROW(SY_EXLM)]         = {AS_IS(S(KC_1))},
+    [ROW(SY_AT)]           = {AS_IS(S(KC_2))},
+    [ROW(SY_HASH)]         = {AS_IS(S(KC_3))},
+    [ROW(SY_DLR)]          = {AS_IS(S(KC_4))},
+    [ROW(SY_PERC)]         = {AS_IS(S(KC_5))},
+    [ROW(SY_CIRC)]         = {AS_IS(S(KC_6))},
+    [ROW(SY_AMPR)]         = {AS_IS(S(KC_7))},
+    [ROW(SY_ASTR)]         = {AS_IS(S(KC_8))},
+    [ROW(SY_LPRN)]         = {AS_IS(S(KC_9))},
+    [ROW(SY_RPRN)]         = {AS_IS(S(KC_0))},
+    [ROW(SY_GRV)]          = {AS_IS(KC_GRV)},
+    [ROW(SY_EQL)]          = {AS_IS(KC_EQL)},
+    [ROW(SY_PLUS)]         = {AS_IS(S(KC_EQL))},
+    [ROW(SY_MINS)]         = {AS_IS(KC_MINS)},
+    [ROW(SY_UNDS)]         = {AS_IS(S(KC_MINS))},
+    [ROW(SY_LBRC)]         = {AS_IS(KC_LBRC)},
+    [ROW(SY_RBRC)]         = {AS_IS(KC_RBRC)},
+    [ROW(SY_TILD)]         = {AS_IS(S(KC_GRV))},
+    [ROW(SY_LCBR)]         = {AS_IS(S(KC_LBRC))},
+    [ROW(SY_RCBR)]         = {AS_IS(S(KC_RBRC))},
+    [ROW(SY_PIPE)]         = {AS_IS(S(KC_BSLS))},
+    [ROW(SY_QUES)]         = {AS_IS(S(KC_SLSH))},
+};
+_Static_assert(ARRAY_SIZE(key_outputs) == ROW(KEY_OUTPUT_LAST) + 1, "key_outputs[] の行が独自キーコードの数と合っていない");
+_Static_assert(WINDMILL_KEYCODE_END - 1 <= QK_USER_MAX, "独自キーコードが QK_USER の範囲に収まっていない");
+
+/* 対象OS (MY_WIN / MY_ANDR) で出力が変わるキー。ここに行があれば key_outputs[] より
+ * 優先する。列は同じく接続先の配列。
+ *
+ * 「」はIMEによって載っている位置が違う。Windows (Microsoft IME) は [ と ] の
+ * Shiftで出るが、Android (Gboard) は ] と \ のShiftで出る。 */
+static const struct {
+    uint16_t     keycode;
+    uint8_t      os;
+    key_output_t outputs[HOST_LAYOUT_SIZE];
+} PROGMEM os_key_outputs[] = {
+    //                 US
+    {KN_RA, OS_ANDR, {PAIR(KC_O, S(KC_RBRC))}}, // 「
+    {KN_SE, OS_ANDR, {PAIR(KC_P, S(KC_BSLS))}}, // 」
+};
+
+#undef AS_IS
+#undef PAIR
+#undef ROW
+
+// keycode は KEY_OUTPUT_FIRST 〜 KEY_OUTPUT_LAST であること
+static key_output_t get_key_output(uint16_t keycode) {
+    const uint8_t layout = get_host_layout();
+    const uint8_t os     = get_host_os();
+    key_output_t  output;
+
+    for (uint8_t i = 0; i < ARRAY_SIZE(os_key_outputs); ++i) {
+        if (pgm_read_word(&os_key_outputs[i].keycode) == keycode && pgm_read_byte(&os_key_outputs[i].os) == os) {
+            memcpy_P(&output, &os_key_outputs[i].outputs[layout], sizeof(output));
+            return output;
+        }
+    }
+    memcpy_P(&output, &key_outputs[keycode - KEY_OUTPUT_FIRST][layout], sizeof(output));
+    return output;
+}
+
+static bool is_key_output_target(uint16_t keycode) {
+    return keycode >= KEY_OUTPUT_FIRST && keycode <= KEY_OUTPUT_LAST;
+}
+
+uint16_t windmill_output_keycode(uint16_t keycode) {
+    return is_key_output_target(keycode) ? get_key_output(keycode).plain : keycode;
+}
+
+/* 出力表で引くキーを送る。常に false (QMKには渡さない)。
+ *
+ * 出し分けないキーは、QMKが素のキーコードを処理するのと同じレポート列にする。
+ * 以前はキーマップに KC_1 や S(KC_1) を直接置いてQMKに任せていたので、そこから
+ * 挙動を変えないため。
+ *
+ * - 押下で register、解放で unregister。process_shift_pair() のように押下の中で
+ *   送り切ると、押しっぱなしにしてもキーリピートが効かなくなる
+ * - 押下のたびに weak mods を落とす。QMKは process_action() の頭でこれをやって
+ *   いる。落とさないと、「!」(Shift+1) を離す前に「=」を押したとき、「!」の
+ *   weak Shift が「=」にも乗って「+」に化ける
+ * - 機種側の process_record にも、素のキーコードとして渡す。geonix41 のブロブは
+ *   キーマップに直接置いていたころからこれらのキーを見ている */
+static bool process_key_output(uint16_t keycode, keyrecord_t *record) {
+    const key_output_t output = get_key_output(keycode);
+    if (output.shifted != KC_NO) {
+        return process_shift_pair(output.plain, output.shifted, record);
+    }
+
+    if (!windmill_board_process_record(output.plain, record)) return false;
+
+    if (record->event.pressed) {
+        clear_weak_mods();
+        register_code16(output.plain);
+    } else {
+        unregister_code16(output.plain);
+    }
+    return false;
+}
 
 /*
  * 親指Shift
@@ -513,23 +679,14 @@ static void set_host_os(uint8_t os) {
 }
 
 /* 記号レイヤーの数字・記号キーか (レイヤー配置と一致させること)。
- * 矢印キーとKC_TRNSで下位レイヤーに落ちるキーは含めない */
+ * 矢印キーとKC_TRNSで下位レイヤーに落ちるキーは含めない。
+ *
+ * 記号は記号レイヤー専用の独自キーコードなので、かなレイヤーの同じキーコードを
+ * 巻き込む心配が無い。数字だけは素のキーコードのまま (windmill.h 参照) */
 static bool is_sym_ime_wrap_target(uint16_t keycode) {
     switch (keycode) {
         case KC_1 ... KC_0:
-        case S(KC_1) ... S(KC_0):
-        case KC_GRV:
-        case S(KC_GRV):
-        case KC_EQL:
-        case S(KC_EQL):
-        case KC_MINS:
-        case S(KC_MINS):
-        case KC_LBRC:
-        case S(KC_LBRC):
-        case KC_RBRC:
-        case S(KC_RBRC):
-        case S(KC_BSLS):
-        case S(KC_SLSH):
+        case SY_EXLM ... SY_QUES:
             return true;
     }
     return false;
@@ -807,11 +964,19 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             // 切り替え完了前にキーが届いて全角のまま入力される
             tap_code16(KC_LNG2);
             wait_ms(IME_WAIT_MS);
-            tap_code16(keycode);
+            tap_code16(windmill_output_keycode(keycode));
             wait_ms(IME_WAIT_MS);
             tap_code16(KC_LNG1);
         }
         return false; // releaseも消費 (未registerのunregisterを防ぐ)
+    }
+
+    if (is_key_output_target(keycode)) { // 記号とかなのキー
+        // Android では Win+. を Alt+. に読み替える (issue #57)
+        if (keycode == SY_DOT_RABK && !process_android_gui_dot(record)) {
+            return false;
+        }
+        return process_key_output(keycode, record);
     }
 
     switch (keycode) {
@@ -852,15 +1017,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
             return false;
 
-        case MY_O: // O / 「 (OS依存)
-            return process_shift_pair(KC_O, is_android() ? S(KC_RBRC) : KC_LCBR, record);
-
-        case MY_P: // P / 」 (OS依存)
-            return process_shift_pair(KC_P, is_android() ? S(KC_BSLS) : KC_RCBR, record);
-
-        case MY_W ... MY_A: // Shiftで別の記号を出すキー
-            return process_shift_pair(my_shift_pairs[keycode - MY_W][0], my_shift_pairs[keycode - MY_W][1], record);
-
         case KANA_QMARK_KEY: // も。Shift+タップで半角「?」
             if (!process_kana_qmark(record)) {
                 return false;
@@ -878,12 +1034,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
             process_kana_mod(keycode, record);
             break; // 修飾そのものはQMKのmod-tapに任せる
-
-        case KC_DOT: // Android では Win+. を Alt+. に読み替える (issue #57)
-            if (!process_android_gui_dot(record)) {
-                return false;
-            }
-            break; // それ以外はQMKに任せる
 
         case KANA_FN_L: // そ。左右とも押している間は設定レイヤーへ (issue #62)
         case KANA_FN_R: // ね

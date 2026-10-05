@@ -95,33 +95,112 @@
  * keymaps[] のレイヤー0で使っているものと一致させること */
 #define MY_LCTL LCTL_T(KC_NO)
 
-/* カスタムキーコードの開始位置。通常は QK_KB_0 から。ただし geonix41 のように
- * ベンダーのライブラリが QK_KB_0 から自前のキーコードを並べている機種では、
- * ぶつからないよう後ろにずらす必要があるので、機種の config.h で上書きする。 */
-#ifndef WINDMILL_KEYCODE_BASE
-#    define WINDMILL_KEYCODE_BASE QK_KB_0
-#endif
-
-/* geonix41/minipeg48 から移植したカスタムキーコード。
- * MY_W 〜 MY_A は my_shift_pairs[] のインデックス (keycode - MY_W) に
- * 使っているので、並び順を変えないこと。 */
+/* 独自キーコード。全機種で QK_USER_0 から並べる。
+ *
+ * キーボード側のキーコードは QK_KB_0 から置くのがQMKの作法だが、そちらは
+ * QK_KB_MAX まで64個しか無い。記号とかなのキーを全て独自キーコードにした
+ * (issue #73) ので収まらず、geonix41 ではベンダーのライブラリ (rdr_lib) が
+ * QK_KB_0 から30個を使っているぶん、さらに狭い。QK_USER の範囲 (QK_USER_MAX まで
+ * 448個) は本来キーマップ用だが、このリポジトリのキーマップは全てここのキーコード
+ * だけで書いてあり、SAFE_RANGE から独自に足しているものは無い。
+ *
+ * 記号とかなのキー (KN_* / SY_*) がホストへ何を送るかは、windmill.c の出力表
+ * (key_outputs[]) が持つ。キーマップには「どの文字のキーか」だけを書き、
+ * 接続先の配列やOSで変わるキーコードは表の側で吸収する。
+ *
+ * LT() / MT() のタップ側には独自キーコードを置けない (8bitの基本キーコードしか
+ * 入らない)。かなレイヤー最下段の つ さ そ ひ こ み も ね と、英数レイヤーの
+ * LT(2,KC_BSLS) / LT(2,KC_SLSH) は素のキーコードのまま残してある。
+ *
+ * KN_NU 〜 SY_QUES は key_outputs[] のインデックス (keycode - KEY_OUTPUT_FIRST) に
+ * 使っている。足すときは表にも行を足すこと (tests/test_key_output.cpp が
+ * 全キーの出力を見ている)。 */
 enum windmill_keycodes {
-    MY_O = WINDMILL_KEYCODE_BASE, // Shift時: 「
-    MY_P,           // Shift時: 」
-    MY_W,           // Shift時: +
-    MY_R,           // Shift時: バックスラッシュ
-    MY_U,           // Shift時: -
-    MY_LBRC,        // Shift時: ]
-    MY_K,           // Shift時: <
-    MY_L,           // Shift時: >
-    MY_SCLN,        // Shift時: ?
-    MY_QUOT,        // Shift時: _
-    MY_A,           // Shift時: Z
-    MY_WIN,         // 言語切替とMY_O/MY_PのShift時出力をWindows/デスクトップ向けに (接続先ごとにEEPROM保存)
-    MY_ANDR,        // 同じくAndroid向けに。Win と Alt の扱いも変わる (windmill.c「Android での Win / Alt」参照)
-    MY_DARK,        // LEDの明るさ 強/弱 を切り替え (EEPROM保存。LED搭載機のみ)
-    MY_IME,         // ホスト側のIMEだけ切り替える (ベースレイヤーは動かさない)
+    MY_WIN = QK_USER_0, // 言語切替と「」の出し方をWindows/デスクトップ向けに (接続先ごとにEEPROM保存)
+    MY_ANDR,            // 同じくAndroid向けに。Win と Alt の扱いも変わる (windmill.c「Android での Win / Alt」参照)
+    MY_DARK,            // LEDの明るさ 強/弱 を切り替え (EEPROM保存。LED搭載機のみ)
+    MY_IME,             // ホスト側のIMEだけ切り替える (ベースレイヤーは動かさない)
+
+    /* かなレイヤー。名前はShift無しで出るかな。Shift時に別のかなを出すものは
+     * コメントに添えた。それ以外はOSのIMEに任せる (あ → ぁ、わ → を など) */
+    KN_NU,   // ぬ
+    KN_FU,   // ふ
+    KN_A,    // あ
+    KN_U,    // う
+    KN_E,    // え
+    KN_O,    // お
+    KN_YA,   // や
+    KN_YU,   // ゆ
+    KN_YO,   // よ
+    KN_WA,   // わ
+    KN_TA,   // た
+    KN_TE,   // て  Shift時: へ
+    KN_I,    // い
+    KN_SU,   // す  Shift時: む
+    KN_KA,   // か
+    KN_N,    // ん
+    KN_NA,   // な  Shift時: ほ
+    KN_NI,   // に
+    KN_RA,   // ら  Shift時: 「
+    KN_SE,   // せ  Shift時: 」
+    KN_DAKU, // ゛  Shift時: ゜
+    KN_CHI,  // ち  Shift時: っ
+    KN_TO,   // と
+    KN_SHI,  // し
+    KN_HA,   // は
+    KN_KI,   // き
+    KN_KU,   // く
+    KN_MA,   // ま
+    KN_NO,   // の  Shift時: 、
+    KN_RI,   // り  Shift時: 。
+    KN_RE,   // れ  Shift時: ・
+    KN_KE,   // け  Shift時: ー
+    KN_RU,   // る
+    KN_ME,   // め
+    KN_RO,   // ろ
+
+    /* 英数レイヤーの記号。「Shift無しの文字_Shift時の文字」の組で1つ */
+    SY_SCLN_COLN, // ; :
+    SY_QUOT_DQUO, // ' "
+    SY_COMM_LABK, // , <
+    SY_DOT_RABK,  // . >
+
+    /* 記号レイヤー。1キー1文字。is_sym_ime_wrap_target() が SY_EXLM 〜 SY_QUES を
+     * 範囲で見ているので、記号レイヤーのキーはこの間に足すこと */
+    SY_EXLM, // !
+    SY_AT,   // @
+    SY_HASH, // #
+    SY_DLR,  // $
+    SY_PERC, // %
+    SY_CIRC, // ^
+    SY_AMPR, // &
+    SY_ASTR, // *
+    SY_LPRN, // (
+    SY_RPRN, // )
+    SY_GRV,  // `
+    SY_EQL,  // =
+    SY_PLUS, // +
+    SY_MINS, // -
+    SY_UNDS, // _
+    SY_LBRC, // [
+    SY_RBRC, // ]
+    SY_TILD, // ~
+    SY_LCBR, // {
+    SY_RCBR, // }
+    SY_PIPE, // |
+    SY_QUES, // ?
+
+    WINDMILL_KEYCODE_END, // 番兵。キーマップには置かない
 };
+
+// 出力表 (windmill.c の key_outputs[]) で引くキーの範囲
+#define KEY_OUTPUT_FIRST KN_NU
+#define KEY_OUTPUT_LAST  SY_QUES
+
+/* 出力表で引くキーなら、Shift無しでホストへ送るキーコードを返す。それ以外は
+ * そのまま返す。キーマップのキーコードを素のキーコードとして読みたい機種側の
+ * 処理 (geonix41 のブロブ) 向け */
+uint16_t windmill_output_keycode(uint16_t keycode);
 
 #ifdef WINDMILL_LED_ENABLE
 

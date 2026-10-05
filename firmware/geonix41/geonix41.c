@@ -22,22 +22,28 @@
 #include "windmill.h"
 #include "../../../lib/rdr_lib/rdr_common.h"
 
-/* rdr_lib 側の enum が増減して MY_* の値がズレたときに検知する番兵。
- * ズレるとブロブが自分のキーコードとして MY_* を食ってしまう。 */
-_Static_assert((int)MY_O == (int)QMK_KB_BLE3_PAIR + 1,
-               "WINDMILL_KEYCODE_BASE が rdr_lib の Custom_Keycodes とぶつかっている");
+/* rdr_lib は QK_KB_0 から自前のキーコード (Custom_Keycodes) を並べている。
+ * windmill の独自キーコードは QK_USER_0 から (windmill.h 参照) なので離れているが、
+ * rdr_lib 側の enum が伸びて届いてしまったときに検知する番兵。
+ * 重なるとブロブが自分のキーコードとして windmill のキーを食ってしまう。 */
+_Static_assert((int)QMK_KB_BLE3_PAIR < (int)MY_WIN,
+               "windmill の独自キーコードが rdr_lib の Custom_Keycodes とぶつかっている");
 
 /* ブロブは VIA / RAW HID ありきでビルドされているので、それらを無効にした
  * この構成では未定義参照になる。同等に振る舞うスタブで埋める。 */
 #if !defined(VIA_ENABLE)
 #    include "keymap_introspection.h"
 
-// BLEペアリングコード等の自動入力用。静的キーマップのレイヤー0から引く
+/* BLEペアリングコード等の自動入力用。静的キーマップのレイヤー0から引く。
+ *
+ * ブロブは引いたキーコードの下位8bitをそのまま register_code() へ渡す。
+ * レイヤー0(かな)のキーはほとんどが独自キーコード (KN_*) で、下位8bitだけ
+ * 読まれると無関係なキーに化ける。ホストへ送るキーコードに直してから返す */
 uint16_t dynamic_keymap_get_keycode(uint8_t layer, uint8_t row, uint8_t column) {
     if (layer >= keymap_layer_count()) {
         return KC_NO;
     }
-    return keymap_key_to_keycode(layer, (keypos_t){.row = row, .col = column});
+    return windmill_output_keycode(keymap_key_to_keycode(layer, (keypos_t){.row = row, .col = column}));
 }
 #endif
 
@@ -174,7 +180,7 @@ uint8_t windmill_board_host(void) {
     return WINDMILL_HOST_USB;
 }
 
-/* スリープ抑止。MY_* のように windmill が途中で消費するキーでも効かせたいので、
+/* スリープ抑止。独自キーコードのように windmill が途中で消費するキーでも効かせたいので、
  * process_record ではなく pre_process 側で行う */
 void windmill_board_pre_process_record(uint16_t keycode, keyrecord_t *record) {
     Usb_Change_Mode_Delay  = 0;
@@ -183,6 +189,7 @@ void windmill_board_pre_process_record(uint16_t keycode, keyrecord_t *record) {
 
 bool windmill_board_process_record(uint16_t keycode, keyrecord_t *record) {
     // 無線モード切替など、ブロブ側のキーコードはここで処理される。
-    // windmill が消費した MY_* は元の実装でもここへは来ていない
+    // windmill の独自キーコードは来ない。記号とかなのキーのうちShiftで出し分けない
+    // ものは、ホストへ送る素のキーコードに直されて来る (windmill.c の process_key_output)
     return Key_Value_Dispose(keycode, record);
 }

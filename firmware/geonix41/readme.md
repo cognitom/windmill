@@ -63,9 +63,13 @@ Windmill でこの2ファイルを持つのはこの機種だけ。
 ## キーコードの番号
 
 `rdr_lib` が `QK_KB_0` から30個、自前のキーコード (無線モード切替など) を並べている。
-Windmill の `MY_*` はぶつからないよう `QK_KB_30` から始める
-(`config.h` の `WINDMILL_KEYCODE_BASE`)。ズレたら `geonix41.c` の
-`_Static_assert` が検知する。
+Windmill の独自キーコード (`MY_*` / `KN_*` / `SY_*`) は全機種で `QK_USER_0` から
+並べているので重ならない (`firmware/windmill.h`)。`rdr_lib` 側が伸びて届いたら
+`geonix41.c` の `_Static_assert` が検知する。
+
+ブロブはキーマップのレイヤー0を `dynamic_keymap_get_keycode()` で引き、下位8bitを
+そのまま `register_code()` へ渡すことがある。レイヤー0(かな)は独自キーコードが
+ほとんどなので、`geonix41.c` のスタブでホストへ送るキーコードに直してから返している。
 
 ## LED
 
