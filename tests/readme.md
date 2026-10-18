@@ -37,7 +37,7 @@ issue #36 は、そのレポート列すら1打鍵目と2打鍵目で完全に�
 `EXPECT_REPORT(...).WillOnce(...)` で `timer_read()` を控えて間隔も突き合わせる
 (`ShiftPair.unshifted_pair_waits_for_ime_on_first_keypress`)。
 
-「こ」+「み」同時押しの半角スペースも同じ罠だった
+「こ」の Shift 中に「み」をタップした半角スペースも同じ罠だった
 (`ThumbShift.space_drops_shift_in_its_own_report`)。こちらは `del_mods()`/`set_mods()` が
 レポートを送らないぶん、1本目が `[LSFT]` → `[KC_SPC]` と「Shiftを離す」と「Spaceを押す」を
 まとめた形になっていて、レポート列と間隔の両方を見る必要がある。
@@ -59,7 +59,8 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_shift_pair.cpp` | 親指Shift + `process_shift_pair()` のレポート列 |
 | `test_key_output.cpp` | 記号とかなのキー (独自キーコード `KN_*` / `SY_*`) の出力を、かな・英数・記号の3レイヤーの全キーぶん総当たりで見る。期待値は独自キーコードにする前の出力そのもので、出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。押しっぱなしでリピートが効くこと、記号を続けて打っても Shift が次のキーへ漏れないことも見る (issue #73) |
 | `test_kana_qmark.cpp` | かなレイヤーの「も」でのShift+タップ (半角`?`) のレポート列 |
-| `test_thumb_shift.cpp` | 左右の親指Shiftの持ち替え (ハンドオーバー) と同時押しスペースのレポート列 |
+| `test_thumb_shift.cpp` | かなレイヤーの親指Shift (こ = 左Shift / み = 右Shift) の持ち替え (ハンドオーバー) と、相方の Shift 中のタップで出す半角スペースのレポート列 |
+| `test_tap_hold.cpp` | かなレイヤー最下段 (`KT_*`) のタップ・ホールドの判定 (issue #83)。issue のケース a〜o をそのまま固定し、150ms / 250ms の前後で結果が切り替わること、待たせている間はレポートが出ないこと、待っていたキーが押した順に出ること、相方がホールド中なら待たないことを見る。押し方は時刻の並び (`Timeline`) で書く |
 | `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左右とも同じキーコード) の持ち替え (ハンドオーバー) のレポート列 |
 | `test_hold_layer.cpp` | Ctrl / Win / Alt のホールド中だけ英数レイヤーへ移ることのレポート列 |
 | `test_lang_toggle.cpp` | Ctrl (`MY_LCTL`) のタップでの言語切替。OSごとの送るキーとベースレイヤーの反転、Fn+Ctrl (`MY_IME`) がIMEだけを切り替えることのレポート列 |

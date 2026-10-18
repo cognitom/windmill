@@ -24,8 +24,8 @@
  *
  * 壊しやすいのは離すほう。QMKのレイヤーは参照カウントを持たないので、片方の
  * Fnを離したときにFnレイヤーごと落ちたり、設定レイヤーが残ったりしないことを
- * 左右それぞれで見る。かなレイヤーの LT(3,KC_C) / LT(3,KC_COMMA) と英数レイヤーの
- * MO(3) とでキーコードが違うので、両方のベースで通す。 */
+ * 左右それぞれで見る。かなレイヤーの KT_SO / KT_NE (ホールドの判定ごと自前) と
+ * 英数レイヤーの MO(3) とで扱いが違うので、両方のベースで通す。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -187,15 +187,15 @@ TEST_F(ConfLayer, releasing_right_fn_returns_to_fn_layer_and_back) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* かなベースでは Fn が LT() になる。片方を離すイベントを消費しても、
- * 残りを離せばかなへ戻る (Fnレイヤーへ貼りつかない) */
+/* かなベースでは Fn が KT_SO / KT_NE になる。片方を離しても、もう片方が
+ * 残っていればFnレイヤーのまま。残りを離せばかなへ戻る (Fnレイヤーへ貼りつかない) */
 TEST_F(ConfLayer, releasing_one_fn_on_kana_returns_to_fn_layer) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    auto fn_l = key(POS_FN_L); // そ  LT(3,KC_C)
-    auto fn_r = key(POS_FN_R); // ね  LT(3,KC_COMMA)
+    auto fn_l = key(POS_FN_L); // そ  KT_SO
+    auto fn_r = key(POS_FN_R); // ね  KT_NE
     auto win  = key(POS_WIN);  // 設定 = MY_WIN / Fn = KC_F11 / かな = KC_Q
 
     {
@@ -210,7 +210,7 @@ TEST_F(ConfLayer, releasing_one_fn_on_kana_returns_to_fn_layer) {
     run_one_scan_loop();
     fn_r.press();
     run_one_scan_loop();
-    idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    idle_for(250); // 250ms 超え。ホールド確定
     tap_key(win, 50);
     idle_for(50);
     fn_l.release();
@@ -241,7 +241,7 @@ TEST_F(ConfLayerAlpha, both_fn_reach_conf_layer) {
     expect_lang_toggle(this, driver, true);
 }
 
-/* かなベース (LT(3,KC_C) / LT(3,KC_COMMA)) でも同じ */
+/* かなベース (KT_SO / KT_NE) でも同じ */
 TEST_F(ConfLayerKana, both_fn_reach_conf_layer) {
     TestDriver driver;
     set_windmill_keymap();
@@ -255,9 +255,12 @@ TEST_F(ConfLayerKana, both_fn_reach_conf_layer) {
     expect_lang_toggle(this, driver, true);
 }
 
-/* 別キー割り込みでホールドが確定する経路 (HOLD_ON_OTHER_KEY_PRESS)。
- * TAPPING_TERM を待たずに3つ続けて押しても、割り込んだ設定キー自身が
- * 設定レイヤーで解決される。「そ」「ね」も出ない */
+/* 最下段以外のキーの押下でホールドが決まる経路 (issue #83)。
+ *
+ * 「ね」は「そ」の 20ms 後に押したので、「そ」が決まるまで待たされ、その後も
+ * 自分の判定は付かないまま。押してから 150ms 以上たって設定キーを押すと、
+ * その押下で「ね」がホールドに決まり、設定キー自身は設定レイヤーで解決される。
+ * 「そ」「ね」も出ない */
 TEST_F(ConfLayerKanaInterrupt, both_fn_confirmed_by_interrupt) {
     TestDriver driver;
     set_windmill_keymap();
@@ -268,11 +271,9 @@ TEST_F(ConfLayerKanaInterrupt, both_fn_confirmed_by_interrupt) {
 
     EXPECT_NO_REPORT(driver);
     fn_l.press();
-    run_one_scan_loop();
     idle_for(20);
     fn_r.press();
-    run_one_scan_loop();
-    idle_for(20);
+    idle_for(180); // ね を押して 180ms。250ms 前で、後から押されたキーも無いので未判定
     tap_key(key(POS_ANDR), 20);
     idle_for(20);
     fn_r.release();

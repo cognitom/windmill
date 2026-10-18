@@ -95,7 +95,13 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
 
 ## 用語
 
-- **SandS** — Spaceをホールドすると Shift になる。実装は `process_thumb_shift()`
+- **SandS** — 英数レイヤーの Space をホールドすると Shift になる。QMK の `LSFT_T(KC_SPC)` で、
+  左右の持ち替えだけ `process_alpha_thumb_shift()` が持つ
+- **最下段のタップ・ホールド** — かなレイヤー最下段の8キー (`KT_*`。つ さ そ ひ こ み も ね) は、
+  タップとホールドの判定を QMK に任せず自前で持つ。150ms 未満に押された他のキーは判定が付くまで
+  待たせて、押した順に流し直す。実装は `process_tap_hold()` (入口) と `tap_hold_check_time()` (時間の判定)
+- **相方** — 最下段で同じ役割の組 (こ / み、そ / ね、ひ / も) のもう片方。相方がホールド中なら
+  後のキーを待たせない。相方の Shift 中にタップした こ / み は半角スペース
 - **出力表** — 記号とかなのキーは独自キーコード (`KN_*` / `SY_*`) で、ホストへ送るキーは
   `key_outputs[]` のテーブル引きで決める。列は接続先の配列 (今は US だけ)。
   実装は `process_key_output()`
@@ -104,4 +110,5 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
 - **レイヤー** — `LAYER_KANA`(0) / `LAYER_ALPHA`(1) / `LAYER_SYM`(2) / `LAYER_FN`(3) /
   `LAYER_CONF`(4)。0と1がベースレイヤーで `default_layer_set()` で切り替える
 - **設定レイヤー** — `LAYER_CONF`。左右のFnを両方ホールドしている間だけ有効になる。
-  配置は全機種で共通。実装は `process_fn()`
+  配置は全機種で共通。実装は `update_conf_layer()` (英数の Fn は `process_fn()`、かなの Fn は
+  `fn_hold_on()` / `fn_hold_off()` から呼ぶ)

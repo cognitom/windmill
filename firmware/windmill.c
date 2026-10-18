@@ -17,8 +17,9 @@
 /* Windmill 共通処理。
  *
  * キー処理は geonix41/minipeg48 からの移植で、QMK標準の mod-tap / layer-tap /
- * default_layer_set を使う。かな入力はOS側のIMEに任せる (レイヤー0が素の
- * QWERTY+数字段で、標準のJISかな配置になる)。
+ * default_layer_set を使う。ただし、かなレイヤー最下段のタップ・ホールドだけは
+ * 自前で判定する (「かなレイヤー最下段のタップ・ホールド」参照)。かな入力は
+ * OS側のIMEに任せる (レイヤー0が素のQWERTY+数字段で、標準のJISかな配置になる)。
  *
  * LEDはキーコードの種類ごとに色を割り当てる独自実装で、こちらは従来のまま。
  * LED非搭載機 (minipeg48) では WINDMILL_LED_ENABLE が立たず、配色処理は
@@ -273,8 +274,8 @@ static bool process_led_timeout(uint16_t keycode, keyrecord_t *record) {
  * が、まだ押している側のぶんまで落としてしまう。 */
 #define HOLD_LAYER LAYER_ALPHA
 
-static uint8_t hold_layer_mods = 0; // レイヤーを上げている修飾 (MOD_BIT)
-static uint8_t hold_layer_seen = 0; // そのうちホストへ出たのを確認済みのもの
+static uint8_t hold_layer_mods      = 0;     // レイヤーを上げている修飾 (MOD_BIT)
+static bool    hold_layer_ctrl_seen = false; // Ctrl がホストへ出たのを確認済みか (update_hold_layer 参照)
 
 static void hold_layer_on(uint8_t mod) {
     if (!hold_layer_mods) layer_on(HOLD_LAYER);
@@ -283,7 +284,7 @@ static void hold_layer_on(uint8_t mod) {
 
 static void hold_layer_off(uint8_t mod) {
     hold_layer_mods &= ~mod;
-    hold_layer_seen &= ~mod;
+    if (mod & MOD_BIT(KC_LEFT_CTRL)) hold_layer_ctrl_seen = false;
     if (!hold_layer_mods) layer_off(HOLD_LAYER);
 }
 
@@ -293,7 +294,7 @@ static void hold_layer_off(uint8_t mod) {
  * QMK標準の mod-tap (LCTL_T(KC_NO)、windmill.h 参照)。tapping term の計測も、
  * 別キー割り込みでのホールド確定 (HOLD_ON_OTHER_KEY_PRESS) も、Ctrl の
  * 上げ下げも QMK がやる。ここはタップ時の言語切替と、ホールド中だけ英数
- * レイヤーへ移すぶんだけを持つ。Win(つ) / Alt(さ) と同じ扱い。
+ * レイヤーへ移すぶんだけを持つ。Win(つ) / Alt(さ) のホールドと同じ役割。
  *
  * タップした直後 (QUICK_TAP_TERM = TAPPING_TERM 以内) に押し直すと、QMKは
  * ホールドではなくタップの繰り返しとみなす。MY_LCTL のタップ側は KC_NO で
@@ -562,7 +563,11 @@ static bool is_key_output_target(uint16_t keycode) {
     return keycode >= KEY_OUTPUT_FIRST && keycode <= KEY_OUTPUT_LAST;
 }
 
+static uint8_t tap_hold_tap_keycode(uint16_t keycode);
+static bool    is_tap_hold_key(uint16_t keycode);
+
 uint16_t windmill_output_keycode(uint16_t keycode) {
+    if (is_tap_hold_key(keycode)) return tap_hold_tap_keycode(keycode);
     return is_key_output_target(keycode) ? get_key_output(keycode).plain : keycode;
 }
 
@@ -597,83 +602,22 @@ static bool process_key_output(uint16_t keycode, keyrecord_t *record) {
 }
 
 /*
- * 親指Shift
- */
-
-/* tap = B/N, hold = Shift (QMKのtap-holdのまま),
- * tap with Shift = 半角スペース (Shift抑制)。ただしShift開始後に
- * 他のキーを押していたら誤入力ガードとして反応しない */
-
-// Shift(親指hold)開始後に他のキーが押されたらダーティ
-static bool thumb_shift_dirty = false;
-
-/* Shiftとしてホールド中の親指Shift。左右で1ビットずつ持つ。
- *
- * 左右とも左Shiftになった (issue #37) ので、QMKの修飾ビットは両者で共有される。
- * 参照カウントが無いため、素のままだと先に離したほうの unregister_mods() で
- * Shiftが落ち、もう片方を押していてもホストからはShiftが離れて見える。
- * 押しっぱなしのほうが残っているうちは離すイベントごと消費して、
- * 持ち替え (ハンドオーバー) を途切れさせない。 */
-static uint8_t thumb_shift_held = 0;
-
-#define THUMB_SHIFT_BIT(keycode) ((keycode) == THUMB_SHIFT_B ? 1 : 2)
-
-// falseを返したらそのイベントは消費済み(以降の処理をスキップ)
-static bool process_thumb_shift(uint16_t keycode, keyrecord_t *record) {
-    if (record->tap.count && record->event.pressed) { // tap確定
-        const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
-        if (shift) {
-            if (!thumb_shift_dirty) {
-                /* 実Shiftを外してから半角スペースを送る。
-                 *
-                 * 以前は del_mods()/set_mods() で real_mods を書き換えていた。この2つは
-                 * レポートを送らないので、ホストへ届く1本目が
-                 *
-                 *   [LSFT] (ホールド確定) → [KC_SPC]
-                 *
-                 * と、「Shiftを離す」と「Spaceを押す」を1本にまとめた形になっていた。
-                 * しかも同時押しでは、もう片方の押下がホールドを確定させる
-                 * (HOLD_ON_OTHER_KEY_PRESS) ので、その1本はホールド確定の直後に出る。
-                 * IMEがShiftの上げ下げを追い切れず、1打鍵目だけShiftが乗ったままに
-                 * なっていた。2打鍵目以降が無事なのは前のレポートから間が空いている
-                 * だけの話で、process_shift_pair() の「Shiftを外して送る」経路と
-                 * 同じ症状 (issue #36)。
-                 *
-                 * register系に変えてShiftを外すレポートを1本独立させ、あわせて
-                 * そちらと同じウェイトを挟んで順序を保証する。 */
-                wait_ms(IME_WAIT_MS);
-                unregister_mods(shift);
-                wait_ms(IME_WAIT_MS);
-                tap_code16(KC_SPC);
-                wait_ms(IME_WAIT_MS);
-                register_mods(shift);
-            }
-            return false; // ダーティ時は何も出さない
-        }
-    } else if (!record->tap.count && record->event.pressed) { // hold確定 = Shift開始
-        thumb_shift_dirty = false;
-        thumb_shift_held |= THUMB_SHIFT_BIT(keycode);
-    } else if (!record->event.pressed && !record->tap.count) { // hold解放
-        thumb_shift_held &= ~THUMB_SHIFT_BIT(keycode);
-        // もう片方がまだShiftとして押されているなら、QMKに離させない
-        if (thumb_shift_held) return false;
-    }
-    return true; // 通常のtap(B/N)とholdはQMKに任せる
-}
-
-/*
  * 英数レイヤーの親指Shift (SandS) のハンドオーバー
  */
 
-/* 左右とも ALPHA_THUMB_SHIFT (LSFT_T(KC_SPC)) で同じキーコードなので、
- * かなレイヤーの THUMB_SHIFT_BIT のようにキーコードでは左右を区別できない。
- * windmill.h の説明どおり matrix の列 (col) で見分ける (issue #40)。
- * 列は機種ごとに違いうるので、値は windmill.h / 機種の config.h が持つ (issue #68)。
+/* 左右とも ALPHA_THUMB_SHIFT (LSFT_T(KC_SPC)) で同じ左Shiftになる。QMKの修飾は
+ * ビットマスクで参照カウントを持たないので、素のままだと先に離したほうの
+ * unregister_mods() でShiftが落ち、もう片方を押していてもホストからはShiftが
+ * 離れて見える。押しっぱなしのほうが残っているうちは離すイベントごと消費して、
+ * 持ち替え (ハンドオーバー) を途切れさせない。
  *
- * 参照カウントを持たないと片方を持ち替えたときにShiftごと落ちる理屈は
- * process_thumb_shift と同じ。ただし英数レイヤーはIMEを介さないぶん単純で、
- * Shift+タップ (半角スペース) はそのままQMKに任せてよく、ウェイトを挟んだ
- * 送出のやり直しは要らない。 */
+ * キーコードでは左右を区別できないので、windmill.h の説明どおり matrix の列
+ * (col) で見分ける (issue #40)。列は機種ごとに違いうるので、値は windmill.h /
+ * 機種の config.h が持つ (issue #68)。
+ *
+ * かなレイヤーの こ / み (KT_KO / KT_MI) は左右で別の Shift にしたので、この
+ * 持ち替えの手当ては要らない。英数レイヤーはIMEを介さないので、Shift+タップ
+ * (半角スペース) もそのままQMKに任せてよい。 */
 static uint8_t alpha_thumb_shift_held = 0;
 
 #define ALPHA_THUMB_SHIFT_BIT(record) ((record)->event.key.col == ALPHA_THUMB_SHIFT_L_COL ? 1 : 2)
@@ -728,7 +672,7 @@ static bool is_sym_ime_wrap_target(uint16_t keycode) {
     return false;
 }
 
-/* LT(2,KC_M) (も) をShiftを押しながらタップしたら、半角「?」を送る。かな入力の
+/* 「も」(KT_MO) をShiftを押しながらタップしたら、半角「?」を送る。かな入力の
  * ままでは打てない記号なので、Symレイヤーの数字・記号と同じ要領で英数へ
  * 切り替えてから送出し、かなへ戻す (issue #17)。
  *
@@ -751,95 +695,66 @@ static bool is_sym_ime_wrap_target(uint16_t keycode) {
  * こぼすため。del_mods()/set_mods() ではなく register/unregister を使うのは、
  * ホスト側にもShiftの上げ下げを届ける必要があるから (これも issue #18)。
  *
- * ホールド (Symレイヤーへの遷移) はQMKの通常のLT()処理に任せる */
-static bool process_kana_qmark(keyrecord_t *record) {
-    if (record->tap.count && record->event.pressed) { // タップ確定
-        const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
-        if (shift) {
-            unregister_mods(shift); // モード切り替えの間だけ実Shiftを外す
-            wait_ms(IME_WAIT_MS);
-            tap_code16(KC_LNG2); // 英数へ
-            wait_ms(IME_WAIT_MS);
-            register_mods(shift); // 押されていたShiftをそのまま戻して「?」に使う
-            wait_ms(IME_WAIT_MS);
-            tap_code(KC_SLSH);
-            wait_ms(IME_WAIT_MS);
-            unregister_mods(shift);
-            wait_ms(IME_WAIT_MS);
-            tap_code16(KC_LNG1); // かなへ
-            wait_ms(IME_WAIT_MS);
-            register_mods(shift); // 押しっぱなしの実Shiftを戻す
-            return false;
-        }
-    }
-    return true; // Shiftなしのタップ、ホールドはQMKに任せる
+ * タップかどうかの判定は tap_hold_tap() が持つ。ここはShiftが押されているときの
+ * 送出だけ */
+static void send_kana_qmark(void) {
+    const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
+
+    unregister_mods(shift); // モード切り替えの間だけ実Shiftを外す
+    wait_ms(IME_WAIT_MS);
+    tap_code16(KC_LNG2); // 英数へ
+    wait_ms(IME_WAIT_MS);
+    register_mods(shift); // 押されていたShiftをそのまま戻して「?」に使う
+    wait_ms(IME_WAIT_MS);
+    tap_code(KC_SLSH);
+    wait_ms(IME_WAIT_MS);
+    unregister_mods(shift);
+    wait_ms(IME_WAIT_MS);
+    tap_code16(KC_LNG1); // かなへ
+    wait_ms(IME_WAIT_MS);
+    register_mods(shift); // 押しっぱなしの実Shiftを戻す
 }
 
 /*
- * かなレイヤーの Win(つ) / Alt(さ)
+ * かなベースでの英数レイヤーの Win / Alt
  */
 
-/* ホールド中は英数レイヤーへ移す (issue #34)。修飾そのものはQMKの mod-tap
- * (LGUI_T(KC_Z) / LALT_T(KC_X)) のままで、レイヤーの上げ下げだけを見る。
+/* Ctrl を先に押していると英数レイヤーが既に上がっていて、つ / さ の位置は
+ * かなレイヤーの KT_TSU / KT_SA ではなく英数レイヤー側の素の KC_LGUI / KC_LALT
+ * として解決される。つ のホールド中に さ を押したときも同じ。これも数えないと、
+ * 先に Ctrl (や つ) を離した時点で英数レイヤーが落ち、Win / Alt を押したまま
+ * かなで解決されてしまう (issue #34)。
  *
- * 上げるのは process_record_kb() のホールド確定時。ここはタップかホールドかが
- * 確定してから呼ばれるので、別キー割り込みで確定する場合
- * (HOLD_ON_OTHER_KEY_PRESS) でも、割り込みキーの解決に間に合う。
- * MY_LCTL も同じ mod-tap になったので、扱いは揃っている。
- *
- * Ctrlを先に押していると英数レイヤーが既に上がっていて、つ/さ の押下は mod-tap
- * ではなく英数レイヤー側の素の KC_LGUI / KC_LALT として解決される。そちらも
- * 数えないと、Ctrlを先に離した時点でレイヤーが落ちてしまう。 */
-static void process_kana_mod(uint16_t keycode, keyrecord_t *record) {
-    if (!record->event.pressed) return;
-    if (get_highest_layer(default_layer_state) != LAYER_KANA) return; // 英数ベースなら何もしない
+ * 離すほうは、押したときのレイヤーで引き直される (QMK の source layers cache) ので、
+ * 必ず同じ KC_LGUI / KC_LALT として届く。 */
+static void process_alpha_gui_alt(uint16_t keycode, keyrecord_t *record) {
+    const uint8_t mod = (keycode == KC_LGUI) ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
 
-    uint8_t mod;
-    switch (keycode) {
-        case KANA_GUI_KEY:
-        case KANA_ALT_KEY:
-            if (record->tap.count) return; // タップ (つ / さ) はレイヤーを動かさない
-            mod = (keycode == KANA_GUI_KEY) ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
-            break;
-        default: // 英数レイヤー側の素の KC_LGUI / KC_LALT
-            mod = (keycode == KC_LGUI) ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
-            break;
+    if (!record->event.pressed) {
+        if (hold_layer_mods & mod) hold_layer_off(mod);
+        return;
     }
+    if (get_highest_layer(default_layer_state) != LAYER_KANA) return; // 英数ベースなら何もしない
     hold_layer_on(mod);
 }
 
-/* レイヤーを下ろすのは、キーの解放イベントではなく**ホストへ出ている修飾**を
- * 毎スキャン見て判断する。
+/* Ctrl (MY_LCTL) のぶんのレイヤーを下ろすのは、キーの解放イベントではなく
+ * **ホストへ出ている修飾**を毎スキャン見て判断する。
  *
- * 自分で英数レイヤーを上げたせいで、つ/さ の位置は解放時に mod-tap ではなく
- * 英数レイヤー側の素の KC_LGUI として引き直されることがある。英数レイヤーの
- * 同じ位置は `_______` ではなく KC_LGUI / KC_LALT なので下位レイヤーへ落ちない。
- * mod-tap のキーコードで解放を待つとそれが永久に来ず、英数レイヤーへ貼りついた
- * まま戻れなくなる。MY_LCTL が同じ罠にかからないのは、英数レイヤーの最下段
- * 左端がたまたま透過だから。
+ * MY_LCTL は QMK の mod-tap なので、Ctrl の上げ下げは QMK が持っている。解放が
+ * どのキーコードで解決されようと、修飾の状態を見るなら必ず戻るし、英数レイヤーの
+ * 並びを変えても壊れない。ただしレイヤーを上げた直後は、QMKがまだ修飾を
+ * register していないスキャンがありうる。一度ホストへ出たのを確認してから下ろす。
  *
- * 修飾の状態を見るなら解放がどちらのキーコードで解決されようと必ず戻るし、
- * 英数レイヤーの並びを変えても壊れない。ただしレイヤーを上げた直後は、QMKが
- * まだ修飾を register していないスキャンがありうる。一度ホストへ出たのを
- * 確認してから下ろす。 */
+ * Win(つ) / Alt(さ) はかつて同じ形だったが、今はホールドの上げ下げを自前で持つ
+ * (tap_hold_start / tap_hold_end) ので、ここでは見ない。 */
 static void update_hold_layer(void) {
-    // {レイヤーを上げている印, ホストへ出ているか見る修飾} の対。左右どちらでも数える
-    static const uint8_t watch[][2] = {
-        {MOD_BIT(KC_LEFT_CTRL), MOD_MASK_CTRL},
-        {MOD_BIT(KC_LEFT_GUI), MOD_MASK_GUI},
-        {MOD_BIT(KC_LEFT_ALT), MOD_MASK_ALT},
-    };
-    const uint8_t mods = get_mods();
+    if (!(hold_layer_mods & MOD_BIT(KC_LEFT_CTRL))) return;
 
-    for (uint8_t i = 0; i < ARRAY_SIZE(watch); ++i) {
-        const uint8_t bit = watch[i][0], mask = watch[i][1];
-        if (!(hold_layer_mods & bit)) continue;
-
-        if (mods & mask) {
-            hold_layer_seen |= bit;
-        } else if (hold_layer_seen & bit) {
-            hold_layer_off(bit);
-        }
+    if (get_mods() & MOD_MASK_CTRL) {
+        hold_layer_ctrl_seen = true;
+    } else if (hold_layer_ctrl_seen) {
+        hold_layer_off(MOD_BIT(KC_LEFT_CTRL));
     }
 }
 
@@ -856,24 +771,22 @@ static void update_hold_layer(void) {
  * - Win を押して、他のキーを何も挟まずに離すと、アプリ一覧が開く
  *
  * かなレイヤーの「つ」「さ」は隣り合った Win / Alt なので、続けて打つだけで
- * 前者を踏む。別キー割り込みで「つ」のホールドが確定し (HOLD_ON_OTHER_KEY_PRESS)、
- * 「さ」は上がった英数レイヤーの素の KC_LALT になるため。 */
+ * 前者を踏みうる。「つ」のホールド中は英数レイヤーが上がり、「さ」はそこの素の
+ * KC_LALT になるため。 */
 
 /* 押下を握りつぶした修飾 (MOD_BIT)。離すイベントも消費するために覚える。
  * 握りつぶしたほうは、先に押したほうを離しても出さない。出すと押した覚えの無い
  * 修飾が遅れて効くことになる */
 static uint8_t android_blocked_mods = 0;
 
-/* Win と Alt は後から押したほうをホストへ出さない。
+/* Win と Alt は後から押したほうをホストへ出さない。英数レイヤーの素の
+ * KC_LGUI / KC_LALT と、かなレイヤーの つ / さ のホールド (tap_hold_start) の両方から呼ぶ。
  * falseを返したらそのイベントは消費済み(以降の処理をスキップ) */
-static bool process_android_gui_alt(uint16_t keycode, keyrecord_t *record) {
-    if (record->tap.count) return true; // タップ (つ / さ) は修飾ではない
+static bool process_android_gui_alt(bool is_gui, bool pressed) {
+    const uint8_t mod   = is_gui ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
+    const uint8_t other = is_gui ? MOD_MASK_ALT : MOD_MASK_GUI;
 
-    const bool    is_gui = (keycode == KANA_GUI_KEY || keycode == KC_LGUI);
-    const uint8_t mod    = is_gui ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
-    const uint8_t other  = is_gui ? MOD_MASK_ALT : MOD_MASK_GUI;
-
-    if (!record->event.pressed) {
+    if (!pressed) {
         // 押下時のOS設定は見ない。押している間に設定を変えても離すぶんは消費する
         if (!(android_blocked_mods & mod)) return true;
         android_blocked_mods &= ~mod;
@@ -903,8 +816,7 @@ static bool android_gui_dot_sent = false;
  * ただ離すだけだとアプリ一覧が開いてしまうので、離す前に空打ちを挟む。
  * 押し直したあとも同じで、挟まないと指を離したときに開く。
  *
- * 押下の中で送り切るのは、Win を外している間にスキャンを挟まないため。
- * 挟むと update_hold_layer() が Win を離したものと見て英数レイヤーを下ろす。
+ * 押下の中で送り切って、Win を外している間に他のキーの処理を挟まない。
  * falseを返したらそのイベントは消費済み(以降の処理をスキップ) */
 static bool process_android_gui_dot(keyrecord_t *record) {
     if (!record->event.pressed) {
@@ -937,35 +849,52 @@ static bool process_android_gui_dot(keyrecord_t *record) {
  * 設定レイヤーが残り、「両方押している間だけ」にならない。そこでホールド中の
  * Fnを左右1ビットずつ覚えて、レイヤーの上げ下げを自前で持つ。
  *
- * Fnレイヤーのほうは QMK の LT() / MO() のまま。ただしQMKのレイヤーは参照カウントを
- * 持たないので、素のままだと先に離したほうの layer_off() が、まだ押している側の
- * ぶんまで落としてしまう。片方が残っているうちは離すイベントごと消費して、
- * Fnレイヤーへ戻れるようにする (親指Shiftのハンドオーバーと同じ理屈)。
+ * かなレイヤーの Fn (そ / ね) はホールドの判定ごと自前なので、Fnレイヤーの上げ下げも
+ * ここで持つ (fn_hold_on / fn_hold_off)。英数レイヤーの Fn は QMK の MO() のまま。
+ * ただしQMKのレイヤーは参照カウントを持たないので、素のままだと先に離したほうの
+ * layer_off() が、まだ押している側のぶんまで落としてしまう。片方が残っているうちは
+ * 離すイベントごと消費して、Fnレイヤーへ戻れるようにする (process_fn)。
  *
- * 設定レイヤーの Fn の位置は必ず透過にしておくこと。2つ目のFnの押下でここが
- * レイヤーを上げると、QMKはそのキー自身のアクションを上げた後のレイヤーで
- * 引き直す (process_kana_mod と同じ罠)。透過でないと解放がFnとして解決されず、
- * 設定レイヤーへ貼りついたまま戻れなくなる。 */
+ * 英数レイヤーでは、設定レイヤーの Fn の位置を必ず透過にしておくこと。2つ目のFnの
+ * 押下でここがレイヤーを上げると、QMKはそのキー自身のアクションを上げた後の
+ * レイヤーで引き直す。透過でないと解放がFnとして解決されず、設定レイヤーへ
+ * 貼りついたまま戻れなくなる。 */
 static uint8_t fn_held = 0;
 
-#define FN_BIT(record) ((record)->event.key.col == FN_L_COL ? 1 : 2)
-#define FN_BOTH 3
+#define FN_BIT_L 1
+#define FN_BIT_R 2
+#define FN_BOTH  (FN_BIT_L | FN_BIT_R)
+#define FN_BIT(record) ((record)->event.key.col == FN_L_COL ? FN_BIT_L : FN_BIT_R)
 
-// falseを返したらそのイベントは消費済み(以降の処理をスキップ)
-static bool process_fn(keyrecord_t *record) {
-    if (record->tap.count) return true; // タップ (そ / ね) はQMKに任せる
-
-    if (record->event.pressed) { // hold確定
-        fn_held |= FN_BIT(record);
-    } else { // hold解放
-        fn_held &= ~FN_BIT(record);
-    }
-
+static void update_conf_layer(void) {
     if (fn_held == FN_BOTH) {
         layer_on(LAYER_CONF);
     } else if (layer_state_is(LAYER_CONF)) {
         layer_off(LAYER_CONF);
     }
+}
+
+// かなレイヤーの Fn のホールド。英数レイヤーの Fn と同じビットを使うので、混ぜて押しても数えられる
+static void fn_hold_on(uint8_t bit) {
+    fn_held |= bit;
+    layer_on(LAYER_FN);
+    update_conf_layer();
+}
+
+static void fn_hold_off(uint8_t bit) {
+    fn_held &= ~bit;
+    update_conf_layer();
+    if (!fn_held) layer_off(LAYER_FN);
+}
+
+// 英数レイヤーの Fn (MO(3))。falseを返したらそのイベントは消費済み(以降の処理をスキップ)
+static bool process_fn(keyrecord_t *record) {
+    if (record->event.pressed) {
+        fn_held |= FN_BIT(record);
+    } else {
+        fn_held &= ~FN_BIT(record);
+    }
+    update_conf_layer();
 
     // もう片方がまだFnとして押されているなら、QMKにFnレイヤーを下ろさせない
     if (!record->event.pressed && fn_held) return false;
@@ -973,11 +902,439 @@ static bool process_fn(keyrecord_t *record) {
 }
 
 /*
+ * かなレイヤー最下段のタップ・ホールド
+ */
+
+/* かなレイヤー最下段の8キー (KT_*) は、タップとホールドの判定を QMK の LT() / MT()
+ * ではなく自前で持つ (issue #83)。最下段は親指で隣り合ったキーを続けて打つので、
+ * 「別のキーを押したらホールド」(HOLD_ON_OTHER_KEY_PRESS) だと、こ→み と速く
+ * 打っただけで こ が Shift になる。かといって時間だけで決めると、こ を押してすぐ
+ * 打った文字に Shift が乗らない。そこで次のように決める。
+ *
+ * - ホールドに決まるのは、押してから TAP_HOLD_TERM_MS たったとき (単独の長押しを
+ *   含む)、または TAP_HOLD_INTERRUPT_MS 以上たっていて、後から別のキーが押されて
+ *   いるとき。どちらも「以上」
+ * - タップに決まるのは、未判定のまま離したとき
+ * - 最下段のキーの押下では、先に押された未判定のキーをその場では判定しない。
+ *   最下段以外のキーの押下は、TAP_HOLD_INTERRUPT_MS 以上たった未判定のキーを
+ *   その場でホールドに決めてから処理する。決めずに通すと、そのキーはホールドで
+ *   上がるはずのレイヤーや修飾の手前で解決されてしまう
+ * - 時間の判定はスキャンごとに行う (matrix_scan_kb)
+ *
+ * 未判定のキー K が押されてから TAP_HOLD_INTERRUPT_MS 未満に押されたキーは、K が
+ * 決まるまで出力を待たせる。K がホールドになればその修飾やレイヤーで、タップなら
+ * 素のかなレイヤーで解決したいため。そのためキーイベントを pre_process_record_kb()
+ * で横取りして列に溜め、K が決まってから action_exec() で流し直す。キーコードは
+ * 流し直した時点で引かれるので、待っていたキーは K が決まった時点のレイヤーと
+ * 修飾で解決される。ただし K の相方がホールド中なら待たせない。相方の Shift を
+ * 押したまま こ / み を打ち始めたときに、文字が遅れないようにするため。
+ *
+ * 待たせるのは押下だけだが、押した順を保つため、溜めているものがある間は後続の
+ * イベントを全て列の後ろに並べる。最下段のキー自身もこの列に並ぶ。判定 (時間と
+ * 離したかどうか) は実際の押し離しで進め、タップの出力やホールドの開始は列の
+ * 順番が来てから行う。
+ *
+ * タップは判定が付いたときに押し離しを送り切るので、最下段のキーはリピートしない。 */
+#define TAP_HOLD_INTERRUPT_MS 150
+#define TAP_HOLD_TERM_MS      250
+
+/* 同時に追うキーと、溜めておくイベントの数。最下段は8キーなので、追うほうは
+ * 押し直しの重なりを見込んでも余る。列は足りなくなったら、先頭を待たずに流す */
+#define TAP_HOLD_SLOTS 16
+#define TAP_HOLD_QUEUE 16
+
+enum {
+    TAP_HOLD_UNDECIDED,
+    TAP_HOLD_TAP,
+    TAP_HOLD_HOLD,
+    /* 列で待っている間にレイヤーが変わり、順番が来たときには最下段のキーで
+     * なくなっていたもの。そのキーの押し離しは QMK へ流す */
+    TAP_HOLD_PASS,
+};
+
+typedef struct {
+    keypos_t key;
+    uint16_t keycode;    // KT_*。KC_NO なら空き
+    uint16_t pressed_at;
+    uint16_t later_at;   // 後から押された別のキーのうち、最初のものの時刻
+    uint16_t hold_at;    // ホールドの条件が満たされた時刻。判定したスキャンの時刻ではない
+    uint8_t  state : 2;  // TAP_HOLD_*
+    bool     has_later : 1;
+    bool     released : 1;
+    bool     live : 1;   // 列の順番が来た。判定が付いたらその場で出力する
+} tap_hold_t;
+
+typedef struct {
+    keyevent_t event;
+    int8_t     slot; // 最下段のキーなら tap_holds[] の添字。それ以外は -1
+} tap_hold_event_t;
+
+static tap_hold_t       tap_holds[TAP_HOLD_SLOTS];
+static tap_hold_event_t tap_hold_queue[TAP_HOLD_QUEUE];
+static uint8_t          tap_hold_queued    = 0;
+static bool             tap_hold_replaying = false; // 列から流し直している最中
+
+/* こ / み のホールド (Shift) 開始後に他のキーが押されたらダーティ。
+ * 相方の Shift 中にタップした こ / み は半角スペースになるが、ダーティなら
+ * 誤入力ガードとして何も出さない */
+static bool thumb_shift_dirty = false;
+
+// 記号レイヤーを上げている ひ / も。片方を離しても、もう片方が残っていれば下ろさない
+static uint8_t sym_held = 0;
+
+#define SYM_BIT(keycode) ((keycode) == KT_HI ? 1 : 2)
+
+static bool is_tap_hold_key(uint16_t keycode) {
+    return keycode >= TAP_HOLD_FIRST && keycode <= TAP_HOLD_LAST;
+}
+
+// タップで送るキー。タップの出し方そのものは QMK の LT() / MT() だったころと同じ
+static const uint8_t PROGMEM tap_hold_taps[] = {
+    [KT_TSU - TAP_HOLD_FIRST] = KC_Z,
+    [KT_SA - TAP_HOLD_FIRST]  = KC_X,
+    [KT_SO - TAP_HOLD_FIRST]  = KC_C,
+    [KT_HI - TAP_HOLD_FIRST]  = KC_V,
+    [KT_KO - TAP_HOLD_FIRST]  = KC_B,
+    [KT_MI - TAP_HOLD_FIRST]  = KC_N,
+    [KT_MO - TAP_HOLD_FIRST]  = KC_M,
+    [KT_NE - TAP_HOLD_FIRST]  = KC_COMMA,
+};
+_Static_assert(ARRAY_SIZE(tap_hold_taps) == TAP_HOLD_LAST - TAP_HOLD_FIRST + 1, "tap_hold_taps[] の行が KT_* の数と合っていない");
+
+static uint8_t tap_hold_tap_keycode(uint16_t keycode) {
+    return pgm_read_byte(&tap_hold_taps[keycode - TAP_HOLD_FIRST]);
+}
+
+// 同じ役割の組の、もう片方。つ / さ には無い
+static uint16_t tap_hold_partner(uint16_t keycode) {
+    switch (keycode) {
+        case KT_KO: return KT_MI;
+        case KT_MI: return KT_KO;
+        case KT_SO: return KT_NE;
+        case KT_NE: return KT_SO;
+        case KT_HI: return KT_MO;
+        case KT_MO: return KT_HI;
+    }
+    return KC_NO;
+}
+
+/* a が b と同時かそれより後か。どちらも少し前の時刻であること。16bitのタイマーは
+ * 1分ほどで一周するので、値の大小ではなく今からの距離で比べる */
+static bool is_at_or_after(uint16_t a, uint16_t b) {
+    const uint16_t now = timer_read();
+    return TIMER_DIFF_16(now, a) <= TIMER_DIFF_16(now, b);
+}
+
+// 相方がホールド中ならそれを返す。ホールド中とは、ホールドを開始していて、まだ終えていないこと
+static const tap_hold_t *holding_partner(const tap_hold_t *th) {
+    const uint16_t partner = tap_hold_partner(th->keycode);
+    if (partner == KC_NO) return NULL;
+
+    for (uint8_t i = 0; i < TAP_HOLD_SLOTS; ++i) {
+        const tap_hold_t *p = &tap_holds[i];
+        if (p->keycode == partner && p->live && p->state == TAP_HOLD_HOLD) return p;
+    }
+    return NULL;
+}
+
+/* こ / み のタップのうち、相方の Shift 中のもの。半角スペースを送る。
+ *
+ * 実Shiftを外してから送る。以前は del_mods()/set_mods() で real_mods を書き換えて
+ * いた。この2つはレポートを送らないので、ホストへ届く1本目が
+ *
+ *   [LSFT] (ホールド確定) → [KC_SPC]
+ *
+ * と、「Shiftを離す」と「Spaceを押す」を1本にまとめた形になり、IMEがShiftの上げ
+ * 下げを追い切れずに1打鍵目だけShiftが乗ったままになっていた。process_shift_pair()
+ * の「Shiftを外して送る」経路と同じ症状 (issue #36)。register系でShiftを外す
+ * レポートを1本独立させ、あわせてそちらと同じウェイトを挟んで順序を保証する。 */
+static void send_thumb_space(void) {
+    const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
+
+    wait_ms(IME_WAIT_MS);
+    unregister_mods(shift);
+    wait_ms(IME_WAIT_MS);
+    tap_code16(KC_SPC);
+    wait_ms(IME_WAIT_MS);
+    register_mods(shift);
+}
+
+static void tap_hold_tap(const tap_hold_t *th) {
+    switch (th->keycode) {
+        case KT_KO:
+        case KT_MI: {
+            /* 相方の Shift が始まってから押したものだけをスペースにする。相方が
+             * 未判定のうちに押したもの (こ+み を続けて打った) は、こ / み のまま */
+            const tap_hold_t *partner = holding_partner(th);
+            if (partner && is_at_or_after(th->pressed_at, partner->hold_at)) {
+                if (!thumb_shift_dirty) send_thumb_space();
+                return; // Shift 開始後に他のキーを押していたら何も出さない
+            }
+            break;
+        }
+        case KT_MO:
+            if (get_mods() & MOD_MASK_SHIFT) {
+                send_kana_qmark();
+                return;
+            }
+            break;
+    }
+    tap_code(tap_hold_tap_keycode(th->keycode)); // 押されている Shift はそのまま乗る
+}
+
+static void tap_hold_start(const tap_hold_t *th) {
+    switch (th->keycode) {
+        case KT_KO:
+        case KT_MI:
+            /* 左右で別の Shift にする。同じ Shift だとQMKの修飾ビットを共有するので、
+             * 持ち替えで先に離したほうが、まだ押している側の Shift まで落としてしまう */
+            thumb_shift_dirty = false;
+            register_mods(th->keycode == KT_KO ? MOD_BIT(KC_LEFT_SHIFT) : MOD_BIT(KC_RIGHT_SHIFT));
+            break;
+        case KT_TSU:
+        case KT_SA: {
+            const bool    is_gui = th->keycode == KT_TSU;
+            const uint8_t mod    = is_gui ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
+            /* レイヤーを上げるより先に見る。握りつぶした修飾はホストへ出ないので、
+             * レイヤーも上げない */
+            if (!process_android_gui_alt(is_gui, true)) break;
+            register_mods(mod);
+            hold_layer_on(mod);
+            break;
+        }
+        case KT_SO:
+        case KT_NE:
+            fn_hold_on(th->keycode == KT_SO ? FN_BIT_L : FN_BIT_R);
+            break;
+        case KT_HI:
+        case KT_MO:
+            if (!sym_held) layer_on(LAYER_SYM);
+            sym_held |= SYM_BIT(th->keycode);
+            break;
+    }
+}
+
+static void tap_hold_end(const tap_hold_t *th) {
+    switch (th->keycode) {
+        case KT_KO:
+        case KT_MI:
+            unregister_mods(th->keycode == KT_KO ? MOD_BIT(KC_LEFT_SHIFT) : MOD_BIT(KC_RIGHT_SHIFT));
+            break;
+        case KT_TSU:
+        case KT_SA: {
+            const bool    is_gui = th->keycode == KT_TSU;
+            const uint8_t mod    = is_gui ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
+            if (!process_android_gui_alt(is_gui, false)) break; // 握りつぶしていたもの
+            unregister_mods(mod);
+            hold_layer_off(mod);
+            break;
+        }
+        case KT_SO:
+        case KT_NE:
+            fn_hold_off(th->keycode == KT_SO ? FN_BIT_L : FN_BIT_R);
+            break;
+        case KT_HI:
+        case KT_MO:
+            sym_held &= ~SYM_BIT(th->keycode);
+            if (!sym_held) layer_off(LAYER_SYM);
+            break;
+    }
+}
+
+// 判定を付ける。列の順番が来ているキーなら、その場で出力する
+static void tap_hold_decide(tap_hold_t *th, uint8_t state, uint16_t at) {
+    th->state   = state;
+    th->hold_at = at;
+    if (!th->live) return;
+
+    if (state == TAP_HOLD_TAP) {
+        tap_hold_tap(th);
+    } else {
+        tap_hold_start(th);
+    }
+}
+
+/* 時間でホールドに決まるものを決める。出力の順が押した順になるよう、先に押された
+ * ものから決める。後から押されたキーが決まるときは、先に押されたほうも必ず条件を
+ * 満たしているので (後から押されたキーそのものが「後から押された別のキー」になる)、
+ * 古い順に条件を見ていけば足りる */
+static void tap_hold_check_time(uint16_t now) {
+    for (;;) {
+        tap_hold_t *next   = NULL;
+        uint16_t    offset = 0;
+        for (uint8_t i = 0; i < TAP_HOLD_SLOTS; ++i) {
+            tap_hold_t *th = &tap_holds[i];
+            if (th->keycode == KC_NO || th->state != TAP_HOLD_UNDECIDED) continue;
+
+            uint16_t needed = TAP_HOLD_TERM_MS;
+            if (th->has_later) {
+                // 後から押されたのが TAP_HOLD_INTERRUPT_MS より後なら、条件が揃うのはその押下の時点
+                const uint16_t later = TIMER_DIFF_16(th->later_at, th->pressed_at);
+                needed               = MIN(MAX(later, TAP_HOLD_INTERRUPT_MS), TAP_HOLD_TERM_MS);
+            }
+            if (TIMER_DIFF_16(now, th->pressed_at) < needed) continue;
+            if (next && is_at_or_after(th->pressed_at, next->pressed_at)) continue;
+            next   = th;
+            offset = needed;
+        }
+        if (!next) return;
+        tap_hold_decide(next, TAP_HOLD_HOLD, next->pressed_at + offset);
+    }
+}
+
+/* この時刻に押されたキーを待たせるか。順番が来ている未判定のキーのうち、
+ * 押されてから TAP_HOLD_INTERRUPT_MS 未満のものがあれば待たせる。
+ * ただしそのキーの相方がホールド中なら待たせない */
+static bool tap_hold_must_wait(uint16_t time) {
+    for (uint8_t i = 0; i < TAP_HOLD_SLOTS; ++i) {
+        const tap_hold_t *th = &tap_holds[i];
+        if (th->keycode == KC_NO || !th->live || th->state != TAP_HOLD_UNDECIDED) continue;
+        if (TIMER_DIFF_16(time, th->pressed_at) >= TAP_HOLD_INTERRUPT_MS) continue;
+        if (holding_partner(th)) continue;
+        return true;
+    }
+    return false;
+}
+
+static void tap_hold_replay(keyevent_t event) {
+    tap_hold_replaying = true;
+    action_exec(event);
+    tap_hold_replaying = false;
+}
+
+// 列の順番が来たイベントを処理する
+static void tap_hold_dispatch(tap_hold_event_t entry) {
+    if (entry.slot < 0) {
+        tap_hold_replay(entry.event);
+        return;
+    }
+
+    tap_hold_t *th = &tap_holds[entry.slot];
+    if (!entry.event.pressed) {
+        if (th->state == TAP_HOLD_PASS) {
+            tap_hold_replay(entry.event);
+        } else if (th->state == TAP_HOLD_HOLD) {
+            tap_hold_end(th);
+        }
+        th->keycode = KC_NO; // タップはもう送ってある
+        return;
+    }
+
+    // 待っている間に上がったレイヤーで引き直すと、最下段のキーではなくなっていることがある
+    const keypos_t key = entry.event.key;
+    if (!is_tap_hold_key(keymap_key_to_keycode(layer_switch_get_layer(key), key))) {
+        th->state = TAP_HOLD_PASS; // 離すほうも QMK へ流す
+        tap_hold_replay(entry.event);
+        return;
+    }
+
+    th->live = true;
+    if (th->keycode != KT_KO && th->keycode != KT_MI) thumb_shift_dirty = true;
+
+    if (th->state == TAP_HOLD_TAP) {
+        tap_hold_tap(th);
+    } else if (th->state == TAP_HOLD_HOLD) {
+        tap_hold_start(th);
+    }
+}
+
+// 先頭から、待たなくてよくなったものを流す
+static void tap_hold_drain(void) {
+    while (tap_hold_queued) {
+        const tap_hold_event_t head = tap_hold_queue[0];
+        if (head.event.pressed && tap_hold_must_wait(head.event.time)) return;
+
+        memmove(&tap_hold_queue[0], &tap_hold_queue[1], sizeof(tap_hold_queue[0]) * --tap_hold_queued);
+        tap_hold_dispatch(head);
+    }
+}
+
+static void tap_hold_enqueue(keyevent_t event, int8_t slot) {
+    if (tap_hold_queued == TAP_HOLD_QUEUE) { // 溢れるなら、先頭を待たずに流して空ける
+        const tap_hold_event_t head = tap_hold_queue[0];
+        memmove(&tap_hold_queue[0], &tap_hold_queue[1], sizeof(tap_hold_queue[0]) * --tap_hold_queued);
+        tap_hold_dispatch(head);
+    }
+    tap_hold_queue[tap_hold_queued++] = (tap_hold_event_t){.event = event, .slot = slot};
+}
+
+static int8_t tap_hold_alloc(keyevent_t event, uint16_t keycode) {
+    for (uint8_t i = 0; i < TAP_HOLD_SLOTS; ++i) {
+        if (tap_holds[i].keycode != KC_NO) continue;
+        tap_holds[i] = (tap_hold_t){.key = event.key, .keycode = keycode, .pressed_at = event.time};
+        return i;
+    }
+    return -1;
+}
+
+// その位置で押されていて、まだ離されていないキー
+static int8_t tap_hold_find_pressed(keypos_t key) {
+    for (uint8_t i = 0; i < TAP_HOLD_SLOTS; ++i) {
+        const tap_hold_t *th = &tap_holds[i];
+        if (th->keycode != KC_NO && !th->released && KEYEQ(th->key, key)) return i;
+    }
+    return -1;
+}
+
+/* すべてのキーイベントの入口 (pre_process_record_kb)。falseを返したら、イベントは
+ * ここで引き取った (自前で処理したか、列に並べた) */
+static bool process_tap_hold(uint16_t keycode, keyrecord_t *record) {
+    const keyevent_t event = record->event;
+    if (!IS_KEYEVENT(event)) return true;
+
+    int8_t slot = -1;
+    if (event.pressed) {
+        for (uint8_t i = 0; i < TAP_HOLD_SLOTS; ++i) {
+            tap_hold_t *th = &tap_holds[i];
+            if (th->keycode == KC_NO || th->state != TAP_HOLD_UNDECIDED || th->has_later) continue;
+            th->has_later = true;
+            th->later_at  = event.time;
+        }
+        if (is_tap_hold_key(keycode)) {
+#ifdef WINDMILL_LED_ENABLE
+            refresh_led_timeout(); // QMK を通らないので、点灯はここで。キーはそのまま打てる
+#endif
+            slot = tap_hold_alloc(event, keycode);
+            if (slot < 0) return false; // 追いきれない。押し離しごと捨てる
+        } else {
+            tap_hold_check_time(event.time); // このキーより先に、ホールドに決まるものを決める
+        }
+    } else {
+        slot = tap_hold_find_pressed(event.key);
+        if (slot >= 0) {
+            tap_hold_t *th = &tap_holds[slot];
+            th->released   = true;
+            if (th->state == TAP_HOLD_PASS) {
+                th->keycode = KC_NO; // 押下を QMK へ流したので、離すほうも素のイベントとして扱う
+                slot        = -1;
+            } else if (th->state == TAP_HOLD_UNDECIDED) {
+                tap_hold_decide(th, TAP_HOLD_TAP, event.time);
+            }
+        } else if (is_tap_hold_key(keycode)) {
+            return false; // 押下を捨てたもの
+        }
+    }
+
+    if (!tap_hold_queued && (!event.pressed || !tap_hold_must_wait(event.time))) {
+        if (slot < 0) return true; // 待たなくてよい。そのまま QMK へ
+        tap_hold_dispatch((tap_hold_event_t){.event = event, .slot = slot});
+        return false;
+    }
+    tap_hold_enqueue(event, slot);
+    tap_hold_drain();
+    return false;
+}
+
+/*
  * QMK callbacks
  */
 
 bool pre_process_record_kb(uint16_t keycode, keyrecord_t *record) {
-    windmill_board_pre_process_record(keycode, record);
+    // 列から流し直すイベントは、届いたときに一度ここを通っている
+    if (!tap_hold_replaying) {
+        windmill_board_pre_process_record(keycode, record);
+        if (!process_tap_hold(keycode, record)) return false;
+    }
     return pre_process_record_user(keycode, record);
 }
 
@@ -987,10 +1344,15 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 #endif
     if (!process_record_user(keycode, record)) return false;
 
-    // 親指Shift以外のキー押下でダーティ化
-    if (record->event.pressed && keycode != THUMB_SHIFT_B && keycode != THUMB_SHIFT_N) {
+    // かなレイヤー最下段のキー (KT_*) はここへ来ないので、どのキーの押下でもダーティ化
+    if (record->event.pressed) {
         thumb_shift_dirty = true;
     }
+
+    /* KT_* は process_tap_hold() が引き取るので、ふつうは来ない。待っている間に
+     * レイヤーが下りて、順番が来たときに初めて KT_* として引かれたときだけ来る。
+     * 押下を自前で追っていないので、何もしない */
+    if (is_tap_hold_key(keycode)) return false;
 
     /* ベースがかなのとき、記号レイヤーの数字・記号は
      * 英数(LNG2)に切り替えて送出し、かな(LNG1)に戻す */
@@ -1065,38 +1427,21 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
             return false;
 
-        case KANA_QMARK_KEY: // も。Shift+タップで半角「?」
-            if (!process_kana_qmark(record)) {
-                return false;
-            }
-            break; // 通常のtap(も)とhold(Symレイヤー)はQMKに任せる
-
-        case KANA_GUI_KEY: // つ。ホールド中は英数レイヤーへ (issue #34)
-        case KANA_ALT_KEY: // さ
-        case KC_LGUI:      // 英数レイヤー側の同じ位置 (Ctrlと重ね押ししたとき)
+        case KC_LGUI: // 英数レイヤー側の Win / Alt (Ctrlと重ね押ししたとき)
         case KC_LALT:
             /* レイヤーを上げるより先に見る。握りつぶした修飾はホストへ出ないので、
-             * 上げてしまうと update_hold_layer() が下ろす機会を失う */
-            if (!process_android_gui_alt(keycode, record)) {
+             * レイヤーも上げない */
+            if (!process_android_gui_alt(keycode == KC_LGUI, record->event.pressed)) {
                 return false;
             }
-            process_kana_mod(keycode, record);
-            break; // 修飾そのものはQMKのmod-tapに任せる
+            process_alpha_gui_alt(keycode, record);
+            break; // 修飾そのものはQMKに任せる
 
-        case KANA_FN_L: // そ。左右とも押している間は設定レイヤーへ (issue #62)
-        case KANA_FN_R: // ね
-        case ALPHA_FN:  // 英数レイヤー側のFn (左右とも同じキーコード)
+        case ALPHA_FN: // 英数レイヤーのFn (左右とも同じキーコード)。両方押している間は設定レイヤーへ (issue #62)
             if (!process_fn(record)) {
                 return false;
             }
-            break; // 通常処理へ (tap=そ/ね, hold=Fnレイヤー)
-
-        case THUMB_SHIFT_B: // 親指Shift
-        case THUMB_SHIFT_N:
-            if (!process_thumb_shift(keycode, record)) {
-                return false;
-            }
-            break; // 通常処理へ (tap=B/N, hold=Shift)
+            break; // Fnレイヤーの上げ下げはQMKに任せる
 
         case ALPHA_THUMB_SHIFT: // 英数レイヤーの親指Shift (issue #40)
             if (!process_alpha_thumb_shift(record)) {
@@ -1126,6 +1471,10 @@ void matrix_scan_kb(void) {
 #endif
 
     update_hold_layer();
+
+    // かなレイヤー最下段のキーの、時間でのホールドの判定と、待たせていたイベントの送出
+    tap_hold_check_time(timer_read());
+    tap_hold_drain();
 
     matrix_scan_user();
 }

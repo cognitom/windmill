@@ -14,12 +14,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* 親指Shiftそのもののレポート列を検証する (issue #37)。
+/* かなレイヤーの親指Shift (こ / み) そのもののレポート列を検証する。
  *
- * 左右の親指Shiftはどちらも同じ左Shiftなので、片方を押したままもう片方を
- * 押して離す「持ち替え」(ハンドオーバー) でShiftが途切れないことを確かめる。
- * QMKの修飾はビットマスクで参照カウントを持たないため、素のままだと後から
- * 離したほうの unregister_mods() でShiftが落ちてしまう。 */
+ * こ は左Shift、み は右Shift で、それぞれ自分の Shift だけを上げ下げする
+ * (issue #83)。片方を押したままもう片方を押して離す「持ち替え」(ハンドオーバー)
+ * で、Shiftが途切れないことを確かめる。以前は左右とも左Shiftで (issue #37)、
+ * QMKの修飾ビットを共有するぶん、持ち替えを自前で数える必要があった。
+ *
+ * タップ・ホールドの判定そのもの (150ms / 250ms) は test_tap_hold.cpp が見る。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -46,8 +48,7 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
 }
 
 /* 左 → 右 の持ち替え。左を離しても、右が押されている限りShiftは続く。
- * 左右が同じ左Shiftになったので、持ち替えの前後でレポートは [LSFT] のまま
- * 変わらない (以前は右Shiftとの入れ替えレポートが挟まっていた) */
+ * 左右で別の Shift なので、持ち替えの間は両方が乗ったレポートを挟む */
 TEST_F(ThumbShift, handover_left_to_right_keeps_shift) {
     TestDriver driver;
     set_windmill_keymap();
@@ -59,15 +60,17 @@ TEST_F(ThumbShift, handover_left_to_right_keeps_shift) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));         // 左 ホールド確定
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_F));   // 持ち替え後も Shift が乗る
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver);                    // 右 解放
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));                  // こ ホールド確定
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_RIGHT_SHIFT));  // み ホールド確定
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));                 // こ 解放。右は残る
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_F));           // 持ち替え後も Shift が乗る
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);                             // み 解放
     }
 
     ko.press();
     run_one_scan_loop();
-    idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    idle_for(250); // 250ms 超え。ホールド確定
     mi.press();
     run_one_scan_loop();
     idle_for(250);
@@ -94,6 +97,8 @@ TEST_F(ThumbShift, handover_right_to_left_keeps_shift) {
 
     {
         InSequence s;
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_RIGHT_SHIFT));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_F));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
@@ -117,20 +122,22 @@ TEST_F(ThumbShift, handover_right_to_left_keeps_shift) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 「こ」+「み」同時押しの半角スペース (issue #36)。
+/* こ の Shift 中に み をタップした半角スペース (issue #36)。
  *
- * 実機では、同時押しの1打鍵目だけスペースにShiftが乗っていた。以前は
+ * 実機では、1打鍵目だけスペースにShiftが乗っていた。以前は
  * del_mods()/set_mods() で real_mods を書き換えていて、この2つはレポートを
  * 送らない。そのためホストへ届く1本目が
  *
  *   [LSFT] (ホールド確定) → [KC_SPC]     ← Shiftを離すのとSpaceを押すのが同時
  *
- * という形になっていた。しかも HOLD_ON_OTHER_KEY_PRESS で「こ」のホールドは
- * 「み」の押下で確定するので、同時押しではこの2本が1msしか離れない。
- * 2打鍵目以降が無事なのは前のレポートから間が空いているだけの話で、
- * process_shift_pair() の「Shiftを外して送る」経路 (issue #36) と同じ症状。
+ * という形になっていた。2打鍵目以降が無事なのは前のレポートから間が空いている
+ * だけの話で、process_shift_pair() の「Shiftを外して送る」経路 (issue #36) と
+ * 同じ症状。そこでShiftを外すレポートが1本独立していることと、送出の間隔の
+ * 両方を見る。
  *
- * そこでShiftを外すレポートが1本独立していることと、送出の間隔の両方を見る。 */
+ * み は こ を押して 150ms 以上たってから押す。それより早いと こ はまだ決まって
+ * おらず、み は こ の Shift 中に押したことにならない (test_tap_hold.cpp の
+ * ケース b) */
 TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
     TestDriver driver;
     set_windmill_keymap();
@@ -157,13 +164,13 @@ TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
     }
 
     ko.press();
-    run_one_scan_loop();
-    mi.press(); // 同時押し。TAPPING_TERM を待たず こ のホールドが確定する
-    run_one_scan_loop();
-    mi.release(); // すぐ離すのでタップ確定 = スペース
+    idle_for(200);
+    mi.press(); // こ は次のスキャンでホールドに決まる。み はその Shift 中に押したことになる
+    idle_for(30);
+    mi.release(); // すぐ離すのでタップ = スペース
     run_one_scan_loop();
     idle_for(120);
-    tap_key(mi, 120); // 2打鍵目
+    tap_key(mi, 50); // 2打鍵目
     idle_for(120);
     ko.release();
     run_one_scan_loop();
@@ -188,6 +195,8 @@ TEST_F(ThumbShift, both_released_clears_shift) {
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_RIGHT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);  // 両方離れた
         EXPECT_REPORT(driver, (KC_F));// Shiftは残っていない
         EXPECT_EMPTY_REPORT(driver);

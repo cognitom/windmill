@@ -21,10 +21,11 @@
  * かなレイヤーでは KC_1、英数レイヤーでは KC_Q なので、どちらで解決されたかが
  * ホストへ出るレポートから分かる。
  *
- * 特に効かせたいのは「離せば必ずかなへ戻る」ほう。自分で英数レイヤーを上げると
- * つ/さ の解放は mod-tap (LGUI_T(KC_Z)) ではなく英数レイヤー側の素の KC_LGUI で
- * 引き直されることがあり、mod-tap のキーコードで解放を待つ実装だと英数レイヤーへ
- * 貼りついたまま戻れなくなる (update_hold_layer 参照)。
+ * 特に効かせたいのは「離せば必ずかなへ戻る」ほう。自分で英数レイヤーを上げると、
+ * 同じ位置は英数レイヤー側の素の KC_LGUI / KC_LALT として引き直されうる。
+ * かつて つ / さ が mod-tap (LGUI_T(KC_Z)) だったころは、mod-tap のキーコードで
+ * 解放を待っていたせいで英数レイヤーへ貼りついたことがある。今の つ / さ
+ * (KT_TSU / KT_SA) は押した位置で離すほうを突き合わせる (issue #83)。
  *
  * 起動直後のベースレイヤーは英数 (issue #22) なので、かなレイヤー上の挙動を
  * 見るには先に MY_LCTL をタップしてかなへ切り替えておく必要がある。 */
@@ -59,7 +60,7 @@ TEST_F(HoldLayer, gui_hold_switches_to_alpha_and_back) {
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    auto tsu = key(POS_TSU); // つ  LGUI_T(KC_Z)
+    auto tsu = key(POS_TSU); // つ  KT_TSU
     auto nu  = key(POS_NU);  // ぬ  かな = KC_1 / 英数 = KC_Q
 
     {
@@ -74,7 +75,7 @@ TEST_F(HoldLayer, gui_hold_switches_to_alpha_and_back) {
 
     tsu.press();
     run_one_scan_loop();
-    idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    idle_for(250); // 250ms 超え。ホールド確定
     tap_key(nu, 120);
     idle_for(120);
     tsu.release();
@@ -91,7 +92,7 @@ TEST_F(HoldLayer, alt_hold_switches_to_alpha_and_back) {
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    auto sa = key(POS_SA); // さ  LALT_T(KC_X)
+    auto sa = key(POS_SA); // さ  KT_SA
     auto nu = key(POS_NU);
 
     {
@@ -117,9 +118,8 @@ TEST_F(HoldLayer, alt_hold_switches_to_alpha_and_back) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 別キー割り込みでホールドが確定する経路 (HOLD_ON_OTHER_KEY_PRESS)。
- * 割り込んだキー自身も英数レイヤーで解決される必要があるので、レイヤーを
- * 上げるのは押下の処理中でなければ間に合わない */
+/* つ を押してすぐ (150ms 未満) 別のキーを押す経路。そのキーは つ が決まるまで
+ * 待たされ、つ を押して 150ms でホールドに決まってから英数レイヤーで解決される */
 TEST_F(HoldLayer, gui_hold_by_interrupt_resolves_on_alpha) {
     TestDriver driver;
     set_windmill_keymap();
@@ -130,15 +130,15 @@ TEST_F(HoldLayer, gui_hold_by_interrupt_resolves_on_alpha) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_GUI));       // ぬ の押下でホールド確定
-        EXPECT_REPORT(driver, (KC_LEFT_GUI, KC_Q)); // 割り込んだ ぬ も英数
+        EXPECT_REPORT(driver, (KC_LEFT_GUI));       // 150ms でホールド確定
+        EXPECT_REPORT(driver, (KC_LEFT_GUI, KC_Q)); // 待っていた ぬ も英数
         EXPECT_REPORT(driver, (KC_LEFT_GUI));
         EXPECT_EMPTY_REPORT(driver);
     }
 
     tsu.press();
     run_one_scan_loop();
-    nu.press(); // TAPPING_TERM を待たずホールドが確定する
+    nu.press(); // 150ms 未満。ぬ は つ が決まるまで待つ
     run_one_scan_loop();
     idle_for(120);
     nu.release();
@@ -167,7 +167,7 @@ TEST_F(HoldLayer, tap_stays_on_kana) {
         EXPECT_EMPTY_REPORT(driver);
     }
 
-    tap_key(tsu, 50); // TAPPING_TERM 未満
+    tap_key(tsu, 50); // 150ms 未満
     idle_for(120);
     tap_key(nu, 120);
     idle_for(120);

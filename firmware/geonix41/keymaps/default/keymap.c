@@ -32,7 +32,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,  KN_NU,        KN_FU,        KN_A,        KN_U,          KN_E,           KN_O,           KN_YA,         KN_YU,          KN_YO,      KN_WA,   KC_ENT,
     KC_TAB,  KN_TA,        KN_TE,        KN_I,        KN_SU,         KN_KA,          KN_N,           KN_NA,         KN_NI,          KN_RA,      KN_SE,   KN_DAKU,
     KC_BSPC, KN_CHI,       KN_TO,        KN_SHI,      KN_HA,         KN_KI,          KN_KU,          KN_MA,         KN_NO,          KN_RI,      KN_RE,   KN_KE,
-    MY_LCTL, LGUI_T(KC_Z), LALT_T(KC_X), LT(3,KC_C),  LT(2,KC_V),    LSFT_T(KC_B),   LSFT_T(KC_N),   LT(2,KC_M),    LT(3,KC_COMMA), KN_RU,      KN_ME,   KN_RO
+    MY_LCTL, KT_TSU,       KT_SA,        KT_SO,       KT_HI,         KT_KO,          KT_MI,          KT_MO,         KT_NE,          KN_RU,      KN_ME,   KN_RO
   ),
 
   [LAYER_ALPHA] = LAYOUT_ortho_4x12(
@@ -96,9 +96,9 @@ const uint8_t colorset[][6] = {
 /* dual-role キーはタップ側のキーコードに展開されてから渡される。
  * 記号とかなのキーは独自キーコード (SY_* / KN_*) のまま渡される。 */
 uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode) {
-  /* かなレイヤーは、かなが打てるキーを全て CL_BASE にする。最下段の LT() / MT() は
-   * タップ側が素のキーコードで渡ってくるが、OSのIMEがかなに変換するので
-   * (KC_Z は「つ」、KC_M は「も」…)、キーコードからは色を決められない。 */
+  /* かなレイヤーは、かなが打てるキーを全て CL_BASE にする。最下段の KT_* も
+   * タップでかなを出すので同じ扱い。かなはOSのIMEがキーの位置で決めるので
+   * (KN_TE が Shift で「へ」になる…)、キーコードからは色を決めきれない。 */
   if (layer == LAYER_KANA) {
     switch (keycode) {
       case KC_ENT ... KC_TAB: // Enter, Esc, BSpc, Tab

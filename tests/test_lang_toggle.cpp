@@ -54,7 +54,7 @@ static void tap_with_fn(WindmillTest* f, uint8_t row, uint8_t col) {
     auto fn = f->key(POS_FN_L);
     fn.press();
     f->run_one_scan_loop();
-    f->idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    f->idle_for(250); // TAPPING_TERM (英数) も 250ms (かな) も超える。ホールド確定
     f->tap_key(f->key(row, col), 50);
     f->idle_for(50);
     fn.release();

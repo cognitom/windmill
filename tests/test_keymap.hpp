@@ -44,7 +44,7 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
     {KC_ESC,  KN_NU,        KN_FU,        KN_A,        KN_U,          KN_E,           KN_O,           KN_YA,         KN_YU,          KN_YO,      KN_WA,   KC_ENT},
     {KC_TAB,  KN_TA,        KN_TE,        KN_I,        KN_SU,         KN_KA,          KN_N,           KN_NA,         KN_NI,          KN_RA,      KN_SE,   KN_DAKU},
     {KC_BSPC, KN_CHI,       KN_TO,        KN_SHI,      KN_HA,         KN_KI,          KN_KU,          KN_MA,         KN_NO,          KN_RI,      KN_RE,   KN_KE},
-    {MY_LCTL, LGUI_T(KC_Z), LALT_T(KC_X), LT(3,KC_C),  LT(2,KC_V),    LSFT_T(KC_B),   LSFT_T(KC_N),   LT(2,KC_M),    LT(3,KC_COMMA), KN_RU,      KN_ME,   KN_RO},
+    {MY_LCTL, KT_TSU,       KT_SA,        KT_SO,       KT_HI,         KT_KO,          KT_MI,          KT_MO,         KT_NE,          KN_RU,      KN_ME,   KN_RO},
   },
 
   [LAYER_ALPHA] = {
@@ -90,20 +90,24 @@ static inline uint8_t windmill_matrix_col(uint8_t row, uint8_t col) {
 
 /* かなレイヤー上の位置 (見た目の行と位置。matrix の列ではない)。コメントの文字は JISかな入力での出力 */
 #define POS_LCTL 3, 0  // 言語切替 (英数⇔かな)
-#define POS_KO 3, 5    // こ  左親指Shift
-#define POS_MI 3, 6    // み  右親指Shift
+#define POS_KO 3, 5    // こ  KT_KO  ホールドで左Shift  英数レイヤーでは LSFT_T(KC_SPC)
+#define POS_MI 3, 6    // み  KT_MI  ホールドで右Shift  英数レイヤーでは LSFT_T(KC_SPC)
 #define POS_NO 2, 8    // の  KN_NO  Shift時 S(KC_COMM) = 、
 #define POS_RA 1, 9    // ら  KN_RA  Shift時 S(KC_LBRC)
 #define POS_SU 1, 4    // す  KN_SU  Shift時 KC_BSLS  (Shiftを外す必要がある)
 #define POS_NA 1, 7    // な  KN_NA  Shift時 KC_MINS = ほ (Shiftを外す必要がある)
 #define POS_HA 2, 4    // は  KN_HA  英数レイヤーでは "f"
-#define POS_MO 3, 7    // も  LT(2,KC_M)   Shift+タップで半角?
-#define POS_TSU 3, 1   // つ  LGUI_T(KC_Z) 英数レイヤーでは KC_LGUI
-#define POS_SA 3, 2    // さ  LALT_T(KC_X) 英数レイヤーでは KC_LALT
+#define POS_HI 3, 4    // ひ  KT_HI  ホールドで記号レイヤー
+#define POS_MO 3, 7    // も  KT_MO  ホールドで記号レイヤー。Shift+タップで半角?
+#define POS_TSU 3, 1   // つ  KT_TSU ホールドで Win  英数レイヤーでは KC_LGUI
+#define POS_SA 3, 2    // さ  KT_SA  ホールドで Alt  英数レイヤーでは KC_LALT
 #define POS_NU 0, 1    // ぬ  KN_NU        英数レイヤーでは "q"
+#define POS_WA 0, 10   // わ  KN_WA  KC_0  Shift時は IME が「を」にする
+#define POS_A 0, 3     // あ  KN_A   KC_3  Shift時は IME が「ぁ」にする
+#define POS_TA 1, 1    // た  KN_TA  KC_Q  記号レイヤーでは「!」、設定レイヤーでは MY_WIN
 #define POS_RI 2, 9    // り  KN_RI        英数レイヤーでは "."
-#define POS_FN_L 3, 3  // そ  LT(3,KC_C)     英数レイヤーでは MO(3)
-#define POS_FN_R 3, 8  // ね  LT(3,KC_COMMA) 英数レイヤーでは MO(3)
+#define POS_FN_L 3, 3  // そ  KT_SO  ホールドで Fn  英数レイヤーでは MO(3)
+#define POS_FN_R 3, 8  // ね  KT_NE  ホールドで Fn  英数レイヤーでは MO(3)
 
 /* 設定レイヤー上の位置。左右のFnを両方ホールドしている間だけ出る (issue #62) */
 #define POS_WIN 1, 1   // MY_WIN   Fnレイヤーでは KC_F11
@@ -138,7 +142,7 @@ class WindmillTest : public TestFixture {
         run_one_scan_loop();
         fn_r.press();
         run_one_scan_loop();
-        idle_for(250); // TAPPING_TERM 超え。ホールド確定
+        idle_for(250); // TAPPING_TERM (英数) も 250ms (かな) も超える。ホールド確定
         tap_key(key(row, col), 50);
         idle_for(50);
         fn_r.release();

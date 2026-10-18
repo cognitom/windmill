@@ -59,8 +59,8 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
  * 左Shiftを押し直すレポートが挟まっていた。technik ではその1文字だけ Shift が
  * 無視されて「、」ではなく「ね」になっていた。
  *
- * 現在は親指Shiftが左右とも左Shift (issue #37) なので、そもそも入れ替わりうる
- * 相手が無い。それでも回帰テストとして残す。 */
+ * み は右Shift (issue #83)。Shift時のキーが S(KC_x) でも、押されている右Shiftを
+ * そのまま使い、weak Shift (左Shift) への入れ替えが起きないことを見る。 */
 TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
     TestDriver driver;
     set_windmill_keymap();
@@ -77,11 +77,11 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));            // み ホールド確定
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_COMMA));  // 1打鍵目
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_COMMA));  // 2打鍵目
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));            // み ホールド確定
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_COMMA));  // 1打鍵目
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_COMMA));  // 2打鍵目
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);                       // み 解放
     }
 
@@ -109,8 +109,8 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
  * 外したはずのShiftが乗ったまま KC_MINS が届いている、ということになる。
  *
  * ただしレポート列は1打鍵目も2打鍵目も同じで、違うのは間隔だけだった。
- * 別キー割り込みでホールドが確定する (HOLD_ON_OTHER_KEY_PRESS) ので、
- * 1打鍵目は [LSFT] → [] → [KC_MINS] が全て同じスキャンで出る。
+ * み を押して 150ms 以上たってからの な の押下でホールドが決まるので、
+ * 1打鍵目は [RSFT] → [] → [KC_MINS] が全て同じスキャンで出うる。
  * そこで、レポート列に加えて**送出の間隔**も固定する。 */
 TEST_F(ShiftPair, unshifted_pair_waits_for_ime_on_first_keypress) {
     TestDriver driver;
@@ -131,21 +131,21 @@ TEST_F(ShiftPair, unshifted_pair_waits_for_ime_on_first_keypress) {
     {
         InSequence s;
         // み ホールド確定 → Shiftを外す → 「ほ」。この3本の間隔を控える
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)).WillOnce(InvokeWithoutArgs([&] { at_hold = timer_read(); }));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT)).WillOnce(InvokeWithoutArgs([&] { at_hold = timer_read(); }));
         EXPECT_EMPTY_REPORT(driver).WillOnce(InvokeWithoutArgs([&] { at_drop = timer_read(); }));
         EXPECT_REPORT(driver, (KC_MINUS)).WillOnce(InvokeWithoutArgs([&] { at_key = timer_read(); }));
         EXPECT_EMPTY_REPORT(driver);
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));  // Shiftを戻す
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));  // Shiftを戻す
         EXPECT_EMPTY_REPORT(driver);             // 2打鍵目。レポート列は1打鍵目と同じ
         EXPECT_REPORT(driver, (KC_MINUS));
         EXPECT_EMPTY_REPORT(driver);
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);             // み 解放
     }
 
     mi.press();
     run_one_scan_loop();
-    idle_for(150); // TAPPING_TERM 未満。ホールドは な の押下で確定する
+    idle_for(150); // 250ms 未満。ホールドは な の押下で決まる
     tap_key(na, 120);
     idle_for(120);
     tap_key(na, 120);
@@ -188,9 +188,9 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_LEFT_BRACKET));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_LEFT_BRACKET));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);
     }
 
@@ -218,11 +218,11 @@ TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);             // Shift を外す
         EXPECT_REPORT(driver, (KC_BACKSLASH));
         EXPECT_EMPTY_REPORT(driver);
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));  // Shift を戻す (レポートが出ること)
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));  // Shift を戻す (レポートが出ること)
         EXPECT_EMPTY_REPORT(driver);             // み 解放
     }
 

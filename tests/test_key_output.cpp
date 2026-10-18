@@ -56,7 +56,7 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
     VERIFY_AND_CLEAR(driver);
 }
 
-#define POS_SYM 3, 4 // ホールドで記号レイヤー。英数では LT(2,KC_BSLS)、かなでは LT(2,KC_V) (ひ)
+#define POS_SYM 3, 4 // ホールドで記号レイヤー。英数では LT(2,KC_BSLS)、かなでは KT_HI (ひ)
 #define POS_ALPHA_SHIFT 3, 6 // 英数レイヤーの親指Shift。LSFT_T(KC_SPC)
 
 /*
@@ -140,16 +140,16 @@ static void expect_kana_shifted(WindmillTest* f, TestDriver& driver, const KanaK
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // み ホールド確定
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT)); // み ホールド確定
         for (const auto& k : keys) {
             if (k.kind == DROP) {
                 EXPECT_EMPTY_REPORT(driver); // Shiftを外す
                 EXPECT_REPORT(driver, (k.shifted));
                 EXPECT_EMPTY_REPORT(driver);
-                EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // Shiftを戻す
+                EXPECT_REPORT(driver, (KC_RIGHT_SHIFT)); // Shiftを戻す
             } else {
-                EXPECT_REPORT(driver, (KC_LEFT_SHIFT, k.shifted));
-                EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+                EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, k.shifted));
+                EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
             }
         }
         EXPECT_EMPTY_REPORT(driver); // み 解放
@@ -157,7 +157,7 @@ static void expect_kana_shifted(WindmillTest* f, TestDriver& driver, const KanaK
 
     mi.press();
     f->run_one_scan_loop();
-    f->idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    f->idle_for(250); // 250ms 超え。ホールド確定
     for (const auto& k : keys) {
         f->tap_key(f->key(k.row, k.col), 50);
         f->idle_for(50);
@@ -355,7 +355,7 @@ static void tap_sym_keys(WindmillTest* f) {
 
     sym.press();
     f->run_one_scan_loop();
-    f->idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    f->idle_for(250); // TAPPING_TERM (英数) も 250ms (かな) も超える。ホールド確定
     for (const auto& k : sym_keys) {
         f->tap_key(f->key(k.row, k.col), 50);
         f->idle_for(50);
@@ -471,7 +471,7 @@ TEST_F(KeyOutput, kana_key_released_under_sym_layer_is_not_stuck) {
     idle_for(50);
     sym.press();
     run_one_scan_loop();
-    idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    idle_for(250); // 250ms 超え。ホールド確定
     nu.release();
     run_one_scan_loop();
     idle_for(50);
