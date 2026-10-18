@@ -23,26 +23,21 @@
 #    define WINDMILL_LED_ENABLE
 #endif
 
-/* レイヤー番号。keymaps[] の並びと一致させること */
-#define LAYER_KANA  0 // かな。OS側のIMEを「かな入力」にして使う
-#define LAYER_ALPHA 1 // 英数
-#define LAYER_SYM   2 // 数字・記号
-#define LAYER_FN    3 // ファンクション・メディア
-#define LAYER_CONF  4 // 設定。左右のFnを両方ホールドしている間だけ (process_fn 参照)
-#define LAYER_SIZE  5
-
-/* 親指Shift。keymaps[] のレイヤー0で使っているものと一致させること。
+/* レイヤー番号。keymaps[] の並びと一致させること。
  *
- * 左右とも左Shiftにする (issue #37)。以前は右を RSFT_T(KC_N) にしていたが、
- * `S(KC_x)` の weak Shift は必ず左Shiftなので、右Shiftを押している間だけ
- * ホストから見て修飾が入れ替わり、その1打鍵だけShiftが効かない罠があった
- * (issue #18、issue #17)。左に揃えれば実Shiftと weak Shift が同じビットになり、
- * 入れ替えのレポートが原理的に発生しない。 */
-#define THUMB_SHIFT_B LSFT_T(KC_B)
-#define THUMB_SHIFT_N LSFT_T(KC_N)
+ * かなの Shift 面 (LAYER_KANA_SHIFT) は英数レイヤーより下に置く。かな入力中に
+ * Ctrl / Win / Alt をホールドすると英数レイヤーが上がる (issue #34) が、そこへ
+ * 親指Shiftを重ねたとき、Shift 面が上にあると Ctrl+Shift+P の P が「を」に化ける。
+ * 記号レイヤーよりも下なので、Sym と Shift を重ねたときは記号が出る */
+#define LAYER_KANA       0 // かな。OS側のIMEを「かな入力」にして使う
+#define LAYER_KANA_SHIFT 1 // かなの Shift 面。親指Shift (こ / み) のホールド中だけ
+#define LAYER_ALPHA      2 // 英数
+#define LAYER_SYM        3 // 数字・記号
+#define LAYER_FN         4 // ファンクション・メディア
+#define LAYER_CONF       5 // 設定。左右のFnを両方ホールドしている間だけ (windmill.c「Fn と設定レイヤー」参照)
+#define LAYER_SIZE       6
 
-/* 英数レイヤーの親指Shift (SandS)。左右とも元から LSFT_T(KC_SPC) で同じ
- * キーコードなので、かなレイヤーの THUMB_SHIFT_B/N と違ってタップ側の
+/* 英数レイヤーの親指Shift (SandS)。左右とも LSFT_T(KC_SPC) で同じキーコードなので、
  * キーコードでは左右を区別できない。同じ行に並んでいるので列 (col) だけで
  * 見分ける (issue #40)。
  *
@@ -50,7 +45,7 @@
  * 見た目の位置ではない。technik / ymd40 / minipeg48 は両者が一致するので既定値で
  * よいが、geonix41 は最下段の配線が見た目の並びと違う (keyboard.json の "layouts"
  * の "matrix" 参照)。そういう機種は config.h で上書きする (issue #68)。
- * 値は keymaps[] のレイヤー1(英数)で ALPHA_THUMB_SHIFT を置いた位置の matrix の列 */
+ * 値は keymaps[] の英数レイヤーで ALPHA_THUMB_SHIFT を置いた位置の matrix の列 */
 #define ALPHA_THUMB_SHIFT LSFT_T(KC_SPC)
 #ifndef ALPHA_THUMB_SHIFT_L_COL
 #    define ALPHA_THUMB_SHIFT_L_COL 5
@@ -59,24 +54,11 @@
 #    define ALPHA_THUMB_SHIFT_R_COL 6
 #endif
 
-/* かなレイヤーの「も」。Shiftを押しながらタップすると半角「?」を出す
- * (process_kana_qmark 参照)。keymaps[] のレイヤー0で使っているものと一致させること */
-#define KANA_QMARK_KEY LT(2, KC_M)
-
-/* かなレイヤーの Win(つ) / Alt(さ)。ホールドしている間は MY_LCTL と同じく
- * 英数レイヤーへ移す (process_kana_mod 参照、issue #34)。
- * keymaps[] のレイヤー0で使っているものと一致させること */
-#define KANA_GUI_KEY LGUI_T(KC_Z)
-#define KANA_ALT_KEY LALT_T(KC_X)
-
-/* Fn。左右を両方ホールドしている間だけ設定レイヤーへ移す (process_fn 参照、
- * issue #62)。英数レイヤーは左右とも MO(3) で同じキーコードなので、
- * ALPHA_THUMB_SHIFT と同じく matrix の列 (col) で左右を見分ける。列が見た目の
- * 位置と違う機種は config.h で上書きする (ALPHA_THUMB_SHIFT_L_COL 参照)。
- * keymaps[] のレイヤー0(かな)とレイヤー1(英数)の並びと一致させること */
-#define KANA_FN_L LT(3, KC_C)
-#define KANA_FN_R LT(3, KC_COMMA)
-#define ALPHA_FN  MO(3)
+/* 英数レイヤーの Fn。左右とも同じキーコードなので、ALPHA_THUMB_SHIFT と同じく
+ * matrix の列 (col) で左右を見分ける。左右を両方ホールドしている間だけ設定レイヤーへ
+ * 移す (issue #62)。列が見た目の位置と違う機種は config.h で上書きする
+ * (ALPHA_THUMB_SHIFT_L_COL 参照)。keymaps[] の英数レイヤーの並びと一致させること */
+#define ALPHA_FN MO(LAYER_FN)
 #ifndef FN_L_COL
 #    define FN_L_COL 3
 #endif
@@ -92,7 +74,7 @@
  * ので自前の状態機械で見分けていたが、トグルにした (issue #53) ことで
  * tapping term の計測も別キー割り込みでのホールド確定も QMK に任せられる。
  *
- * keymaps[] のレイヤー0で使っているものと一致させること */
+ * keymaps[] のかなレイヤーで使っているものと一致させること */
 #define MY_LCTL LCTL_T(KC_NO)
 
 /* 独自キーコード。全機種で QK_USER_0 から並べる。
@@ -104,13 +86,14 @@
  * 448個) は本来キーマップ用だが、このリポジトリのキーマップは全てここのキーコード
  * だけで書いてあり、SAFE_RANGE から独自に足しているものは無い。
  *
- * 記号とかなのキー (KN_* / SY_*) がホストへ何を送るかは、windmill.c の出力表
- * (key_outputs[]) が持つ。キーマップには「どの文字のキーか」だけを書き、
+ * 英数レイヤー以外の文字のキー (かな、数字、記号) は全て独自キーコードで、
+ * 1キー1出力 (issue #79)。押した瞬間に1回だけ送り、リピートしない。押されている
+ * Shift は打ち消し、出力に Shift が要るときだけ足す。ホストへ何を送るかは windmill.c の
+ * 出力表 (key_outputs[]) が持つ。キーマップには「どの文字のキーか」だけを書き、
  * 接続先の配列やOSで変わるキーコードは表の側で吸収する。
  *
- * LT() / MT() のタップ側には独自キーコードを置けない (8bitの基本キーコードしか
- * 入らない)。かなレイヤー最下段の つ さ そ ひ こ み も ね と、英数レイヤーの
- * LT(2,KC_BSLS) / LT(2,KC_SLSH) は素のキーコードのまま残してある。
+ * 英数レイヤーのキーと、文字以外のキー (Enter、Tab、矢印など) は素のキーコードの
+ * まま。リピートも Shift も QMK に任せる。
  *
  * KN_NU 〜 SY_QUES は key_outputs[] のインデックス (keycode - KEY_OUTPUT_FIRST) に
  * 使っている。足すときは表にも行を足すこと (tests/test_key_output.cpp が
@@ -123,8 +106,7 @@ enum windmill_keycodes {
     MY_JIS,             // 接続先のキーボード配列を JIS に (接続先ごとにEEPROM保存。既定)
     MY_US,              // 同じく US に
 
-    /* かなレイヤー。名前はShift無しで出るかな。Shift時に別のかなを出すものは
-     * コメントに添えた。それ以外はOSのIMEに任せる (あ → ぁ、わ → を など) */
+    /* かなレイヤー。名前は出るかな */
     KN_NU,   // ぬ
     KN_FU,   // ふ
     KN_A,    // あ
@@ -136,39 +118,85 @@ enum windmill_keycodes {
     KN_YO,   // よ
     KN_WA,   // わ
     KN_TA,   // た
-    KN_TE,   // て  Shift時: へ
+    KN_TE,   // て
     KN_I,    // い
-    KN_SU,   // す  Shift時: む
+    KN_SU,   // す
     KN_KA,   // か
     KN_N,    // ん
-    KN_NA,   // な  Shift時: ほ
+    KN_NA,   // な
     KN_NI,   // に
-    KN_RA,   // ら  Shift時: 「
-    KN_SE,   // せ  Shift時: 」
-    KN_DAKU, // ゛  Shift時: ゜
-    KN_CHI,  // ち  Shift時: っ
+    KN_RA,   // ら
+    KN_SE,   // せ
+    KN_DAKU, // ゛
+    KN_CHI,  // ち
     KN_TO,   // と
     KN_SHI,  // し
     KN_HA,   // は
     KN_KI,   // き
     KN_KU,   // く
     KN_MA,   // ま
-    KN_NO,   // の  Shift時: 、
-    KN_RI,   // り  Shift時: 。
-    KN_RE,   // れ  Shift時: ・
-    KN_KE,   // け  Shift時: ー
+    KN_NO,   // の
+    KN_RI,   // り
+    KN_RE,   // れ
+    KN_KE,   // け
     KN_RU,   // る
     KN_ME,   // め
     KN_RO,   // ろ
 
-    /* 英数レイヤーの記号。「Shift無しの文字_Shift時の文字」の組で1つ */
-    SY_SCLN_COLN, // ; :
-    SY_QUOT_DQUO, // ' "
-    SY_COMM_LABK, // , <
-    SY_DOT_RABK,  // . >
+    /* かなレイヤーの Shift 面。名前は出るかな。X は小書き */
+    KN_XA,       // ぁ
+    KN_XU,       // ぅ
+    KN_XE,       // ぇ
+    KN_XO,       // ぉ
+    KN_XYA,      // ゃ
+    KN_XYU,      // ゅ
+    KN_XYO,      // ょ
+    KN_WO,       // を
+    KN_HE,       // へ
+    KN_XI,       // ぃ
+    KN_MU,       // む
+    KN_HO,       // ほ
+    KN_LKAKKO,   // 「
+    KN_RKAKKO,   // 」
+    KN_HANDAKU,  // ゜
+    KN_XTSU,     // っ
+    KN_TOUTEN,   // 、
+    KN_KUTEN,    // 。
+    KN_NAKAGURO, // ・
+    KN_CHOUON,   // ー
 
-    /* 記号レイヤー。1キー1文字。is_sym_ime_wrap_target() が SY_EXLM 〜 SY_QUES を
-     * 範囲で見ているので、記号レイヤーのキーはこの間に足すこと */
+    /* かなレイヤー最下段。タップで名前のかなを出し、ホールドで修飾やレイヤーになる
+     * (windmill.c「かなレイヤー最下段のタップとホールド」参照)。並びを変えないこと。
+     * KANA_HOLD_FIRST からの位置で、どのホールドの役割かを決めている */
+    KN_TSU, // つ  ホールド: Win
+    KN_SA,  // さ  ホールド: Alt
+    KN_SO,  // そ  ホールド: Fn (左)
+    KN_HI,  // ひ  ホールド: Sym
+    KN_KO,  // こ  ホールド: Shift (左)
+    KN_MI,  // み  ホールド: Shift (右)
+    KN_MO,  // も  ホールド: Sym
+    KN_NE,  // ね  ホールド: Fn (右)
+
+    /* 同じく Shift 面の最下段。名前はかなレイヤーの同じ位置のキーで、ホールドの役割も
+     * 同じ。タップで出るものだけが変わる。さ そ ひ は Shift 面で透過なので無い */
+    KS_TSU, // っ
+    KS_KO,  // 半角スペース。Shift 開始後に他のキーを押していたら何も出さない
+    KS_MI,  // 同上
+    KS_MO,  // 半角「?」。英数へ切り替えて送り、かなへ戻す
+    KS_NE,  // 、
+
+    /* 記号レイヤー。1キー1文字。SY_1 〜 SY_QUES は、かなベースのとき英数へ切り替えて
+     * 送る (windmill.c の is_ime_wrap_target)。記号レイヤーのキーはこの間に足すこと */
+    SY_1,
+    SY_2,
+    SY_3,
+    SY_4,
+    SY_5,
+    SY_6,
+    SY_7,
+    SY_8,
+    SY_9,
+    SY_0,
     SY_EXLM, // !
     SY_AT,   // @
     SY_HASH, // #
@@ -199,8 +227,8 @@ enum windmill_keycodes {
 #define KEY_OUTPUT_FIRST KN_NU
 #define KEY_OUTPUT_LAST  SY_QUES
 
-/* 出力表で引くキーなら、Shift無しでホストへ送るキーコードを返す。それ以外は
- * そのまま返す。キーマップのキーコードを素のキーコードとして読みたい機種側の
+/* 出力表で引くキーなら、ホストへ送るキーコードを返す (S() 付きのこともある)。
+ * それ以外はそのまま返す。キーマップのキーコードを素のキーコードとして読みたい機種側の
  * 処理 (geonix41 のブロブ) 向け */
 uint16_t windmill_output_keycode(uint16_t keycode);
 
@@ -212,8 +240,8 @@ void windmill_init_keycolors(uint8_t *user_colorset);
 
 /* keymap.c 側で実装する。キーコードを配色カテゴリ (colorset の添字) に分類する。
  * dual-role キーは windmill_base_keycode() でタップ側に展開してから渡される。
- * レイヤー0 (かな) はOSのIMEがかなに変換するのでキーコードから色を決められない。
- * そのため、どのレイヤーの分なのかを layer で渡す。 */
+ * かなのレイヤー (LAYER_KANA / LAYER_KANA_SHIFT) は記号のかなも文字として塗りたいので、
+ * キーコードだけでは色を決められない。そのため、どのレイヤーの分なのかを layer で渡す。 */
 uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode);
 
 /* MT()/LT() をタップ側のキーコードに展開する。それ以外はそのまま返す。 */

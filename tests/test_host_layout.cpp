@@ -207,33 +207,43 @@ TEST_F(HostLayoutReserved, unknown_value_is_jis) {
     expect_layouts(ALL_HOSTS, WINDMILL_LAYOUT_JIS);
 }
 
-/* JIS の列が入るまでは、どちらを選んでも US の出力のまま。
- * 英数レイヤーの「;」で見る。US 配列では KC_SCLN がそのまま「;」 */
+/* 配列の切り替えを有効にする (issue #75) までは、どちらを選んでも US の出力のまま。
+ * 出力表の基準は JIS なので、US の例外が引かれていることを記号レイヤーの「@」で見る。
+ * US 配列では Shift+2、JIS 配列なら単独の KC_LBRC になる */
 TEST_F(HostLayoutOutput, both_layouts_send_us_keys) {
     TestDriver driver;
     set_windmill_keymap();
 
-    auto scln = key(1, 10); // 英数 = SY_SCLN_COLN
+    auto sym = key(3, 4); // 英数 = LT(LAYER_SYM,KC_BSLS)
+    auto at  = key(1, 2); // 記号 = SY_AT
 
-    auto expect_scln = [&]() {
+    auto expect_at = [&]() {
         {
             InSequence s;
-            EXPECT_REPORT(driver, (KC_SCLN));
+            EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+            EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_2));
+            EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
             EXPECT_EMPTY_REPORT(driver);
         }
-        tap_key(scln, 50);
+        sym.press();
+        run_one_scan_loop();
+        idle_for(250); // TAPPING_TERM 超え。ホールド確定
+        tap_key(at, 50);
+        idle_for(50);
+        sym.release();
+        run_one_scan_loop();
         settle();
         VERIFY_AND_CLEAR(driver);
     };
 
     ASSERT_EQ(windmill_host_layout(), WINDMILL_LAYOUT_JIS);
-    expect_scln();
+    expect_at();
 
     select_layout(this, driver, POS_US);
     ASSERT_EQ(windmill_host_layout(), WINDMILL_LAYOUT_US);
-    expect_scln();
+    expect_at();
 
     select_layout(this, driver, POS_JIS);
     ASSERT_EQ(windmill_host_layout(), WINDMILL_LAYOUT_JIS);
-    expect_scln();
+    expect_at();
 }

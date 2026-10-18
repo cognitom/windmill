@@ -210,10 +210,11 @@ TEST_F(AndroidMods, blocked_mod_works_again_after_release) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* かなレイヤーで「つ」「さ」を続けて打つ。issue #57 の元になった打ち方。
+/* かなレイヤーで「つ」をホールドしたまま「さ」を押す。issue #57 の元になった打ち方
+ * (当時は続けて打つだけでこうなった)。
  *
- * 「さ」の押下で「つ」のホールドが確定し (HOLD_ON_OTHER_KEY_PRESS)、「さ」は
- * 上がった英数レイヤーの素の KC_LALT として解決される。それを握りつぶす。
+ * 「さ」の押下で「つ」のホールドが確定し、「さ」は上がった英数レイヤーの素の
+ * KC_LALT として解決される。それを握りつぶす。
  * 握りつぶした Alt はホストへ出ないので、英数レイヤーを上げた数に入れてしまうと
  * 下ろす機会が無くなる。離したあとにかなへ戻っていることを「ぬ」で見る */
 TEST_F(AndroidMods, kana_roll_over_gui_and_alt_sends_gui_only) {
@@ -222,8 +223,8 @@ TEST_F(AndroidMods, kana_roll_over_gui_and_alt_sends_gui_only) {
     select_android(this, driver);
     switch_to_kana(this, driver);
 
-    auto tsu = key(POS_TSU); // つ  LGUI_T(KC_Z)
-    auto sa  = key(POS_SA);  // さ  LALT_T(KC_X)
+    auto tsu = key(POS_TSU); // つ  ホールドで Win
+    auto sa  = key(POS_SA);  // さ  ホールドで Alt
     auto nu  = key(POS_NU);  // ぬ  かな = KC_1 / 英数 = KC_Q
 
     {
@@ -238,6 +239,7 @@ TEST_F(AndroidMods, kana_roll_over_gui_and_alt_sends_gui_only) {
 
     tsu.press();
     run_one_scan_loop();
+    idle_for(KANA_HOLD_TERM + 50);
     sa.press();
     run_one_scan_loop();
     idle_for(50);
@@ -250,6 +252,42 @@ TEST_F(AndroidMods, kana_roll_over_gui_and_alt_sends_gui_only) {
     run_one_scan_loop();
     idle_for(120);
     tap_key(nu, 50);
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA); // 次のテストへかなを持ち越さない
+}
+
+/* 「つ」「さ」を続けて打つだけなら、どちらも KANA_HOLD_TERM 未満で次のキーが来るので
+ * タップになる。Win も Alt も出ない */
+TEST_F(AndroidMods, kana_quick_roll_over_is_two_taps) {
+    TestDriver driver;
+    set_windmill_keymap();
+    select_android(this, driver);
+    switch_to_kana(this, driver);
+
+    auto tsu = key(POS_TSU);
+    auto sa  = key(POS_SA);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_Z)); // つ。さ の押下でタップに決まる
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_X)); // さ。離したのでタップ
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    tsu.press();
+    run_one_scan_loop();
+    idle_for(30);
+    sa.press();
+    run_one_scan_loop();
+    idle_for(30);
+    tsu.release();
+    run_one_scan_loop();
+    idle_for(30);
+    sa.release();
+    run_one_scan_loop();
     idle_for(120);
     VERIFY_AND_CLEAR(driver);
 
@@ -302,7 +340,7 @@ TEST_F(AndroidMods, kana_gui_dot_is_sent_as_alt_dot) {
     switch_to_kana(this, driver);
 
     auto tsu = key(POS_TSU);
-    auto ri  = key(POS_RI); // り  KN_RI。英数レイヤーでは SY_DOT_RABK (ピリオド)
+    auto ri  = key(POS_RI); // り  KN_RI。英数レイヤーでは KC_DOT
     auto nu  = key(POS_NU);
 
     {
@@ -318,7 +356,8 @@ TEST_F(AndroidMods, kana_gui_dot_is_sent_as_alt_dot) {
 
     tsu.press();
     run_one_scan_loop();
-    ri.press(); // TAPPING_TERM を待たずホールドが確定する
+    idle_for(KANA_HOLD_TERM + 50);
+    ri.press(); // ホールド確定
     run_one_scan_loop();
     idle_for(50);
     ri.release();

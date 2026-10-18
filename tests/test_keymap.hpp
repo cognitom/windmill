@@ -44,18 +44,25 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
     {KC_ESC,  KN_NU,        KN_FU,        KN_A,        KN_U,          KN_E,           KN_O,           KN_YA,         KN_YU,          KN_YO,      KN_WA,   KC_ENT},
     {KC_TAB,  KN_TA,        KN_TE,        KN_I,        KN_SU,         KN_KA,          KN_N,           KN_NA,         KN_NI,          KN_RA,      KN_SE,   KN_DAKU},
     {KC_BSPC, KN_CHI,       KN_TO,        KN_SHI,      KN_HA,         KN_KI,          KN_KU,          KN_MA,         KN_NO,          KN_RI,      KN_RE,   KN_KE},
-    {MY_LCTL, LGUI_T(KC_Z), LALT_T(KC_X), LT(3,KC_C),  LT(2,KC_V),    LSFT_T(KC_B),   LSFT_T(KC_N),   LT(2,KC_M),    LT(3,KC_COMMA), KN_RU,      KN_ME,   KN_RO},
+    {MY_LCTL, KN_TSU,       KN_SA,        KN_SO,       KN_HI,         KN_KO,          KN_MI,          KN_MO,         KN_NE,          KN_RU,      KN_ME,   KN_RO},
+  },
+
+  [LAYER_KANA_SHIFT] = {
+    {KC_TRNS, KC_TRNS,      KC_TRNS,      KN_XA,       KN_XU,         KN_XE,          KN_XO,          KN_XYA,        KN_XYU,         KN_XYO,     KN_WO,       KC_TRNS},
+    {KC_TRNS, KC_TRNS,      KN_HE,        KN_XI,       KN_MU,         KC_TRNS,        KC_TRNS,        KN_HO,         KC_TRNS,        KN_LKAKKO,  KN_RKAKKO,   KN_HANDAKU},
+    {KC_TRNS, KN_XTSU,      KC_TRNS,      KC_TRNS,     KC_TRNS,       KC_TRNS,        KC_TRNS,        KC_TRNS,       KN_TOUTEN,      KN_KUTEN,   KN_NAKAGURO, KN_CHOUON},
+    {KC_TRNS, KS_TSU,       KC_TRNS,      KC_TRNS,     KC_TRNS,       KS_KO,          KS_MI,          KS_MO,         KS_NE,          KN_KUTEN,   KN_NAKAGURO, KC_TRNS},
   },
 
   [LAYER_ALPHA] = {
-    {KC_TRNS, KC_Q,    KC_W,    KC_E,  KC_R,          KC_T,           KC_Y,           KC_U,          KC_I,         KC_O,        KC_P,         KC_TRNS},
-    {KC_TRNS, KC_A,    KC_S,    KC_D,  KC_F,          KC_G,           KC_H,           KC_J,          KC_K,         KC_L,        SY_SCLN_COLN, SY_QUOT_DQUO},
-    {KC_TRNS, KC_Z,    KC_X,    KC_C,  KC_V,          KC_B,           KC_N,           KC_M,          SY_COMM_LABK, SY_DOT_RABK, KC_UP,        KC_RGHT},
-    {KC_TRNS, KC_LGUI, KC_LALT, MO(3), LT(2,KC_BSLS), LSFT_T(KC_SPC), LSFT_T(KC_SPC), LT(2,KC_SLSH), MO(3),        KC_APP,      KC_LEFT,      KC_DOWN},
+    {KC_TRNS, KC_Q,    KC_W,    KC_E,         KC_R,                  KC_T,           KC_Y,           KC_U,                  KC_I,         KC_O,   KC_P,    KC_TRNS},
+    {KC_TRNS, KC_A,    KC_S,    KC_D,         KC_F,                  KC_G,           KC_H,           KC_J,                  KC_K,         KC_L,   KC_SCLN, KC_QUOT},
+    {KC_TRNS, KC_Z,    KC_X,    KC_C,         KC_V,                  KC_B,           KC_N,           KC_M,                  KC_COMM,      KC_DOT, KC_UP,   KC_RGHT},
+    {KC_TRNS, KC_LGUI, KC_LALT, MO(LAYER_FN), LT(LAYER_SYM,KC_BSLS), LSFT_T(KC_SPC), LSFT_T(KC_SPC), LT(LAYER_SYM,KC_SLSH), MO(LAYER_FN), KC_APP, KC_LEFT, KC_DOWN},
   },
 
   [LAYER_SYM] = {
-    {KC_TRNS, KC_1,         KC_2,         KC_3,        KC_4,          KC_5,           KC_6,           KC_7,          KC_8,           KC_9,       KC_0,    KC_TRNS},
+    {KC_TRNS, SY_1,         SY_2,         SY_3,        SY_4,          SY_5,           SY_6,           SY_7,          SY_8,           SY_9,       SY_0,    KC_TRNS},
     {KC_TRNS, SY_EXLM,      SY_AT,        SY_HASH,     SY_DLR,        SY_PERC,        SY_CIRC,        SY_AMPR,       SY_ASTR,        SY_LPRN,    SY_RPRN, SY_GRV},
     {KC_TRNS, SY_EQL,       SY_PLUS,      SY_MINS,     SY_UNDS,       SY_LBRC,        SY_RBRC,        SY_TILD,       SY_LCBR,        SY_RCBR,    KC_UP,   KC_RGHT},
     {KC_TRNS, KC_TRNS,      KC_TRNS,      KC_TRNS,     KC_TRNS,       SY_PIPE,        SY_QUES,        KC_TRNS,       KC_TRNS,        KC_TRNS,    KC_LEFT, KC_DOWN},
@@ -88,22 +95,24 @@ static inline uint8_t windmill_matrix_col(uint8_t row, uint8_t col) {
     return row == 3 ? windmill_row3_cols[col] : col;
 }
 
-/* かなレイヤー上の位置 (見た目の行と位置。matrix の列ではない)。コメントの文字は JISかな入力での出力 */
+/* かなレイヤー上の位置 (見た目の行と位置。matrix の列ではない)。コメントの文字は JISかな入力での出力。
+ * 「Shift 面」は親指Shift (こ / み) のホールド中に出るもの */
 #define POS_LCTL 3, 0  // 言語切替 (英数⇔かな)
-#define POS_KO 3, 5    // こ  左親指Shift
-#define POS_MI 3, 6    // み  右親指Shift
-#define POS_NO 2, 8    // の  KN_NO  Shift時 S(KC_COMM) = 、
-#define POS_RA 1, 9    // ら  KN_RA  Shift時 S(KC_LBRC)
-#define POS_SU 1, 4    // す  KN_SU  Shift時 KC_BSLS  (Shiftを外す必要がある)
-#define POS_NA 1, 7    // な  KN_NA  Shift時 KC_MINS = ほ (Shiftを外す必要がある)
-#define POS_HA 2, 4    // は  KN_HA  英数レイヤーでは "f"
-#define POS_MO 3, 7    // も  LT(2,KC_M)   Shift+タップで半角?
-#define POS_TSU 3, 1   // つ  LGUI_T(KC_Z) 英数レイヤーでは KC_LGUI
-#define POS_SA 3, 2    // さ  LALT_T(KC_X) 英数レイヤーでは KC_LALT
+#define POS_KO 3, 5    // こ  KN_KO  ホールドで左親指Shift
+#define POS_MI 3, 6    // み  KN_MI  ホールドで右親指Shift
+#define POS_NO 2, 8    // の  KN_NO  Shift 面では「、」 S(KC_COMM)
+#define POS_RA 1, 9    // ら  KN_RA  Shift 面では「「」 S(KC_LBRC)
+#define POS_SU 1, 4    // す  KN_SU  Shift 面では「む」 KC_BSLS  (Shiftを外す必要がある)
+#define POS_NA 1, 7    // な  KN_NA  Shift 面では「ほ」 KC_MINS (Shiftを外す必要がある)
+#define POS_HA 2, 4    // は  KN_HA  英数レイヤーでは "f"。Shift 面では透過
+#define POS_MO 3, 7    // も  KN_MO  ホールドで Sym。Shift 面では半角?
+#define POS_HI 3, 4    // ひ  KN_HI  ホールドで Sym
+#define POS_TSU 3, 1   // つ  KN_TSU ホールドで Win。英数レイヤーでは KC_LGUI
+#define POS_SA 3, 2    // さ  KN_SA  ホールドで Alt。英数レイヤーでは KC_LALT
 #define POS_NU 0, 1    // ぬ  KN_NU        英数レイヤーでは "q"
 #define POS_RI 2, 9    // り  KN_RI        英数レイヤーでは "."
-#define POS_FN_L 3, 3  // そ  LT(3,KC_C)     英数レイヤーでは MO(3)
-#define POS_FN_R 3, 8  // ね  LT(3,KC_COMMA) 英数レイヤーでは MO(3)
+#define POS_FN_L 3, 3  // そ  KN_SO  ホールドで Fn。英数レイヤーでは MO(LAYER_FN)
+#define POS_FN_R 3, 8  // ね  KN_NE  ホールドで Fn。英数レイヤーでは MO(LAYER_FN)
 
 /* 設定レイヤー上の位置。左右のFnを両方ホールドしている間だけ出る (issue #62) */
 #define POS_WIN 1, 1   // MY_WIN   Fnレイヤーでは KC_F11
@@ -130,16 +139,19 @@ class WindmillTest : public TestFixture {
         return KeymapKey(LAYER_KANA, windmill_matrix_col(row, col), row, windmill_keymap[LAYER_KANA][row][col]);
     }
 
-    // 左右のFnを両方ホールドして、設定レイヤー上のキーを1回叩く
+    /* 左右のFnを両方ホールドして、設定レイヤー上のキーを1回叩く。英数でもかなでも使える。
+     * かなの そ / ね は次のキーを押すまでホールドにならないので、1つずつ KANA_HOLD_TERM を
+     * 超えてから次を押す */
     void tap_on_conf(uint8_t row, uint8_t col) {
         auto fn_l = key(POS_FN_L);
         auto fn_r = key(POS_FN_R);
         fn_l.press();
         run_one_scan_loop();
-        fn_r.press();
+        idle_for(KANA_HOLD_TERM + 50);
+        fn_r.press(); // そ のホールド確定
         run_one_scan_loop();
-        idle_for(250); // TAPPING_TERM 超え。ホールド確定
-        tap_key(key(row, col), 50);
+        idle_for(KANA_HOLD_TERM + 50);
+        tap_key(key(row, col), 50); // ね のホールド確定
         idle_for(50);
         fn_r.release();
         run_one_scan_loop();
@@ -154,4 +166,5 @@ class WindmillTest : public TestFixture {
     }
 
     static constexpr unsigned IME_WAIT_MS = 10; // windmill.c の IME_WAIT_MS
+    static constexpr unsigned KANA_HOLD_TERM = 150; // windmill.c の KANA_HOLD_TERM
 };

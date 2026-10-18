@@ -14,9 +14,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* process_kana_qmark() のHIDレポートを検証する (issue #17)。
+/* かなの Shift 面の半角「?」(KS_MO) のHIDレポートを検証する (issue #17)。
  *
- * かなレイヤーの「も」(LT(2,KC_M)) をShiftを押しながらタップすると、
+ * 親指Shiftをホールドしたまま「も」の位置をタップすると、
  * KC_LNG2 → Shift+KC_SLSH → KC_LNG1 の順で送出し、半角「?」を入力する。
  * キーコードの並びだけでなく、実Shiftがいつ外れていつ戻るかをレポート列で
  * 固定する (issue #18 と同じ理由で、キーコードの一致だけでは修飾の出方の
@@ -26,6 +26,8 @@
  *   切り替えず、実機で「・」が出る
  * - 「?」のShiftが、外した実Shiftと同じものであること。左Shiftを自前で
  *   付けると修飾が入れ替わって見え、実機で半角「/」が出る
+ *
+ * 「も」のホールドは記号レイヤーで、それは Shift 面でも変わらない。
  *
  * 起動直後のベースレイヤーは英数 (issue #22) なので、かなレイヤー上の
  * 挙動を見るには先に MY_LCTL をタップしてかなへ切り替えておく必要がある。 */
@@ -53,7 +55,7 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
     VERIFY_AND_CLEAR(driver);
 }
 
-// Shiftなしなら通常どおり KC_M が出る
+// Shiftなしなら「も」(KC_M) が出る
 TEST_F(KanaQmark, without_shift_sends_plain_keycode) {
     TestDriver driver;
     set_windmill_keymap();
@@ -87,7 +89,7 @@ static void expect_qmark_reports(TestDriver& driver, uint8_t held) {
     EXPECT_REPORT(driver, (held));         // 押しっぱなしの実Shiftを戻す
 }
 
-/* Shiftを押しながらのタップは KC_LNG2 -> Shift+KC_SLSH -> KC_LNG1 に化ける。
+/* Shift 面でのタップは KC_LNG2 -> Shift+KC_SLSH -> KC_LNG1 になる。
  * IMEにモード切り替えを届かせるため、その間だけ実Shiftは外れている */
 TEST_F(KanaQmark, shifted_tap_sends_halfwidth_question_mark) {
     TestDriver driver;
@@ -106,8 +108,8 @@ TEST_F(KanaQmark, shifted_tap_sends_halfwidth_question_mark) {
 
     mi.press();
     run_one_scan_loop();
-    idle_for(150);
-    tap_key(mo, 120);
+    idle_for(KANA_HOLD_TERM);
+    tap_key(mo, 120); // み のホールド確定
     idle_for(120);
     mi.release();
     run_one_scan_loop();
@@ -117,7 +119,9 @@ TEST_F(KanaQmark, shifted_tap_sends_halfwidth_question_mark) {
 
 /* 実機で報告された は→も→も の再現 (PR #32)。「も」以外のキーを打った直後の
  * 1打鍵目だけ半角「/」になっていた。Shiftを入れ替えずに使えば1回目も2回目も
- * 同じレポート列になる。 */
+ * 同じレポート列になる。
+ *
+ * 「は」は Shift 面で透過なので、Shift を外して「は」が出る (issue #79) */
 TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
     TestDriver driver;
     set_windmill_keymap();
@@ -130,7 +134,9 @@ TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));        // み ホールド確定
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_F));  // は
+        EXPECT_EMPTY_REPORT(driver);                   // は。Shiftを外す
+        EXPECT_REPORT(driver, (KC_F));
+        EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
         expect_qmark_reports(driver, KC_LEFT_SHIFT);   // も 1回目
         expect_qmark_reports(driver, KC_LEFT_SHIFT);   // も 2回目
@@ -139,8 +145,8 @@ TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
 
     mi.press();
     run_one_scan_loop();
-    idle_for(150);
-    tap_key(ha, 120);
+    idle_for(KANA_HOLD_TERM);
+    tap_key(ha, 120); // み のホールド確定
     idle_for(120);
     tap_key(mo, 120);
     idle_for(120);
@@ -152,9 +158,8 @@ TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* ホールドすれば通常どおりSymレイヤーに乗る。かなベースのままなので、数字は
- * 既存のIMEラップ (is_sym_ime_wrap_target) で KC_LNG2 -> KC_1 -> KC_LNG1 に
- * なる。process_kana_qmark がホールドに割り込んでいないことの確認 */
+/* ホールドすれば記号レイヤーに乗る。かなベースのままなので、数字は
+ * IMEの切り替え (is_ime_wrap_target) で KC_LNG2 -> KC_1 -> KC_LNG1 になる */
 TEST_F(KanaQmark, hold_still_enters_sym_layer) {
     TestDriver driver;
     set_windmill_keymap();
@@ -175,8 +180,8 @@ TEST_F(KanaQmark, hold_still_enters_sym_layer) {
 
     mo.press();
     run_one_scan_loop();
-    idle_for(50);     // タップ確定前に、別キーの押下でホールドへ割り込ませる
-    tap_key(one, 60);
+    idle_for(KANA_HOLD_TERM + 50);
+    tap_key(one, 60); // も のホールド確定
     idle_for(60);
     mo.release();
     run_one_scan_loop();

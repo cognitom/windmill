@@ -8,7 +8,7 @@ minipeg48 / geonix41 の4つで、**キー処理の本体は `firmware/windmill.
 
 | パス | 中身 |
 |--|--|
-| `firmware/windmill.c` `firmware/windmill.h` | 全機種共通のキー処理。レイヤー、Shift出し分け、親指Shift、LED |
+| `firmware/windmill.c` `firmware/windmill.h` | 全機種共通のキー処理。レイヤー、出力表、かな最下段のタップとホールド、LED |
 | `firmware/<機種>/` | `keyboard.json`, `rules.mk`, `keymaps/default/keymap.c` |
 | `compose.agent.yaml` | QMK を動かすコンテナ。`qmk` サービスが常駐し、geonix41 のビルドだけ使い捨ての `geonix41` サービスで回す |
 | `scripts/` | lint (`lint.sh`) とテスト (`test.sh`)、ビルド (`build.sh`。geonix41 だけのものは `geonix41/` の下)、リリース (`release.sh`) |
@@ -95,13 +95,24 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
 
 ## 用語
 
-- **SandS** — Spaceをホールドすると Shift になる。実装は `process_thumb_shift()`
-- **出力表** — 記号とかなのキーは独自キーコード (`KN_*` / `SY_*`) で、ホストへ送るキーは
-  `key_outputs[]` のテーブル引きで決める。列は接続先の配列 (今は US だけ)。
-  実装は `process_key_output()`
-- **Shift出し分け** — 出力表で Shift時のキーを別に持つもの (`PAIR`) は、Shift時に
-  そちらを出す。実装は `process_shift_pair()`
-- **レイヤー** — `LAYER_KANA`(0) / `LAYER_ALPHA`(1) / `LAYER_SYM`(2) / `LAYER_FN`(3) /
-  `LAYER_CONF`(4)。0と1がベースレイヤーで `default_layer_set()` で切り替える
+- **SandS** — 英数レイヤーの Space をホールドすると Shift になる。QMK の `LSFT_T(KC_SPC)` で、
+  左右の持ち替えは `process_alpha_thumb_shift()`
+- **親指Shift** — かなレイヤーの「こ」「み」をホールドすると Shift になり、かなの Shift 面へ移る
+- **かなレイヤー最下段のタップとホールド** — つ さ そ ひ こ み も ね は自前で判定する。
+  別のキーの押下時に、押されてから `KANA_HOLD_TERM` (150ms) 以上ならホールド、未満なら
+  タップ。別のキーを押さずに離せばタップ。実装は `process_kana_hold()` と
+  `pre_process_record_kb()` (ホールドの開始はここで行い、別のキーを上げたレイヤーで解決させる)
+- **1キー1出力** — 英数レイヤー以外の文字のキー (かな、数字、記号) は独自キーコード
+  (`KN_*` / `KS_*` / `SY_*`) で、押した瞬間に1回だけ送り、リピートしない。押されている Shift は
+  打ち消し、出力に Shift が要るときだけ足す。実装は `send_output()`。英数レイヤーと、
+  文字以外のキー (Enter、矢印など) は素のキーコードで QMK に任せる
+- **出力表** — 独自キーコードがホストへ送るキーは `key_outputs[]` のテーブル引きで決める。
+  1キー1値で、値はホストに届くべき最終形 (`S()` 付きなら Shift 付きで届く)。基準は
+  Windows + JIS で、別の配列・OS は例外 (`key_output_exceptions[]`) として持つ。
+  配列の切り替えはまだ無効で、常に US を引く (`key_output_layout()`、有効化は issue #75)
+- **Shift 面** — `LAYER_KANA_SHIFT`。親指Shiftのホールド中だけ有効になる、Shift時のかな。
+  透過のキーは、下のかなレイヤーのかなを Shift を打ち消して出す
+- **レイヤー** — `LAYER_KANA`(0) / `LAYER_KANA_SHIFT`(1) / `LAYER_ALPHA`(2) / `LAYER_SYM`(3) /
+  `LAYER_FN`(4) / `LAYER_CONF`(5)。かなと英数がベースレイヤーで `default_layer_set()` で切り替える
 - **設定レイヤー** — `LAYER_CONF`。左右のFnを両方ホールドしている間だけ有効になる。
-  配置は全機種で共通。実装は `process_fn()`
+  配置は全機種で共通。実装は `update_conf_layer()`

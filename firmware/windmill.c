@@ -17,14 +17,16 @@
 /* Windmill 共通処理。
  *
  * キー処理は geonix41/minipeg48 からの移植で、QMK標準の mod-tap / layer-tap /
- * default_layer_set を使う。かな入力はOS側のIMEに任せる (レイヤー0が素の
- * QWERTY+数字段で、標準のJISかな配置になる)。
+ * default_layer_set を使う。かな入力はOS側のIMEに任せる (かなレイヤーのキーは、
+ * JISかな配列でそのかなが載っている位置のキーを送る)。かなレイヤー最下段の
+ * タップとホールドだけは自前で判定する。
  *
  * LEDはキーコードの種類ごとに色を割り当てる独自実装で、こちらは従来のまま。
  * LED非搭載機 (minipeg48) では WINDMILL_LED_ENABLE が立たず、配色処理は
  * 丸ごとコンパイルから外れる。 */
 
 #include "windmill.h"
+#include "keymap_japanese.h" // JP_*。出力表を、キーの位置ではなく JIS 配列で出る文字で書くため
 
 #define KEY_COUNT (MATRIX_ROWS * MATRIX_COLS)
 
@@ -39,8 +41,8 @@ __attribute__((weak)) uint8_t windmill_board_host(void) {
     return WINDMILL_HOST_USB;
 }
 
-/* 接続先のOS。言語切替 (MY_LCTL) のキーと、かなレイヤーの「」(KN_RA / KN_SE の
- * Shift時出力) はOSのIME実装で必要なキーが異なるため、MY_WIN / MY_ANDR で切り替える。
+/* 接続先のOS。言語切替 (MY_LCTL) のキーと、かなの「」(KN_LKAKKO / KN_RKAKKO) は
+ * OSのIME実装で必要なキーが異なるため、MY_WIN / MY_ANDR で切り替える。
  *
  * 無線機では接続先を切り替えるたびにOSを設定し直すのが手間なので、接続先
  * (WINDMILL_HOST_*) ごとに覚える (issue #58)。1つあたり2bitで、今使っているのは
@@ -260,6 +262,7 @@ static bool process_led_timeout(uint16_t keycode, keyrecord_t *record) {
 
 #endif // WINDMILL_LED_ENABLE
 
+
 /*
  * 修飾キーのホールド中だけ英数レイヤーへ移す
  */
@@ -273,8 +276,8 @@ static bool process_led_timeout(uint16_t keycode, keyrecord_t *record) {
  * が、まだ押している側のぶんまで落としてしまう。 */
 #define HOLD_LAYER LAYER_ALPHA
 
-static uint8_t hold_layer_mods = 0; // レイヤーを上げている修飾 (MOD_BIT)
-static uint8_t hold_layer_seen = 0; // そのうちホストへ出たのを確認済みのもの
+static uint8_t hold_layer_mods      = 0;     // レイヤーを上げている修飾 (MOD_BIT)
+static bool    hold_layer_ctrl_seen = false; // Ctrl がホストへ出たのを確認済みか (update_hold_layer 参照)
 
 static void hold_layer_on(uint8_t mod) {
     if (!hold_layer_mods) layer_on(HOLD_LAYER);
@@ -282,9 +285,32 @@ static void hold_layer_on(uint8_t mod) {
 }
 
 static void hold_layer_off(uint8_t mod) {
+    if (!(hold_layer_mods & mod)) return;
     hold_layer_mods &= ~mod;
-    hold_layer_seen &= ~mod;
+    if (mod == MOD_BIT(KC_LEFT_CTRL)) hold_layer_ctrl_seen = false;
     if (!hold_layer_mods) layer_off(HOLD_LAYER);
+}
+
+/* Ctrl (MY_LCTL) のぶんは、キーの解放イベントではなく**ホストへ出ている Ctrl** を
+ * 毎スキャン見て下ろす。
+ *
+ * MY_LCTL は QMK の mod-tap で、Ctrl を上げ下げするのも、解放をどのキーコードで
+ * 解決するのも QMK が持っている。以前は Win / Alt も mod-tap で、自分で英数レイヤーを
+ * 上げたせいで解放が英数レイヤー側の素の KC_LGUI として引き直され、mod-tap の解放を
+ * 待っていたレイヤーが貼りついたことがある。修飾の状態を見るなら、解放がどう
+ * 解決されようと必ず戻る。Win / Alt は自前のホールド判定になった (issue #79) ので、
+ * 解放をそのまま見ている。
+ *
+ * ただしレイヤーを上げた直後は、QMKがまだ Ctrl を register していないスキャンが
+ * ありうる。一度ホストへ出たのを確認してから下ろす。 */
+static void update_hold_layer(void) {
+    if (!(hold_layer_mods & MOD_BIT(KC_LEFT_CTRL))) return;
+
+    if (get_mods() & MOD_MASK_CTRL) {
+        hold_layer_ctrl_seen = true;
+    } else if (hold_layer_ctrl_seen) {
+        hold_layer_off(MOD_BIT(KC_LEFT_CTRL));
+    }
 }
 
 /*
@@ -293,7 +319,7 @@ static void hold_layer_off(uint8_t mod) {
  * QMK標準の mod-tap (LCTL_T(KC_NO)、windmill.h 参照)。tapping term の計測も、
  * 別キー割り込みでのホールド確定 (HOLD_ON_OTHER_KEY_PRESS) も、Ctrl の
  * 上げ下げも QMK がやる。ここはタップ時の言語切替と、ホールド中だけ英数
- * レイヤーへ移すぶんだけを持つ。Win(つ) / Alt(さ) と同じ扱い。
+ * レイヤーへ移すぶんだけを持つ。
  *
  * タップした直後 (QUICK_TAP_TERM = TAPPING_TERM 以内) に押し直すと、QMKは
  * ホールドではなくタップの繰り返しとみなす。MY_LCTL のタップ側は KC_NO で
@@ -335,17 +361,21 @@ static void send_lang_to_host(uint8_t layer) {
     }
 }
 
+static bool is_kana_base(void) {
+    return get_highest_layer(default_layer_state) == LAYER_KANA;
+}
+
 /* タップ確定。ベースレイヤーを反転させ、IMEもそちらへ切り替える。
  * default_layer_set はEEPROMを書かないので頻繁な切り替えでも安全 */
 static void switch_lang(void) {
-    const uint8_t next = get_highest_layer(default_layer_state) == LAYER_KANA ? LAYER_ALPHA : LAYER_KANA;
+    const uint8_t next = is_kana_base() ? LAYER_ALPHA : LAYER_KANA;
 
     send_lang_to_host(next);
     default_layer_set((layer_state_t)1 << next);
 }
 
 /*
- * Shift時に別の記号を出すキー
+ * 文字のキーの送り方
  */
 
 /* IMEがレポートを取りこぼさないためのウェイト。効かない場合は増やし、
@@ -356,206 +386,280 @@ static void switch_lang(void) {
  * ホスト側での順序を保証する (issue #17、issue #36)。 */
 #define IME_WAIT_MS 10
 
-// shifted 側が Shift 付きのキーコード (S(KC_x)) かどうか
-static bool is_shifted_keycode(uint16_t keycode) {
-    return IS_QK_MODS(keycode) && (QK_MODS_GET_MODS(keycode) & MOD_LSFT);
-}
+/* 英数レイヤー以外の文字のキーは、ここで1回だけ送る (issue #79)。output は出力表の
+ * 値で、ホストに届くべき最終形 (S() 付きなら Shift 付きで届く)。押されている Shift は
+ * 打ち消し、要るときだけ足す。
+ *
+ * | | Shift を押している | 押していない |
+ * |--|--|--|
+ * | 出力に Shift が要る | そのまま送る | Shift を足して送る |
+ * | 出力に Shift が要らない | Shift を外して送る | そのまま送る |
+ *
+ * - Shift を押しているときに Shift 付きのキーを送るなら、押されている Shift をそのまま
+ *   使い、修飾の付け外しを一切しない。以前は実Shiftを外して S() の weak Shift を付けて
+ *   いたので、ホストには「右Shiftを離して左Shiftを押す」レポートが1本挟まっていた。
+ *   この入れ替えが起きるのは親指Shiftを押してからの1打鍵目だけで、そこだけ Shift が
+ *   効かない機種があった (issue #18)。親指Shiftは左に統一してある (issue #37) が、
+ *   外付けキーボードの右Shiftと併用すれば同じ罠が復活するので、この形を保つ
+ * - Shift を外して送るときは、外す前後にウェイトを挟む。挟まないと、親指Shiftの
+ *   ホールドが確定した直後の1打鍵目だけ Shift が乗ったまま解釈されていた (issue #36)。
+ *   ホールドの確定と Shift を外すレポートが同じスキャンで出るので、IMEが Shift の
+ *   上げ下げを追い切れない。戻す前にも挟むのは、「こ」+「み」の半角スペースで
+ *   そうしていたものに揃えたため
+ * - 修飾は register / unregister で上げ下げする。del_mods() / set_mods() は real_mods を
+ *   書き換えるだけでレポートを送らないので、ホスト側では Shift の上げ下げが
+ *   見えなくなる (これも issue #18)
+ *
+ * ime_wrap なら、英数 (KC_LNG2) へ切り替えて送り、かな (KC_LNG1) へ戻す。かなベースの
+ * 記号レイヤーと、Shift 面の半角「?」で使う。KC_LNG2 / KC_LNG1 に Shift が乗っていると
+ * IMEが英数/かなキーとして受け取らないので、切り替えの間は必ず Shift を外す。外した
+ * あとで Shift が要る文字を送るときは、外した実Shiftを戻して使う (weak Shift を
+ * 付けると上の issue #18 の罠になる)。IMEのモードの切り替えも非同期なので、間に
+ * ウェイトを挟まないと切り替え完了前にキーが届いて全角のまま入力される */
+static void send_output(uint16_t output, bool ime_wrap) {
+    const uint8_t shift      = get_mods() & MOD_MASK_SHIFT;
+    const bool    need_shift = IS_QK_MODS(output) && (QK_MODS_GET_MODS(output) & MOD_LSFT);
+    const uint8_t key        = IS_QK_MODS(output) ? QK_MODS_GET_BASIC_KEYCODE(output) : output;
 
-/* Shift付きで押されたら shifted を、そうでなければ plain を送出する
- * (QMKのkey override相当)。
- *
- * shifted 側もShiftを要するキー (S(KC_COMM) → 「、」など) では、押されている
- * Shiftをそのまま使い、修飾の付け外しを一切しない。以前は必ず
- *   実Shiftを外す → shifted のweak Shiftを付ける → 外す
- * としていたので、ホストには「右Shiftを離して左Shiftを押す」レポートが1本
- * 挟まっていた。この入れ替えが起きるのは親指Shiftを押してからの1打鍵目だけで、
- * そこだけShiftが効かない機種があった (issue #18)。
- *
- * あわせて del_mods()/set_mods() をやめる。この2つは real_mods を書き換える
- * だけでレポートを送らないため、親指Shiftを押し続けていてもホスト側では
- * 文字ごとにShiftが離れた状態になっていた。
- *
- * 親指Shiftを左に統一した (issue #37) ので、押されている実Shiftは weak Shift と
- * 同じ左Shiftになり、入れ替えは原理的に起こらなくなった。ただしそれに頼って
- * weak Shift を付け直す形へ戻すと、外付けキーボードの右Shift併用など
- * 左Shift以外が押されている場合に同じ罠が復活するので、このままにしておく。 */
-static bool process_shift_pair(uint16_t plain, uint16_t shifted, keyrecord_t *record) {
-    if (!record->event.pressed) return false;
+    if (ime_wrap) {
+        if (shift) {
+            unregister_mods(shift);
+            wait_ms(IME_WAIT_MS);
+        }
+        tap_code(KC_LNG2);
+        wait_ms(IME_WAIT_MS);
+        if (shift && need_shift) {
+            register_mods(shift); // 押されていたShiftをそのまま戻して使う
+            wait_ms(IME_WAIT_MS);
+            tap_code(key);
+            wait_ms(IME_WAIT_MS);
+            unregister_mods(shift);
+        } else {
+            tap_code16(output); // Shift は外してあるので、要るなら weak Shift が付く
+        }
+        wait_ms(IME_WAIT_MS);
+        tap_code(KC_LNG1);
+        if (shift) {
+            wait_ms(IME_WAIT_MS);
+            register_mods(shift); // 押しっぱなしの実Shiftを戻す
+        }
+        return;
+    }
 
-    const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
     if (!shift) {
-        tap_code16(plain);
-    } else if (is_shifted_keycode(shifted)) {
-        tap_code(QK_MODS_GET_BASIC_KEYCODE(shifted)); // 押されているShiftをそのまま使う
+        tap_code16(output);
+    } else if (need_shift) {
+        tap_code(key); // 押されているShiftをそのまま使う
     } else {
-        /* shifted 側はShift無しで送る必要がある (「な」→「ほ」など)。
-         *
-         * 実Shiftを外す前後にウェイトを挟む。挟まないと、親指Shiftのホールドが
-         * 確定した直後の1打鍵目だけShiftが乗ったまま解釈されていた (issue #36)。
-         * 「な」なら「ほ」ではなく S(KC_MINS) の「ー」が出る。
-         *
-         * レポート列自体は1打鍵目も2打鍵目も同じで、違うのは間隔だけだった。
-         * 別キー割り込みでホールドが確定する (HOLD_ON_OTHER_KEY_PRESS) ため、
-         * 1打鍵目は
-         *   [LSFT] (ホールド確定) → [] (Shiftを外す) → [KC_MINS]
-         * が全て同じスキャンで出る。2打鍵目以降はホールド確定から間が空くので
-         * 正しく出ていた。つまりIMEがShiftの上げ下げを追い切れていない。 */
         wait_ms(IME_WAIT_MS);
         unregister_mods(shift);
         wait_ms(IME_WAIT_MS);
-        tap_code16(shifted);
+        tap_code(key);
+        wait_ms(IME_WAIT_MS);
         register_mods(shift);
     }
-    return false;
 }
 
 /*
  * 記号とかなのキーの出力表
  */
 
-/* 記号とかなのキー (KN_* / SY_*) は独自キーコードで、ホストへ送るキーはここの表で
+/* 記号とかなのキー (KN_* / KS_* / SY_*) は独自キーコードで、ホストへ送るキーはここの表で
  * 引く (issue #73)。同じ文字でも、送るべきキーコードは接続先のキーボード配列で
  * 変わる (「@」は US なら Shift+2、JIS なら単独のキー)。キーマップに素のキーコードを
- * 直接置くとそこを吸収できないので、キーマップは「どの文字のキーか」だけを持ち、
- * 配列ごとの違いは表の列として並べる。
+ * 直接置くとそこを吸収できないので、キーマップは「どの文字のキーか」だけを持つ。
  *
- * 今ある列は US だけで、出力は表にする前と変わらない。JIS の列は後から足す。 */
-enum {
-    KEY_OUTPUT_COL_US, // English (US)
-    KEY_OUTPUT_COL_SIZE,
-};
-
-/* 配列の設定 (WINDMILL_LAYOUT_*) から表の列を引く。設定の値をそのまま添字に
- * しないのは、設定のほうはEEPROMに残る値で、既定の JIS を 0 に固定してあるため。
+ * 1キー1値で、値はホストに届くべき最終形 (issue #79)。Shift の有無まで値が決めるので、
+ * 押されている Shift に左右されない (send_output 参照)。
  *
- * JIS の列がまだ無いので、どちらを選んでも US の列を返す (issue #74)。
- * 列を足したら、ここで JIS をそちらへ向ける */
-static uint8_t key_output_column(uint8_t layout) {
-    switch (layout) {
-        case WINDMILL_LAYOUT_JIS:
-        case WINDMILL_LAYOUT_US:
-        default:
-            return KEY_OUTPUT_COL_US;
-    }
-}
-
-typedef struct {
-    uint16_t plain;   // Shift無しで送るキー
-    uint16_t shifted; // Shift時に送るキー。KC_NO なら出し分けない (process_key_output 参照)
-} key_output_t;
-
-#define AS_IS(keycode) {(keycode), KC_NO}             // Shiftで出し分けない。素のキーと同じに振る舞う
-#define PAIR(plain, shifted) {(plain), (shifted)}     // Shift時に別のキーを出す (process_shift_pair 参照)
+ * 基準は Windows + JIS。別の配列やOSで変わるものは、差分を例外 (key_output_exceptions[])
+ * として持つ。基準を JIS にしたのは、かなはOSのIMEがキーの位置で決めるので、JIS の
+ * 値ならJISかな配列の刻印そのままに書けるから。記号は keymap_japanese.h の JP_* で書く。
+ * JP_AT は「JIS 配列で @ が出るキー」で、中身は KC_LBRC */
 #define ROW(keycode) ((keycode) - KEY_OUTPUT_FIRST)
 
-/* 行は独自キーコード、列は接続先の配列 (KEY_OUTPUT_COL_*)。
- *
- * かなはOSのIMEがキーの位置で決めるので、US の列は「JISかな配列でそのかなが
- * 載っている位置の、US配列でのキーコード」になる。Shift時のかなのうち、IMEが
- * 同じキーのShiftで出してくれるもの (ぁ、を など) は AS_IS のままでよく、別の
- * キーへ移したものだけ PAIR にしてある。 */
-static const key_output_t PROGMEM key_outputs[][KEY_OUTPUT_COL_SIZE] = {
-    //                        US
-    [ROW(KN_NU)]           = {AS_IS(KC_1)},
-    [ROW(KN_FU)]           = {AS_IS(KC_2)},
-    [ROW(KN_A)]            = {AS_IS(KC_3)},
-    [ROW(KN_U)]            = {AS_IS(KC_4)},
-    [ROW(KN_E)]            = {AS_IS(KC_5)},
-    [ROW(KN_O)]            = {AS_IS(KC_6)},
-    [ROW(KN_YA)]           = {AS_IS(KC_7)},
-    [ROW(KN_YU)]           = {AS_IS(KC_8)},
-    [ROW(KN_YO)]           = {AS_IS(KC_9)},
-    [ROW(KN_WA)]           = {AS_IS(KC_0)},
-    [ROW(KN_TA)]           = {AS_IS(KC_Q)},
-    [ROW(KN_TE)]           = {PAIR(KC_W, S(KC_EQL))},     // へ
-    [ROW(KN_I)]            = {AS_IS(KC_E)},
-    [ROW(KN_SU)]           = {PAIR(KC_R, KC_BSLS)},       // む
-    [ROW(KN_KA)]           = {AS_IS(KC_T)},
-    [ROW(KN_N)]            = {AS_IS(KC_Y)},
-    [ROW(KN_NA)]           = {PAIR(KC_U, KC_MINS)},       // ほ
-    [ROW(KN_NI)]           = {AS_IS(KC_I)},
-    [ROW(KN_RA)]           = {PAIR(KC_O, S(KC_LBRC))},    // 「 (Android は os_key_outputs[])
-    [ROW(KN_SE)]           = {PAIR(KC_P, S(KC_RBRC))},    // 」 (同上)
-    [ROW(KN_DAKU)]         = {PAIR(KC_LBRC, KC_RBRC)},    // ゜
-    [ROW(KN_CHI)]          = {PAIR(KC_A, S(KC_Z))},       // っ
-    [ROW(KN_TO)]           = {AS_IS(KC_S)},
-    [ROW(KN_SHI)]          = {AS_IS(KC_D)},
-    [ROW(KN_HA)]           = {AS_IS(KC_F)},
-    [ROW(KN_KI)]           = {AS_IS(KC_G)},
-    [ROW(KN_KU)]           = {AS_IS(KC_H)},
-    [ROW(KN_MA)]           = {AS_IS(KC_J)},
-    [ROW(KN_NO)]           = {PAIR(KC_K, S(KC_COMM))},    // 、
-    [ROW(KN_RI)]           = {PAIR(KC_L, S(KC_DOT))},     // 。
-    [ROW(KN_RE)]           = {PAIR(KC_SCLN, S(KC_SLSH))}, // ・
-    [ROW(KN_KE)]           = {PAIR(KC_QUOT, S(KC_MINS))}, // ー
-    [ROW(KN_RU)]           = {AS_IS(KC_DOT)},
-    [ROW(KN_ME)]           = {AS_IS(KC_SLSH)},
-    [ROW(KN_RO)]           = {AS_IS(KC_GRV)},
+static const uint16_t PROGMEM key_outputs[] = {
+    // かなレイヤー
+    [ROW(KN_NU)]       = KC_1,
+    [ROW(KN_FU)]       = KC_2,
+    [ROW(KN_A)]        = KC_3,
+    [ROW(KN_U)]        = KC_4,
+    [ROW(KN_E)]        = KC_5,
+    [ROW(KN_O)]        = KC_6,
+    [ROW(KN_YA)]       = KC_7,
+    [ROW(KN_YU)]       = KC_8,
+    [ROW(KN_YO)]       = KC_9,
+    [ROW(KN_WA)]       = KC_0,
+    [ROW(KN_TA)]       = KC_Q,
+    [ROW(KN_TE)]       = KC_W,
+    [ROW(KN_I)]        = KC_E,
+    [ROW(KN_SU)]       = KC_R,
+    [ROW(KN_KA)]       = KC_T,
+    [ROW(KN_N)]        = KC_Y,
+    [ROW(KN_NA)]       = KC_U,
+    [ROW(KN_NI)]       = KC_I,
+    [ROW(KN_RA)]       = KC_O,
+    [ROW(KN_SE)]       = KC_P,
+    [ROW(KN_DAKU)]     = JP_AT,
+    [ROW(KN_CHI)]      = KC_A,
+    [ROW(KN_TO)]       = KC_S,
+    [ROW(KN_SHI)]      = KC_D,
+    [ROW(KN_HA)]       = KC_F,
+    [ROW(KN_KI)]       = KC_G,
+    [ROW(KN_KU)]       = KC_H,
+    [ROW(KN_MA)]       = KC_J,
+    [ROW(KN_NO)]       = KC_K,
+    [ROW(KN_RI)]       = KC_L,
+    [ROW(KN_RE)]       = JP_SCLN,
+    [ROW(KN_KE)]       = JP_COLN,
+    [ROW(KN_RU)]       = JP_DOT,
+    [ROW(KN_ME)]       = JP_SLSH,
+    [ROW(KN_RO)]       = JP_BSLS,
 
-    [ROW(SY_SCLN_COLN)]    = {AS_IS(KC_SCLN)},
-    [ROW(SY_QUOT_DQUO)]    = {AS_IS(KC_QUOT)},
-    [ROW(SY_COMM_LABK)]    = {AS_IS(KC_COMM)},
-    [ROW(SY_DOT_RABK)]     = {AS_IS(KC_DOT)},
+    // かなレイヤーの Shift 面
+    [ROW(KN_XA)]       = S(KC_3),
+    [ROW(KN_XU)]       = S(KC_4),
+    [ROW(KN_XE)]       = S(KC_5),
+    [ROW(KN_XO)]       = S(KC_6),
+    [ROW(KN_XYA)]      = S(KC_7),
+    [ROW(KN_XYU)]      = S(KC_8),
+    [ROW(KN_XYO)]      = S(KC_9),
+    [ROW(KN_WO)]       = S(KC_0),
+    [ROW(KN_HE)]       = JP_CIRC,
+    [ROW(KN_XI)]       = S(KC_E),
+    [ROW(KN_MU)]       = JP_RBRC,
+    [ROW(KN_HO)]       = JP_MINS,
+    [ROW(KN_LKAKKO)]   = S(JP_LBRC),
+    [ROW(KN_RKAKKO)]   = S(JP_RBRC),
+    [ROW(KN_HANDAKU)]  = JP_LBRC,
+    [ROW(KN_XTSU)]     = S(KC_Z),
+    [ROW(KN_TOUTEN)]   = S(JP_COMM),
+    [ROW(KN_KUTEN)]    = S(JP_DOT),
+    [ROW(KN_NAKAGURO)] = S(JP_SLSH),
+    [ROW(KN_CHOUON)]   = JP_YEN,
 
-    [ROW(SY_EXLM)]         = {AS_IS(S(KC_1))},
-    [ROW(SY_AT)]           = {AS_IS(S(KC_2))},
-    [ROW(SY_HASH)]         = {AS_IS(S(KC_3))},
-    [ROW(SY_DLR)]          = {AS_IS(S(KC_4))},
-    [ROW(SY_PERC)]         = {AS_IS(S(KC_5))},
-    [ROW(SY_CIRC)]         = {AS_IS(S(KC_6))},
-    [ROW(SY_AMPR)]         = {AS_IS(S(KC_7))},
-    [ROW(SY_ASTR)]         = {AS_IS(S(KC_8))},
-    [ROW(SY_LPRN)]         = {AS_IS(S(KC_9))},
-    [ROW(SY_RPRN)]         = {AS_IS(S(KC_0))},
-    [ROW(SY_GRV)]          = {AS_IS(KC_GRV)},
-    [ROW(SY_EQL)]          = {AS_IS(KC_EQL)},
-    [ROW(SY_PLUS)]         = {AS_IS(S(KC_EQL))},
-    [ROW(SY_MINS)]         = {AS_IS(KC_MINS)},
-    [ROW(SY_UNDS)]         = {AS_IS(S(KC_MINS))},
-    [ROW(SY_LBRC)]         = {AS_IS(KC_LBRC)},
-    [ROW(SY_RBRC)]         = {AS_IS(KC_RBRC)},
-    [ROW(SY_TILD)]         = {AS_IS(S(KC_GRV))},
-    [ROW(SY_LCBR)]         = {AS_IS(S(KC_LBRC))},
-    [ROW(SY_RCBR)]         = {AS_IS(S(KC_RBRC))},
-    [ROW(SY_PIPE)]         = {AS_IS(S(KC_BSLS))},
-    [ROW(SY_QUES)]         = {AS_IS(S(KC_SLSH))},
+    // かなレイヤー最下段のタップ
+    [ROW(KN_TSU)]      = KC_Z,
+    [ROW(KN_SA)]       = KC_X,
+    [ROW(KN_SO)]       = KC_C,
+    [ROW(KN_HI)]       = KC_V,
+    [ROW(KN_KO)]       = KC_B,
+    [ROW(KN_MI)]       = KC_N,
+    [ROW(KN_MO)]       = KC_M,
+    [ROW(KN_NE)]       = JP_COMM,
+    [ROW(KS_TSU)]      = S(KC_Z),
+    [ROW(KS_KO)]       = KC_SPC,
+    [ROW(KS_MI)]       = KC_SPC,
+    [ROW(KS_MO)]       = JP_QUES,
+    [ROW(KS_NE)]       = S(JP_COMM),
+
+    // 記号レイヤー
+    [ROW(SY_1)]        = KC_1,
+    [ROW(SY_2)]        = KC_2,
+    [ROW(SY_3)]        = KC_3,
+    [ROW(SY_4)]        = KC_4,
+    [ROW(SY_5)]        = KC_5,
+    [ROW(SY_6)]        = KC_6,
+    [ROW(SY_7)]        = KC_7,
+    [ROW(SY_8)]        = KC_8,
+    [ROW(SY_9)]        = KC_9,
+    [ROW(SY_0)]        = KC_0,
+    [ROW(SY_EXLM)]     = JP_EXLM,
+    [ROW(SY_AT)]       = JP_AT,
+    [ROW(SY_HASH)]     = JP_HASH,
+    [ROW(SY_DLR)]      = JP_DLR,
+    [ROW(SY_PERC)]     = JP_PERC,
+    [ROW(SY_CIRC)]     = JP_CIRC,
+    [ROW(SY_AMPR)]     = JP_AMPR,
+    [ROW(SY_ASTR)]     = JP_ASTR,
+    [ROW(SY_LPRN)]     = JP_LPRN,
+    [ROW(SY_RPRN)]     = JP_RPRN,
+    [ROW(SY_GRV)]      = JP_GRV,
+    [ROW(SY_EQL)]      = JP_EQL,
+    [ROW(SY_PLUS)]     = JP_PLUS,
+    [ROW(SY_MINS)]     = JP_MINS,
+    [ROW(SY_UNDS)]     = JP_UNDS,
+    [ROW(SY_LBRC)]     = JP_LBRC,
+    [ROW(SY_RBRC)]     = JP_RBRC,
+    [ROW(SY_TILD)]     = JP_TILD,
+    [ROW(SY_LCBR)]     = JP_LCBR,
+    [ROW(SY_RCBR)]     = JP_RCBR,
+    [ROW(SY_PIPE)]     = JP_PIPE,
+    [ROW(SY_QUES)]     = JP_QUES,
 };
 _Static_assert(ARRAY_SIZE(key_outputs) == ROW(KEY_OUTPUT_LAST) + 1, "key_outputs[] の行が独自キーコードの数と合っていない");
 _Static_assert(WINDMILL_KEYCODE_END - 1 <= QK_USER_MAX, "独自キーコードが QK_USER の範囲に収まっていない");
 
-/* 対象OS (MY_WIN / MY_ANDR) で出力が変わるキー。ここに行があれば key_outputs[] より
- * 優先する。列は同じく接続先の配列。
- *
- * 「」はIMEによって載っている位置が違う。Windows (Microsoft IME) は [ と ] の
- * Shiftで出るが、Android (Gboard) は ] と \ のShiftで出る。 */
-static const struct {
-    uint16_t     keycode;
-    uint8_t      os;
-    key_output_t outputs[KEY_OUTPUT_COL_SIZE];
-} PROGMEM os_key_outputs[] = {
-    //                 US
-    {KN_RA, OS_ANDR, {PAIR(KC_O, S(KC_RBRC))}}, // 「
-    {KN_SE, OS_ANDR, {PAIR(KC_P, S(KC_BSLS))}}, // 」
-};
-
-#undef AS_IS
-#undef PAIR
 #undef ROW
 
-// keycode は KEY_OUTPUT_FIRST 〜 KEY_OUTPUT_LAST であること
-static key_output_t get_key_output(uint16_t keycode) {
-    const uint8_t column = key_output_column(windmill_host_layout());
-    const uint8_t os     = get_host_os();
-    key_output_t  output;
+#define OS_ANY 0xFF // 例外をどのOSにも当てる
 
-    for (uint8_t i = 0; i < ARRAY_SIZE(os_key_outputs); ++i) {
-        if (pgm_read_word(&os_key_outputs[i].keycode) == keycode && pgm_read_byte(&os_key_outputs[i].os) == os) {
-            memcpy_P(&output, &os_key_outputs[i].outputs[column], sizeof(output));
-            return output;
-        }
+/* 基準 (Windows + JIS) と違うものの例外。上から見て、キーと配列とOSが先に当たったものを
+ * 使う。OSで分けたい行は、OS_ANY の行より上に置くこと。
+ *
+ * US 配列では、JISかな配列の刻印に無いキー (= ^ ] ¥ ろ) に載っているかなが、別の
+ * キーへ逃がされている。「へ」は ^ の代わりに Shift+= (US の = の位置)、「む」は
+ * ] の代わりに \ のキー、「ー」は ¥ の代わりに Shift+-、「ろ」は ` のキー。
+ *
+ * 「」はIMEによって載っている位置が違う。US 配列のとき、Windows (Microsoft IME) は
+ * [ と ] のShiftで出るが、Android (Gboard) は ] と \ のShiftで出る。Android のほうは
+ * JISかな配列の刻印どおりの位置なので、JIS では基準と同じになる (未確認) */
+static const struct {
+    uint16_t keycode;
+    uint8_t  layout; // WINDMILL_LAYOUT_*
+    uint8_t  os;     // OS_* か OS_ANY
+    uint16_t output;
+} PROGMEM key_output_exceptions[] = {
+    // かな
+    {KN_RO, WINDMILL_LAYOUT_US, OS_ANY, KC_GRV},
+    {KN_HE, WINDMILL_LAYOUT_US, OS_ANY, S(KC_EQL)},
+    {KN_MU, WINDMILL_LAYOUT_US, OS_ANY, KC_BSLS},
+    {KN_LKAKKO, WINDMILL_LAYOUT_US, OS_ANDR, S(KC_RBRC)},
+    {KN_LKAKKO, WINDMILL_LAYOUT_US, OS_ANY, S(KC_LBRC)},
+    {KN_RKAKKO, WINDMILL_LAYOUT_US, OS_ANDR, S(KC_BSLS)},
+    {KN_RKAKKO, WINDMILL_LAYOUT_US, OS_ANY, S(KC_RBRC)},
+    {KN_CHOUON, WINDMILL_LAYOUT_US, OS_ANY, S(KC_MINS)},
+
+    // 記号
+    {SY_AT, WINDMILL_LAYOUT_US, OS_ANY, S(KC_2)},
+    {SY_CIRC, WINDMILL_LAYOUT_US, OS_ANY, S(KC_6)},
+    {SY_AMPR, WINDMILL_LAYOUT_US, OS_ANY, S(KC_7)},
+    {SY_ASTR, WINDMILL_LAYOUT_US, OS_ANY, S(KC_8)},
+    {SY_LPRN, WINDMILL_LAYOUT_US, OS_ANY, S(KC_9)},
+    {SY_RPRN, WINDMILL_LAYOUT_US, OS_ANY, S(KC_0)},
+    {SY_GRV, WINDMILL_LAYOUT_US, OS_ANY, KC_GRV},
+    {SY_EQL, WINDMILL_LAYOUT_US, OS_ANY, KC_EQL},
+    {SY_PLUS, WINDMILL_LAYOUT_US, OS_ANY, S(KC_EQL)},
+    {SY_UNDS, WINDMILL_LAYOUT_US, OS_ANY, S(KC_MINS)},
+    {SY_LBRC, WINDMILL_LAYOUT_US, OS_ANY, KC_LBRC},
+    {SY_RBRC, WINDMILL_LAYOUT_US, OS_ANY, KC_RBRC},
+    {SY_TILD, WINDMILL_LAYOUT_US, OS_ANY, S(KC_GRV)},
+    {SY_LCBR, WINDMILL_LAYOUT_US, OS_ANY, S(KC_LBRC)},
+    {SY_RCBR, WINDMILL_LAYOUT_US, OS_ANY, S(KC_RBRC)},
+    {SY_PIPE, WINDMILL_LAYOUT_US, OS_ANY, S(KC_BSLS)},
+};
+
+/* 出力表を引く配列。まだ配列の切り替えを有効にしていないので、設定 (MY_JIS / MY_US) に
+ * 依らず US を引く。英数レイヤーの記号や LT() のタップ側のような素のキーコードは
+ * US 配列向けのままで、ここだけ JIS にすると文字が混ざる。切り替えの有効化は
+ * issue #75 で、そこで windmill_host_layout() に替える */
+static uint8_t key_output_layout(void) {
+    return WINDMILL_LAYOUT_US;
+}
+
+// keycode は KEY_OUTPUT_FIRST 〜 KEY_OUTPUT_LAST であること
+static uint16_t get_key_output(uint16_t keycode) {
+    const uint8_t layout = key_output_layout();
+    const uint8_t os     = is_android() ? OS_ANDR : OS_WIN; // 予約の値は Windows と同じに扱う
+
+    for (uint8_t i = 0; i < ARRAY_SIZE(key_output_exceptions); ++i) {
+        if (pgm_read_word(&key_output_exceptions[i].keycode) != keycode) continue;
+        if (pgm_read_byte(&key_output_exceptions[i].layout) != layout) continue;
+        const uint8_t row_os = pgm_read_byte(&key_output_exceptions[i].os);
+        if (row_os != OS_ANY && row_os != os) continue;
+        return pgm_read_word(&key_output_exceptions[i].output);
     }
-    memcpy_P(&output, &key_outputs[keycode - KEY_OUTPUT_FIRST][column], sizeof(output));
-    return output;
+    return pgm_read_word(&key_outputs[keycode - KEY_OUTPUT_FIRST]);
 }
 
 static bool is_key_output_target(uint16_t keycode) {
@@ -563,102 +667,36 @@ static bool is_key_output_target(uint16_t keycode) {
 }
 
 uint16_t windmill_output_keycode(uint16_t keycode) {
-    return is_key_output_target(keycode) ? get_key_output(keycode).plain : keycode;
+    return is_key_output_target(keycode) ? get_key_output(keycode) : keycode;
 }
 
-/* 出力表で引くキーを送る。常に false (QMKには渡さない)。
+/* 英数へ切り替えて送るキーか。かなベースの記号レイヤーは、かな入力のままでは全角に
+ * なるので1打鍵ごとに英数へ切り替える。Shift 面の「?」も、かな入力のままでは打てない
+ * 半角の記号なので同じ (issue #17)。
  *
- * 出し分けないキーは、QMKが素のキーコードを処理するのと同じレポート列にする。
- * 以前はキーマップに KC_1 や S(KC_1) を直接置いてQMKに任せていたので、そこから
- * 挙動を変えないため。
- *
- * - 押下で register、解放で unregister。process_shift_pair() のように押下の中で
- *   送り切ると、押しっぱなしにしてもキーリピートが効かなくなる
- * - 押下のたびに weak mods を落とす。QMKは process_action() の頭でこれをやって
- *   いる。落とさないと、「!」(Shift+1) を離す前に「=」を押したとき、「!」の
- *   weak Shift が「=」にも乗って「+」に化ける
- * - 機種側の process_record にも、素のキーコードとして渡す。geonix41 のブロブは
- *   キーマップに直接置いていたころからこれらのキーを見ている */
-static bool process_key_output(uint16_t keycode, keyrecord_t *record) {
-    const key_output_t output = get_key_output(keycode);
-    if (output.shifted != KC_NO) {
-        return process_shift_pair(output.plain, output.shifted, record);
-    }
+ * 記号レイヤーのキーは記号レイヤー専用の独自キーコードなので、かなレイヤーの
+ * キーを巻き込む心配が無い */
+static bool is_ime_wrap_target(uint16_t keycode) {
+    if (!is_kana_base()) return false;
+    return (keycode >= SY_1 && keycode <= SY_QUES) || keycode == KS_MO;
+}
 
-    if (!windmill_board_process_record(output.plain, record)) return false;
+static void send_key_output(uint16_t keycode) {
+    send_output(get_key_output(keycode), is_ime_wrap_target(keycode));
+}
+
+/* 出力表で引くキー (最下段のタップとホールドを持つものを除く) を送る。常に false
+ * (QMKには渡さない)。押下で送り切り、解放では何もしない (issue #79)。
+ *
+ * 機種側の process_record にも、ホストへ送るキーコードとして渡す。geonix41 のブロブは
+ * キーマップに素のキーコードを直接置いていたころからこれらのキーを見ている */
+static bool process_output_key(uint16_t keycode, keyrecord_t *record) {
+    if (!windmill_board_process_record(get_key_output(keycode), record)) return false;
 
     if (record->event.pressed) {
-        clear_weak_mods();
-        register_code16(output.plain);
-    } else {
-        unregister_code16(output.plain);
+        send_key_output(keycode);
     }
     return false;
-}
-
-/*
- * 親指Shift
- */
-
-/* tap = B/N, hold = Shift (QMKのtap-holdのまま),
- * tap with Shift = 半角スペース (Shift抑制)。ただしShift開始後に
- * 他のキーを押していたら誤入力ガードとして反応しない */
-
-// Shift(親指hold)開始後に他のキーが押されたらダーティ
-static bool thumb_shift_dirty = false;
-
-/* Shiftとしてホールド中の親指Shift。左右で1ビットずつ持つ。
- *
- * 左右とも左Shiftになった (issue #37) ので、QMKの修飾ビットは両者で共有される。
- * 参照カウントが無いため、素のままだと先に離したほうの unregister_mods() で
- * Shiftが落ち、もう片方を押していてもホストからはShiftが離れて見える。
- * 押しっぱなしのほうが残っているうちは離すイベントごと消費して、
- * 持ち替え (ハンドオーバー) を途切れさせない。 */
-static uint8_t thumb_shift_held = 0;
-
-#define THUMB_SHIFT_BIT(keycode) ((keycode) == THUMB_SHIFT_B ? 1 : 2)
-
-// falseを返したらそのイベントは消費済み(以降の処理をスキップ)
-static bool process_thumb_shift(uint16_t keycode, keyrecord_t *record) {
-    if (record->tap.count && record->event.pressed) { // tap確定
-        const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
-        if (shift) {
-            if (!thumb_shift_dirty) {
-                /* 実Shiftを外してから半角スペースを送る。
-                 *
-                 * 以前は del_mods()/set_mods() で real_mods を書き換えていた。この2つは
-                 * レポートを送らないので、ホストへ届く1本目が
-                 *
-                 *   [LSFT] (ホールド確定) → [KC_SPC]
-                 *
-                 * と、「Shiftを離す」と「Spaceを押す」を1本にまとめた形になっていた。
-                 * しかも同時押しでは、もう片方の押下がホールドを確定させる
-                 * (HOLD_ON_OTHER_KEY_PRESS) ので、その1本はホールド確定の直後に出る。
-                 * IMEがShiftの上げ下げを追い切れず、1打鍵目だけShiftが乗ったままに
-                 * なっていた。2打鍵目以降が無事なのは前のレポートから間が空いている
-                 * だけの話で、process_shift_pair() の「Shiftを外して送る」経路と
-                 * 同じ症状 (issue #36)。
-                 *
-                 * register系に変えてShiftを外すレポートを1本独立させ、あわせて
-                 * そちらと同じウェイトを挟んで順序を保証する。 */
-                wait_ms(IME_WAIT_MS);
-                unregister_mods(shift);
-                wait_ms(IME_WAIT_MS);
-                tap_code16(KC_SPC);
-                wait_ms(IME_WAIT_MS);
-                register_mods(shift);
-            }
-            return false; // ダーティ時は何も出さない
-        }
-    } else if (!record->tap.count && record->event.pressed) { // hold確定 = Shift開始
-        thumb_shift_dirty = false;
-        thumb_shift_held |= THUMB_SHIFT_BIT(keycode);
-    } else if (!record->event.pressed && !record->tap.count) { // hold解放
-        thumb_shift_held &= ~THUMB_SHIFT_BIT(keycode);
-        // もう片方がまだShiftとして押されているなら、QMKに離させない
-        if (thumb_shift_held) return false;
-    }
-    return true; // 通常のtap(B/N)とholdはQMKに任せる
 }
 
 /*
@@ -666,14 +704,14 @@ static bool process_thumb_shift(uint16_t keycode, keyrecord_t *record) {
  */
 
 /* 左右とも ALPHA_THUMB_SHIFT (LSFT_T(KC_SPC)) で同じキーコードなので、
- * かなレイヤーの THUMB_SHIFT_BIT のようにキーコードでは左右を区別できない。
- * windmill.h の説明どおり matrix の列 (col) で見分ける (issue #40)。
- * 列は機種ごとに違いうるので、値は windmill.h / 機種の config.h が持つ (issue #68)。
+ * キーコードでは左右を区別できない。windmill.h の説明どおり matrix の列 (col) で
+ * 見分ける (issue #40)。列は機種ごとに違いうるので、値は windmill.h / 機種の
+ * config.h が持つ (issue #68)。
  *
- * 参照カウントを持たないと片方を持ち替えたときにShiftごと落ちる理屈は
- * process_thumb_shift と同じ。ただし英数レイヤーはIMEを介さないぶん単純で、
- * Shift+タップ (半角スペース) はそのままQMKに任せてよく、ウェイトを挟んだ
- * 送出のやり直しは要らない。 */
+ * QMKの修飾ビットは左右で共有される。参照カウントが無いため、素のままだと先に
+ * 離したほうの unregister_mods() で Shift が落ち、もう片方を押していてもホストからは
+ * Shift が離れて見える。押しっぱなしのほうが残っているうちは離すイベントごと消費して、
+ * 持ち替えを途切れさせない。Shift+タップ (半角スペース) はそのままQMKに任せてよい。 */
 static uint8_t alpha_thumb_shift_held = 0;
 
 #define ALPHA_THUMB_SHIFT_BIT(record) ((record)->event.key.col == ALPHA_THUMB_SHIFT_L_COL ? 1 : 2)
@@ -693,7 +731,7 @@ static bool process_alpha_thumb_shift(keyrecord_t *record) {
 }
 
 /*
- * かなレイヤー上での記号入力
+ * 接続先ごとの設定
  */
 
 // いま繋がっている接続先のOSだけを書き換える。他の接続先の設定は触らない
@@ -714,135 +752,6 @@ static void set_host_layout(uint8_t layout) {
     eeconfig_update_kb(windmill_config.raw);
 }
 
-/* 記号レイヤーの数字・記号キーか (レイヤー配置と一致させること)。
- * 矢印キーとKC_TRNSで下位レイヤーに落ちるキーは含めない。
- *
- * 記号は記号レイヤー専用の独自キーコードなので、かなレイヤーの同じキーコードを
- * 巻き込む心配が無い。数字だけは素のキーコードのまま (windmill.h 参照) */
-static bool is_sym_ime_wrap_target(uint16_t keycode) {
-    switch (keycode) {
-        case KC_1 ... KC_0:
-        case SY_EXLM ... SY_QUES:
-            return true;
-    }
-    return false;
-}
-
-/* LT(2,KC_M) (も) をShiftを押しながらタップしたら、半角「?」を送る。かな入力の
- * ままでは打てない記号なので、Symレイヤーの数字・記号と同じ要領で英数へ
- * 切り替えてから送出し、かなへ戻す (issue #17)。
- *
- * Symレイヤー側の is_sym_ime_wrap_target と違い、こちらは押しっぱなしの実Shift
- * (親指Shiftを含む) がある状態で走るので、Shiftの扱いに2つ気をつける点がある。
- *
- * 1. KC_LNG2/KC_LNG1 にShiftが乗っているとIMEが英数/かなキーとして受け取らず、
- *    モードがかなのまま KC_SLSH だけが届いて「・」(JISかなのShift+/) が出る。
- *    そこでモード切り替えの間だけShiftを外す。
- * 2. 「?」のShiftは、外した実Shiftをそのまま戻して使う。以前は S(KC_SLSH) の
- *    weak Shift (左Shift) を自前で付けていたが、それだとホストからは
- *    「右Shiftを離す → 左Shiftを押す」と修飾が入れ替わって見え、言語切り替え
- *    直後の1打鍵目だけShiftが効かずに半角「/」が出ていた。issue #18 と同じ罠。
- *    親指Shiftを左に統一した (issue #37) 今は入れ替えの相手がいないが、
- *    外付けキーボードの右Shiftとの併用まで考えると実Shiftを使うほうが安全。
- *
- * 加えて、モードとShiftの変化はどちらもIMEが非同期に処理するので、レポートを
- * 送るたびにウェイトを挟んで順序を保証する。修飾の上げ下げにも1回ずつ要るのは、
- * Shiftを押した直後に KC_SLSH を送るとIMEが切り替え処理に紛れてShiftを取り
- * こぼすため。del_mods()/set_mods() ではなく register/unregister を使うのは、
- * ホスト側にもShiftの上げ下げを届ける必要があるから (これも issue #18)。
- *
- * ホールド (Symレイヤーへの遷移) はQMKの通常のLT()処理に任せる */
-static bool process_kana_qmark(keyrecord_t *record) {
-    if (record->tap.count && record->event.pressed) { // タップ確定
-        const uint8_t shift = get_mods() & MOD_MASK_SHIFT;
-        if (shift) {
-            unregister_mods(shift); // モード切り替えの間だけ実Shiftを外す
-            wait_ms(IME_WAIT_MS);
-            tap_code16(KC_LNG2); // 英数へ
-            wait_ms(IME_WAIT_MS);
-            register_mods(shift); // 押されていたShiftをそのまま戻して「?」に使う
-            wait_ms(IME_WAIT_MS);
-            tap_code(KC_SLSH);
-            wait_ms(IME_WAIT_MS);
-            unregister_mods(shift);
-            wait_ms(IME_WAIT_MS);
-            tap_code16(KC_LNG1); // かなへ
-            wait_ms(IME_WAIT_MS);
-            register_mods(shift); // 押しっぱなしの実Shiftを戻す
-            return false;
-        }
-    }
-    return true; // Shiftなしのタップ、ホールドはQMKに任せる
-}
-
-/*
- * かなレイヤーの Win(つ) / Alt(さ)
- */
-
-/* ホールド中は英数レイヤーへ移す (issue #34)。修飾そのものはQMKの mod-tap
- * (LGUI_T(KC_Z) / LALT_T(KC_X)) のままで、レイヤーの上げ下げだけを見る。
- *
- * 上げるのは process_record_kb() のホールド確定時。ここはタップかホールドかが
- * 確定してから呼ばれるので、別キー割り込みで確定する場合
- * (HOLD_ON_OTHER_KEY_PRESS) でも、割り込みキーの解決に間に合う。
- * MY_LCTL も同じ mod-tap になったので、扱いは揃っている。
- *
- * Ctrlを先に押していると英数レイヤーが既に上がっていて、つ/さ の押下は mod-tap
- * ではなく英数レイヤー側の素の KC_LGUI / KC_LALT として解決される。そちらも
- * 数えないと、Ctrlを先に離した時点でレイヤーが落ちてしまう。 */
-static void process_kana_mod(uint16_t keycode, keyrecord_t *record) {
-    if (!record->event.pressed) return;
-    if (get_highest_layer(default_layer_state) != LAYER_KANA) return; // 英数ベースなら何もしない
-
-    uint8_t mod;
-    switch (keycode) {
-        case KANA_GUI_KEY:
-        case KANA_ALT_KEY:
-            if (record->tap.count) return; // タップ (つ / さ) はレイヤーを動かさない
-            mod = (keycode == KANA_GUI_KEY) ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
-            break;
-        default: // 英数レイヤー側の素の KC_LGUI / KC_LALT
-            mod = (keycode == KC_LGUI) ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
-            break;
-    }
-    hold_layer_on(mod);
-}
-
-/* レイヤーを下ろすのは、キーの解放イベントではなく**ホストへ出ている修飾**を
- * 毎スキャン見て判断する。
- *
- * 自分で英数レイヤーを上げたせいで、つ/さ の位置は解放時に mod-tap ではなく
- * 英数レイヤー側の素の KC_LGUI として引き直されることがある。英数レイヤーの
- * 同じ位置は `_______` ではなく KC_LGUI / KC_LALT なので下位レイヤーへ落ちない。
- * mod-tap のキーコードで解放を待つとそれが永久に来ず、英数レイヤーへ貼りついた
- * まま戻れなくなる。MY_LCTL が同じ罠にかからないのは、英数レイヤーの最下段
- * 左端がたまたま透過だから。
- *
- * 修飾の状態を見るなら解放がどちらのキーコードで解決されようと必ず戻るし、
- * 英数レイヤーの並びを変えても壊れない。ただしレイヤーを上げた直後は、QMKが
- * まだ修飾を register していないスキャンがありうる。一度ホストへ出たのを
- * 確認してから下ろす。 */
-static void update_hold_layer(void) {
-    // {レイヤーを上げている印, ホストへ出ているか見る修飾} の対。左右どちらでも数える
-    static const uint8_t watch[][2] = {
-        {MOD_BIT(KC_LEFT_CTRL), MOD_MASK_CTRL},
-        {MOD_BIT(KC_LEFT_GUI), MOD_MASK_GUI},
-        {MOD_BIT(KC_LEFT_ALT), MOD_MASK_ALT},
-    };
-    const uint8_t mods = get_mods();
-
-    for (uint8_t i = 0; i < ARRAY_SIZE(watch); ++i) {
-        const uint8_t bit = watch[i][0], mask = watch[i][1];
-        if (!(hold_layer_mods & bit)) continue;
-
-        if (mods & mask) {
-            hold_layer_seen |= bit;
-        } else if (hold_layer_seen & bit) {
-            hold_layer_off(bit);
-        }
-    }
-}
-
 /*
  * Android での Win / Alt
  */
@@ -855,34 +764,52 @@ static void update_hold_layer(void) {
  *   Caps Lock が切り替わる。間に他のキーを挟めば取り消される
  * - Win を押して、他のキーを何も挟まずに離すと、アプリ一覧が開く
  *
- * かなレイヤーの「つ」「さ」は隣り合った Win / Alt なので、続けて打つだけで
- * 前者を踏む。別キー割り込みで「つ」のホールドが確定し (HOLD_ON_OTHER_KEY_PRESS)、
- * 「さ」は上がった英数レイヤーの素の KC_LALT になるため。 */
+ * かなレイヤーの「つ」「さ」は隣り合った Win / Alt なので、片方をホールドしたまま
+ * もう片方を打つと前者を踏む。片方のホールドで英数レイヤーが上がり、もう片方は
+ * 英数レイヤーの素の KC_LGUI / KC_LALT になるため。 */
 
 /* 押下を握りつぶした修飾 (MOD_BIT)。離すイベントも消費するために覚える。
  * 握りつぶしたほうは、先に押したほうを離しても出さない。出すと押した覚えの無い
  * 修飾が遅れて効くことになる */
 static uint8_t android_blocked_mods = 0;
 
-/* Win と Alt は後から押したほうをホストへ出さない。
- * falseを返したらそのイベントは消費済み(以降の処理をスキップ) */
-static bool process_android_gui_alt(uint16_t keycode, keyrecord_t *record) {
-    if (record->tap.count) return true; // タップ (つ / さ) は修飾ではない
-
-    const bool    is_gui = (keycode == KANA_GUI_KEY || keycode == KC_LGUI);
-    const uint8_t mod    = is_gui ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
-    const uint8_t other  = is_gui ? MOD_MASK_ALT : MOD_MASK_GUI;
-
-    if (!record->event.pressed) {
-        // 押下時のOS設定は見ない。押している間に設定を変えても離すぶんは消費する
-        if (!(android_blocked_mods & mod)) return true;
-        android_blocked_mods &= ~mod;
-        return false;
-    }
-    if (!is_android() || !(get_mods() & other)) return true;
+/* Win と Alt は後から押したほうをホストへ出さない。mod (MOD_BIT) の押下を
+ * 握りつぶしたら true */
+static bool android_block_press(uint8_t mod) {
+    const uint8_t other = (mod == MOD_BIT(KC_LEFT_GUI)) ? MOD_MASK_ALT : MOD_MASK_GUI;
+    if (!is_android() || !(get_mods() & other)) return false;
 
     android_blocked_mods |= mod;
-    return false;
+    return true;
+}
+
+/* 握りつぶした押下に対応する解放なら true。押下時のOS設定で決まるので、押している間に
+ * 設定を変えても離すぶんは消費する */
+static bool android_block_release(uint8_t mod) {
+    if (!(android_blocked_mods & mod)) return false;
+
+    android_blocked_mods &= ~mod;
+    return true;
+}
+
+/* 英数レイヤーの素の KC_LGUI / KC_LALT。falseを返したらそのイベントは消費済み
+ * (以降の処理をスキップ)。修飾そのものはQMKに任せる。
+ *
+ * かなベースで英数レイヤーが上がっているとき (Ctrl などを先に押したとき) は、
+ * つ / さ の位置がこれになる。これも英数レイヤーを上げている修飾として数えないと、
+ * Ctrl を先に離した時点でレイヤーが落ちてしまう。押下を握りつぶしたときは
+ * レイヤーも上げない */
+static bool process_alpha_gui_alt(uint16_t keycode, keyrecord_t *record) {
+    const uint8_t mod = (keycode == KC_LGUI) ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
+
+    if (record->event.pressed) {
+        if (android_block_press(mod)) return false;
+        if (is_kana_base()) hold_layer_on(mod);
+    } else {
+        if (android_block_release(mod)) return false;
+        hold_layer_off(mod);
+    }
+    return true;
 }
 
 /* Win を押したまま、Android に「Win を単独で押して離した」と見なされないようにする。
@@ -903,8 +830,8 @@ static bool android_gui_dot_sent = false;
  * ただ離すだけだとアプリ一覧が開いてしまうので、離す前に空打ちを挟む。
  * 押し直したあとも同じで、挟まないと指を離したときに開く。
  *
- * 押下の中で送り切るのは、Win を外している間にスキャンを挟まないため。
- * 挟むと update_hold_layer() が Win を離したものと見て英数レイヤーを下ろす。
+ * 押下の中で送り切るのは、Win を外したままスキャンを跨がないため。跨ぐと、その間に
+ * 打った別のキーに Win が乗らない。
  * falseを返したらそのイベントは消費済み(以降の処理をスキップ) */
 static bool process_android_gui_dot(keyrecord_t *record) {
     if (!record->event.pressed) {
@@ -927,49 +854,255 @@ static bool process_android_gui_dot(keyrecord_t *record) {
 }
 
 /*
- * 設定レイヤー
+ * Fn と設定レイヤー
  */
 
 /* 左右のFnを両方ホールドしている間だけ設定レイヤーへ移す (issue #62)。
  *
- * Fnレイヤーの Fn の位置へ MO(4) を置けばコードは要らないが、それだと設定レイヤーを
- * 上げているのは後から押したほうのFnだけになる。先に押したほうを離しても
- * 設定レイヤーが残り、「両方押している間だけ」にならない。そこでホールド中の
+ * Fnレイヤーの Fn の位置へ MO(LAYER_CONF) を置けばコードは要らないが、それだと
+ * 設定レイヤーを上げているのは後から押したほうのFnだけになる。先に押したほうを
+ * 離しても設定レイヤーが残り、「両方押している間だけ」にならない。そこでホールド中の
  * Fnを左右1ビットずつ覚えて、レイヤーの上げ下げを自前で持つ。
  *
- * Fnレイヤーのほうは QMK の LT() / MO() のまま。ただしQMKのレイヤーは参照カウントを
- * 持たないので、素のままだと先に離したほうの layer_off() が、まだ押している側の
- * ぶんまで落としてしまう。片方が残っているうちは離すイベントごと消費して、
- * Fnレイヤーへ戻れるようにする (親指Shiftのハンドオーバーと同じ理屈)。
+ * QMKのレイヤーは参照カウントを持たないので、Fnレイヤーのほうも左右のどちらかが
+ * 残っているうちは下ろさない。英数レイヤーの Fn は QMK の MO() のままなので、
+ * 片方が残っているうちは離すイベントごと消費する (process_alpha_fn)。かなレイヤーの
+ * Fn (そ / ね) は自前のホールド判定なので、Fnレイヤーも自分で上げ下げする。
  *
- * 設定レイヤーの Fn の位置は必ず透過にしておくこと。2つ目のFnの押下でここが
- * レイヤーを上げると、QMKはそのキー自身のアクションを上げた後のレイヤーで
- * 引き直す (process_kana_mod と同じ罠)。透過でないと解放がFnとして解決されず、
- * 設定レイヤーへ貼りついたまま戻れなくなる。 */
+ * 設定レイヤーの Fn の位置は必ず透過にしておくこと。英数レイヤーの2つ目の Fn の押下で
+ * ここがレイヤーを上げると、QMKはそのキー自身のアクションを上げた後のレイヤーで
+ * 引き直す。透過でないと押下も解放も MO() として解決されず、Fnレイヤーへ
+ * 貼りついたまま戻れなくなる。 */
 static uint8_t fn_held = 0;
 
-#define FN_BIT(record) ((record)->event.key.col == FN_L_COL ? 1 : 2)
-#define FN_BOTH 3
+#define FN_L    1
+#define FN_R    2
+#define FN_BOTH (FN_L | FN_R)
+#define FN_BIT(record) ((record)->event.key.col == FN_L_COL ? FN_L : FN_R)
 
-// falseを返したらそのイベントは消費済み(以降の処理をスキップ)
-static bool process_fn(keyrecord_t *record) {
-    if (record->tap.count) return true; // タップ (そ / ね) はQMKに任せる
-
-    if (record->event.pressed) { // hold確定
-        fn_held |= FN_BIT(record);
-    } else { // hold解放
-        fn_held &= ~FN_BIT(record);
-    }
-
+static void update_conf_layer(void) {
     if (fn_held == FN_BOTH) {
         layer_on(LAYER_CONF);
     } else if (layer_state_is(LAYER_CONF)) {
         layer_off(LAYER_CONF);
     }
+}
+
+// 英数レイヤーの Fn (MO)。falseを返したらそのイベントは消費済み(以降の処理をスキップ)
+static bool process_alpha_fn(keyrecord_t *record) {
+    if (record->event.pressed) {
+        fn_held |= FN_BIT(record);
+    } else {
+        fn_held &= ~FN_BIT(record);
+    }
+    update_conf_layer();
 
     // もう片方がまだFnとして押されているなら、QMKにFnレイヤーを下ろさせない
     if (!record->event.pressed && fn_held) return false;
     return true; // Fnレイヤーの上げ下げはQMKに任せる
+}
+
+// かなレイヤーの Fn (そ / ね) のホールド
+static void kana_fn_on(uint8_t bit) {
+    fn_held |= bit;
+    layer_on(LAYER_FN);
+    update_conf_layer();
+}
+
+static void kana_fn_off(uint8_t bit) {
+    fn_held &= ~bit;
+    update_conf_layer();
+    if (!fn_held) layer_off(LAYER_FN);
+}
+
+/*
+ * かなレイヤー最下段のタップとホールド
+ */
+
+/* かなレイヤー最下段の8キー (つ さ そ ひ こ み も ね) は、タップでかなを出し、
+ * ホールドで修飾やレイヤーになる。QMK の LT() / MT() はタップ側に8bitの基本キーコード
+ * しか置けず、出力表を引けないので、判定を自前で持つ (issue #79)。
+ *
+ * - 判定は別のキーの押下時に行う。押されてから KANA_HOLD_TERM 以上ならホールド、
+ *   未満ならタップ。タップならその場でかなを出す
+ * - 別のキーの押下が無いまま離されたらタップ。長押ししてもタップになる
+ * - ホールドの開始は別のキーの前処理 (pre_process_record_kb) で行う。QMK がそのキーの
+ *   キーコードを解決するのはその後なので、別のキーは上げたレイヤーで解決される
+ * - キーを溜めて流し直す仕組みは持たない。別のキーの押下で必ず決まるので、決まって
+ *   いないのは常に高々1つ
+
+ *
+ * 英数レイヤーのキーと Ctrl (MY_LCTL) は QMK の LT() / MT() のまま。 */
+#ifndef KANA_HOLD_TERM
+#    define KANA_HOLD_TERM 150
+#endif
+
+// ホールドの役割を持つキーの番号。windmill.h の KN_TSU 〜 KN_NE の並びと同じ
+enum {
+    KH_TSU, // Win。ホールド中は英数レイヤー (issue #34)
+    KH_SA,  // Alt。同上
+    KH_SO,  // Fn (左)。左右両方で設定レイヤー (issue #62)
+    KH_HI,  // Sym
+    KH_KO,  // Shift (左) と Shift 面
+    KH_MI,  // Shift (右) と Shift 面
+    KH_MO,  // Sym
+    KH_NE,  // Fn (右)
+    KH_NONE = 0xFF,
+};
+
+#define KH_BIT(index) (1u << (index))
+#define KH_SHIFT_BITS (KH_BIT(KH_KO) | KH_BIT(KH_MI))
+#define KH_SYM_BITS   (KH_BIT(KH_HI) | KH_BIT(KH_MO))
+
+/* Shift 面の最下段 (KS_*) は、かなレイヤーの同じ位置のキーとホールドの役割が同じ。
+ * Shift 面にいる間に押したキーは、離すときも Shift 面のキーコードで来る (QMK が押下時の
+ * レイヤーを覚えている) ので、役割さえ揃えておけば Shift 面を出入りしても食い違わない */
+static uint8_t kana_hold_index(uint16_t keycode) {
+    switch (keycode) {
+        case KN_TSU ... KN_NE:
+            return keycode - KN_TSU;
+        case KS_TSU:
+            return KH_TSU;
+        case KS_KO:
+            return KH_KO;
+        case KS_MI:
+            return KH_MI;
+        case KS_MO:
+            return KH_MO;
+        case KS_NE:
+            return KH_NE;
+    }
+    return KH_NONE;
+}
+
+static uint8_t  kana_pending = KH_NONE; // 押されていて、タップかホールドかまだ決まっていないキー
+static uint16_t kana_pending_keycode;   // そのキーコード。タップならこれを出す
+static uint16_t kana_pending_time;      // そのキーが押された時刻
+static uint8_t  kana_holding = 0;       // ホールドになって、まだ押されているキー (KH_BIT)
+
+/* Shift 面の こ / み をタップすると半角スペースを出す。ただし Shift 開始後に他のキーを
+ * 押していたら、誤入力ガードとして何も出さない。Shift(親指ホールド)開始後に他のキーが
+ * 押されたらダーティ */
+static bool thumb_shift_dirty = false;
+
+static bool is_thumb_shift_key(uint16_t keycode) {
+    return keycode == KN_KO || keycode == KN_MI || keycode == KS_KO || keycode == KS_MI;
+}
+
+/* Win / Alt。ホールド中は英数レイヤーへ移す (issue #34)。Android で握りつぶした
+ * ときは、修飾もレイヤーも動かさない */
+static void kana_mod_on(uint8_t mod) {
+    if (android_block_press(mod)) return;
+    register_mods(mod);
+    hold_layer_on(mod);
+}
+
+static void kana_mod_off(uint8_t mod) {
+    if (android_block_release(mod)) return;
+    unregister_mods(mod);
+    hold_layer_off(mod);
+}
+
+/* 左右の Shift / Sym / Fn は、同じ役割のキーが1つでもホールドされていれば有効にする
+ * (参照カウント)。QMKの修飾ビットもレイヤーも左右で共有されるので、素のままだと
+ * 先に離したほうが、まだ押している側のぶんまで落としてしまう (issue #40、#62) */
+static void kana_hold_start(uint8_t index) {
+    const uint8_t others = kana_holding;
+    kana_holding |= KH_BIT(index);
+
+    switch (index) {
+        case KH_TSU:
+            kana_mod_on(MOD_BIT(KC_LEFT_GUI));
+            break;
+        case KH_SA:
+            kana_mod_on(MOD_BIT(KC_LEFT_ALT));
+            break;
+        case KH_SO:
+            kana_fn_on(FN_L);
+            break;
+        case KH_NE:
+            kana_fn_on(FN_R);
+            break;
+        case KH_HI:
+        case KH_MO:
+            if (!(others & KH_SYM_BITS)) layer_on(LAYER_SYM);
+            break;
+        case KH_KO:
+        case KH_MI:
+            thumb_shift_dirty = false;
+            if (!(others & KH_SHIFT_BITS)) {
+                /* 左右とも左Shiftにする (issue #37)。S() の weak Shift は必ず左Shiftなので、
+                 * 右Shiftだと修飾が入れ替わって見える罠がある (issue #18) */
+                register_mods(MOD_BIT(KC_LEFT_SHIFT));
+                layer_on(LAYER_KANA_SHIFT);
+            }
+            break;
+    }
+}
+
+static void kana_hold_end(uint8_t index) {
+    kana_holding &= ~KH_BIT(index);
+
+    switch (index) {
+        case KH_TSU:
+            kana_mod_off(MOD_BIT(KC_LEFT_GUI));
+            break;
+        case KH_SA:
+            kana_mod_off(MOD_BIT(KC_LEFT_ALT));
+            break;
+        case KH_SO:
+            kana_fn_off(FN_L);
+            break;
+        case KH_NE:
+            kana_fn_off(FN_R);
+            break;
+        case KH_HI:
+        case KH_MO:
+            if (!(kana_holding & KH_SYM_BITS)) layer_off(LAYER_SYM);
+            break;
+        case KH_KO:
+        case KH_MI:
+            if (!(kana_holding & KH_SHIFT_BITS)) {
+                unregister_mods(MOD_BIT(KC_LEFT_SHIFT));
+                layer_off(LAYER_KANA_SHIFT);
+            }
+            break;
+    }
+}
+
+static void kana_hold_tap(uint16_t keycode) {
+    if ((keycode == KS_KO || keycode == KS_MI) && thumb_shift_dirty) return; // ダーティ時は何も出さない
+    send_key_output(keycode);
+}
+
+/* 別のキーが押された。決まっていないキーがあれば、押されてからの時間でタップか
+ * ホールドかを決める。時刻はキーイベントのものを使い、スキャンの遅れに左右されない */
+static void kana_hold_decide(uint16_t time) {
+    if (kana_pending == KH_NONE) return;
+
+    const uint8_t index = kana_pending;
+    kana_pending        = KH_NONE;
+    if (TIMER_DIFF_16(time, kana_pending_time) >= KANA_HOLD_TERM) {
+        kana_hold_start(index);
+    } else {
+        kana_hold_tap(kana_pending_keycode);
+    }
+}
+
+// 常に false (QMKには渡さない)
+static bool process_kana_hold(uint8_t index, uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        kana_pending         = index;
+        kana_pending_keycode = keycode;
+        kana_pending_time    = record->event.time;
+    } else if (kana_pending == index) { // 別のキーを押さずに離した
+        kana_pending = KH_NONE;
+        kana_hold_tap(kana_pending_keycode);
+    } else if (kana_holding & KH_BIT(index)) {
+        kana_hold_end(index);
+    }
+    // タップに決まったあとの解放は何もしない
+    return false;
 }
 
 /*
@@ -978,6 +1111,11 @@ static bool process_fn(keyrecord_t *record) {
 
 bool pre_process_record_kb(uint16_t keycode, keyrecord_t *record) {
     windmill_board_pre_process_record(keycode, record);
+
+    // かなレイヤー最下段のタップかホールドかは、別のキーの押下で決める
+    if (record->event.pressed) {
+        kana_hold_decide(record->event.time);
+    }
     return pre_process_record_user(keycode, record);
 }
 
@@ -988,31 +1126,16 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
     if (!process_record_user(keycode, record)) return false;
 
     // 親指Shift以外のキー押下でダーティ化
-    if (record->event.pressed && keycode != THUMB_SHIFT_B && keycode != THUMB_SHIFT_N) {
+    if (record->event.pressed && !is_thumb_shift_key(keycode)) {
         thumb_shift_dirty = true;
     }
 
-    /* ベースがかなのとき、記号レイヤーの数字・記号は
-     * 英数(LNG2)に切り替えて送出し、かな(LNG1)に戻す */
-    if (layer_state_is(LAYER_SYM) && get_highest_layer(default_layer_state) == LAYER_KANA && is_sym_ime_wrap_target(keycode)) {
-        if (record->event.pressed) {
-            // IMEのモード切り替えは非同期なので、間にウェイトを挟まないと
-            // 切り替え完了前にキーが届いて全角のまま入力される
-            tap_code16(KC_LNG2);
-            wait_ms(IME_WAIT_MS);
-            tap_code16(windmill_output_keycode(keycode));
-            wait_ms(IME_WAIT_MS);
-            tap_code16(KC_LNG1);
-        }
-        return false; // releaseも消費 (未registerのunregisterを防ぐ)
+    const uint8_t hold = kana_hold_index(keycode);
+    if (hold != KH_NONE) { // かなレイヤー最下段
+        return process_kana_hold(hold, keycode, record);
     }
-
     if (is_key_output_target(keycode)) { // 記号とかなのキー
-        // Android では Win+. を Alt+. に読み替える (issue #57)
-        if (keycode == SY_DOT_RABK && !process_android_gui_dot(record)) {
-            return false;
-        }
-        return process_key_output(keycode, record);
+        return process_output_key(keycode, record);
     }
 
     switch (keycode) {
@@ -1065,38 +1188,24 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
             return false;
 
-        case KANA_QMARK_KEY: // も。Shift+タップで半角「?」
-            if (!process_kana_qmark(record)) {
+        case KC_DOT: // 英数レイヤーの「.」。Android では Win+. を Alt+. に読み替える (issue #57)
+            if (!process_android_gui_dot(record)) {
                 return false;
             }
-            break; // 通常のtap(も)とhold(Symレイヤー)はQMKに任せる
+            break;
 
-        case KANA_GUI_KEY: // つ。ホールド中は英数レイヤーへ (issue #34)
-        case KANA_ALT_KEY: // さ
-        case KC_LGUI:      // 英数レイヤー側の同じ位置 (Ctrlと重ね押ししたとき)
+        case KC_LGUI: // 英数レイヤーの Win / Alt (かなの つ / さ と同じ位置)
         case KC_LALT:
-            /* レイヤーを上げるより先に見る。握りつぶした修飾はホストへ出ないので、
-             * 上げてしまうと update_hold_layer() が下ろす機会を失う */
-            if (!process_android_gui_alt(keycode, record)) {
+            if (!process_alpha_gui_alt(keycode, record)) {
                 return false;
             }
-            process_kana_mod(keycode, record);
-            break; // 修飾そのものはQMKのmod-tapに任せる
+            break; // 修飾そのものはQMKに任せる
 
-        case KANA_FN_L: // そ。左右とも押している間は設定レイヤーへ (issue #62)
-        case KANA_FN_R: // ね
-        case ALPHA_FN:  // 英数レイヤー側のFn (左右とも同じキーコード)
-            if (!process_fn(record)) {
+        case ALPHA_FN: // 英数レイヤーの Fn (左右とも同じキーコード)
+            if (!process_alpha_fn(record)) {
                 return false;
             }
-            break; // 通常処理へ (tap=そ/ね, hold=Fnレイヤー)
-
-        case THUMB_SHIFT_B: // 親指Shift
-        case THUMB_SHIFT_N:
-            if (!process_thumb_shift(keycode, record)) {
-                return false;
-            }
-            break; // 通常処理へ (tap=B/N, hold=Shift)
+            break; // Fnレイヤーの上げ下げはQMKに任せる
 
         case ALPHA_THUMB_SHIFT: // 英数レイヤーの親指Shift (issue #40)
             if (!process_alpha_thumb_shift(record)) {

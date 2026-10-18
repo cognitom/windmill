@@ -24,8 +24,8 @@
  *
  * 壊しやすいのは離すほう。QMKのレイヤーは参照カウントを持たないので、片方の
  * Fnを離したときにFnレイヤーごと落ちたり、設定レイヤーが残ったりしないことを
- * 左右それぞれで見る。かなレイヤーの LT(3,KC_C) / LT(3,KC_COMMA) と英数レイヤーの
- * MO(3) とでキーコードが違うので、両方のベースで通す。 */
+ * 左右それぞれで見る。かなレイヤーの そ / ね (自前のタップとホールド) と英数レイヤーの
+ * MO(LAYER_FN) とで処理が違うので、両方のベースで通す。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -43,7 +43,7 @@ using testing::InSequence;
 class ConfLayer : public WindmillTest {};
 class ConfLayerAlpha : public WindmillTest {};
 class ConfLayerKana : public WindmillTest {};
-class ConfLayerKanaInterrupt : public WindmillTest {};
+class ConfLayerKanaQuick : public WindmillTest {};
 
 // 起動直後の英数から MY_LCTL 1回タップでかなへ切り替える。レポートの中身は問わない
 static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
@@ -187,15 +187,15 @@ TEST_F(ConfLayer, releasing_right_fn_returns_to_fn_layer_and_back) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* かなベースでは Fn が LT() になる。片方を離すイベントを消費しても、
- * 残りを離せばかなへ戻る (Fnレイヤーへ貼りつかない) */
+/* かなベースでは Fn が自前のホールド判定になり、Fnレイヤーも自分で上げ下げする。
+ * 片方を離してもFnレイヤーは残り、残りを離せばかなへ戻る (Fnレイヤーへ貼りつかない) */
 TEST_F(ConfLayer, releasing_one_fn_on_kana_returns_to_fn_layer) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    auto fn_l = key(POS_FN_L); // そ  LT(3,KC_C)
-    auto fn_r = key(POS_FN_R); // ね  LT(3,KC_COMMA)
+    auto fn_l = key(POS_FN_L); // そ
+    auto fn_r = key(POS_FN_R); // ね
     auto win  = key(POS_WIN);  // 設定 = MY_WIN / Fn = KC_F11 / かな = KC_Q
 
     {
@@ -208,10 +208,11 @@ TEST_F(ConfLayer, releasing_one_fn_on_kana_returns_to_fn_layer) {
 
     fn_l.press();
     run_one_scan_loop();
-    fn_r.press();
+    idle_for(KANA_HOLD_TERM + 50);
+    fn_r.press(); // そ のホールド確定
     run_one_scan_loop();
-    idle_for(250); // TAPPING_TERM 超え。ホールド確定
-    tap_key(win, 50);
+    idle_for(KANA_HOLD_TERM + 50);
+    tap_key(win, 50); // ね のホールド確定
     idle_for(50);
     fn_l.release();
     run_one_scan_loop();
@@ -228,7 +229,7 @@ TEST_F(ConfLayer, releasing_one_fn_on_kana_returns_to_fn_layer) {
     default_layer_set((layer_state_t)1 << LAYER_ALPHA);
 }
 
-/* 英数ベース (左右とも MO(3)) で、両方押している間は設定レイヤー */
+/* 英数ベース (左右とも MO(LAYER_FN)) で、両方押している間は設定レイヤー */
 TEST_F(ConfLayerAlpha, both_fn_reach_conf_layer) {
     TestDriver driver;
     set_windmill_keymap();
@@ -241,7 +242,7 @@ TEST_F(ConfLayerAlpha, both_fn_reach_conf_layer) {
     expect_lang_toggle(this, driver, true);
 }
 
-/* かなベース (LT(3,KC_C) / LT(3,KC_COMMA)) でも同じ */
+/* かなベース (そ / ね) でも同じ */
 TEST_F(ConfLayerKana, both_fn_reach_conf_layer) {
     TestDriver driver;
     set_windmill_keymap();
@@ -255,10 +256,10 @@ TEST_F(ConfLayerKana, both_fn_reach_conf_layer) {
     expect_lang_toggle(this, driver, true);
 }
 
-/* 別キー割り込みでホールドが確定する経路 (HOLD_ON_OTHER_KEY_PRESS)。
- * TAPPING_TERM を待たずに3つ続けて押しても、割り込んだ設定キー自身が
- * 設定レイヤーで解決される。「そ」「ね」も出ない */
-TEST_F(ConfLayerKanaInterrupt, both_fn_confirmed_by_interrupt) {
+/* かなの そ / ね は、押してから KANA_HOLD_TERM 未満に次のキーを押すとタップになる。
+ * 3つ続けて素早く押すと、そ ね と、設定キーの位置のかな (て) が順に出る。
+ * 設定レイヤーには入らず、OSも変わらない */
+TEST_F(ConfLayerKanaQuick, quick_fn_presses_are_taps) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
@@ -266,7 +267,15 @@ TEST_F(ConfLayerKanaInterrupt, both_fn_confirmed_by_interrupt) {
     auto fn_l = key(POS_FN_L);
     auto fn_r = key(POS_FN_R);
 
-    EXPECT_NO_REPORT(driver);
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_C)); // そ。ね の押下でタップに決まる
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_COMMA)); // ね。次のキーの押下でタップに決まる
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_W)); // て (設定レイヤーなら MY_ANDR の位置)
+        EXPECT_EMPTY_REPORT(driver);
+    }
     fn_l.press();
     run_one_scan_loop();
     idle_for(20);
@@ -282,5 +291,5 @@ TEST_F(ConfLayerKanaInterrupt, both_fn_confirmed_by_interrupt) {
     settle();
     VERIFY_AND_CLEAR(driver);
 
-    expect_lang_toggle(this, driver, true);
+    expect_lang_toggle(this, driver, false);
 }

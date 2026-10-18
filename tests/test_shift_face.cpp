@@ -14,7 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* 親指Shift + process_shift_pair() のHIDレポートを検証する。
+/* 親指Shift で出るかなの Shift 面の、HIDレポートを検証する (send_output)。
  *
  * ここで見たいのは「どの文字が出たか」ではなく「どんなレポート列が出たか」。
  * issue #18 は修飾の付け外しが1本余計なレポートを挟むのが原因で、キーコード
@@ -32,7 +32,7 @@ using testing::AnyNumber;
 using testing::InSequence;
 using testing::InvokeWithoutArgs;
 
-class ShiftPair : public WindmillTest {};
+class ShiftFace : public WindmillTest {};
 
 // MY_LCTL 1回タップで英数⇔かなを切り替える (issue #53)
 static void tap_lctl(WindmillTest* f) {
@@ -61,7 +61,7 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
  *
  * 現在は親指Shiftが左右とも左Shift (issue #37) なので、そもそも入れ替わりうる
  * 相手が無い。それでも回帰テストとして残す。 */
-TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
+TEST_F(ShiftFace, thumb_shift_keeps_held_shift_on_first_keypress) {
     TestDriver driver;
     set_windmill_keymap();
 
@@ -87,7 +87,7 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
 
     mi.press();
     run_one_scan_loop();
-    idle_for(150);
+    idle_for(KANA_HOLD_TERM);
     tap_key(no, 120);
     idle_for(120);
     tap_key(no, 120);
@@ -98,7 +98,7 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* issue #36 の再現手順。issue #18 と同じ形だが、こちらは shifted 側が
+/* issue #36 の再現手順。issue #18 と同じ形だが、こちらは Shift 面の出力が
  * Shift無しで送る側のキー。
  *
  *   は の位置 (英数では f) : 英数で1文字入力 (起動直後は英数)
@@ -109,10 +109,10 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
  * 外したはずのShiftが乗ったまま KC_MINS が届いている、ということになる。
  *
  * ただしレポート列は1打鍵目も2打鍵目も同じで、違うのは間隔だけだった。
- * 別キー割り込みでホールドが確定する (HOLD_ON_OTHER_KEY_PRESS) ので、
- * 1打鍵目は [LSFT] → [] → [KC_MINS] が全て同じスキャンで出る。
+ * 親指Shiftのホールドは次のキーの押下で確定するので、1打鍵目は
+ * [LSFT] → [] → [KC_MINS] が同じスキャンで出うる。
  * そこで、レポート列に加えて**送出の間隔**も固定する。 */
-TEST_F(ShiftPair, unshifted_pair_waits_for_ime_on_first_keypress) {
+TEST_F(ShiftFace, unshifted_pair_waits_for_ime_on_first_keypress) {
     TestDriver driver;
     set_windmill_keymap();
 
@@ -145,7 +145,7 @@ TEST_F(ShiftPair, unshifted_pair_waits_for_ime_on_first_keypress) {
 
     mi.press();
     run_one_scan_loop();
-    idle_for(150); // TAPPING_TERM 未満。ホールドは な の押下で確定する
+    idle_for(KANA_HOLD_TERM); // ホールドは な の押下で確定する
     tap_key(na, 120);
     idle_for(120);
     tap_key(na, 120);
@@ -161,7 +161,7 @@ TEST_F(ShiftPair, unshifted_pair_waits_for_ime_on_first_keypress) {
 }
 
 // Shiftなしなら素のキーコードが出る
-TEST_F(ShiftPair, without_shift_sends_plain_keycode) {
+TEST_F(ShiftFace, without_shift_sends_plain_keycode) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
@@ -176,15 +176,15 @@ TEST_F(ShiftPair, without_shift_sends_plain_keycode) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* shifted 側が Shift 付きキーコードなら、押されている Shift をそのまま使う。
+/* Shift 面の出力が Shift 付きなら、押されている Shift をそのまま使う。
  * 修飾の付け外しレポートが挟まらないこと。 */
-TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
+TEST_F(ShiftFace, shifted_pair_reuses_held_shift) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
-    auto ra = key(POS_RA); // KN_RA -> S(KC_LBRC)
+    auto ra = key(POS_RA); // Shift 面では KN_LKAKKO -> S(KC_LBRC)
 
     {
         InSequence s;
@@ -196,7 +196,7 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
 
     mi.press();
     run_one_scan_loop();
-    idle_for(150);
+    idle_for(KANA_HOLD_TERM);
     tap_key(ra, 120);
     idle_for(120);
     mi.release();
@@ -205,16 +205,16 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* shifted 側が Shift 不要なキー (KN_SU -> バックスラッシュ) では、いったん
+/* Shift 面の出力が Shift 不要なキー (す の位置の「む」 -> バックスラッシュ) では、いったん
  * Shift を外して戻す。del_mods()/set_mods() はレポートを送らないので、
  * ここは register 系でなければ戻りがホストへ伝わらない。 */
-TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
+TEST_F(ShiftFace, unshifted_pair_drops_and_restores_shift) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
-    auto su = key(POS_SU); // KN_SU -> KC_BSLS
+    auto su = key(POS_SU); // Shift 面では KN_MU -> KC_BSLS
 
     {
         InSequence s;
@@ -228,7 +228,7 @@ TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
 
     mi.press();
     run_one_scan_loop();
-    idle_for(150);
+    idle_for(KANA_HOLD_TERM);
     tap_key(su, 120);
     idle_for(120);
     mi.release();

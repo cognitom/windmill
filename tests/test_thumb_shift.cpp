@@ -14,12 +14,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* 親指Shiftそのもののレポート列を検証する (issue #37)。
+
+/* 親指Shift (かなレイヤーの こ / み のホールド) のレポート列を検証する (issue #37)。
  *
  * 左右の親指Shiftはどちらも同じ左Shiftなので、片方を押したままもう片方を
  * 押して離す「持ち替え」(ハンドオーバー) でShiftが途切れないことを確かめる。
- * QMKの修飾はビットマスクで参照カウントを持たないため、素のままだと後から
- * 離したほうの unregister_mods() でShiftが落ちてしまう。 */
+ * QMKの修飾はビットマスクで参照カウントを持たないため、素のままだと先に
+ * 離したほうの unregister_mods() でShiftが落ちてしまう。
+ *
+ * こ / み は、押してから KANA_HOLD_TERM 以上たって別のキーを押したときに
+ * ホールドになる (issue #79)。持ち替えで後から押したほうも同じで、次のキーを
+ * 押すまではホールドにならない。
+ *
+ * Shift を確かめるキーは「の」。Shift 面では「、」(Shift+,) なので、Shift が
+ * 乗っていればそのまま出る。「は」のように Shift 面で透過のキーは、Shift を外して
+ * 「は」を出すので確かめに使えない。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -45,92 +54,107 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 左 → 右 の持ち替え。左を離しても、右が押されている限りShiftは続く。
- * 左右が同じ左Shiftになったので、持ち替えの前後でレポートは [LSFT] のまま
- * 変わらない (以前は右Shiftとの入れ替えレポートが挟まっていた) */
+// Shift を押したまま「の」を打ったときの「、」
+static void expect_touten(TestDriver& driver) {
+    EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_COMMA));
+    EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+}
+
+/* 先に押したほうをホールドにしてから、もう片方を押してホールドにし、先のほうを離す。
+ * first / second の順で持ち替える */
+static void handover(WindmillTest* f, TestDriver& driver, KeymapKey first, KeymapKey second) {
+    auto no = f->key(POS_NO);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // second の押下で first のホールド確定
+        expect_touten(driver);                  // この「の」で second もホールド確定
+        expect_touten(driver);                  // 持ち替え後も Shift が乗る
+        EXPECT_EMPTY_REPORT(driver);            // second 解放
+    }
+
+    first.press();
+    f->run_one_scan_loop();
+    f->idle_for(250);
+    second.press();
+    f->run_one_scan_loop();
+    f->idle_for(250);
+    f->tap_key(no, 120);
+    f->idle_for(120);
+    first.release(); // second はまだ押されている
+    f->run_one_scan_loop();
+    f->idle_for(120);
+    f->tap_key(no, 120);
+    f->idle_for(120);
+    second.release();
+    f->run_one_scan_loop();
+    f->idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
 TEST_F(ThumbShift, handover_left_to_right_keeps_shift) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    auto ko = key(POS_KO); // 左親指Shift
-    auto mi = key(POS_MI); // 右親指Shift
-    auto ha = key(POS_HA); // は (KC_F)
+    handover(this, driver, key(POS_KO), key(POS_MI));
 
-    {
-        InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));         // 左 ホールド確定
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_F));   // 持ち替え後も Shift が乗る
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver);                    // 右 解放
-    }
-
-    ko.press();
-    run_one_scan_loop();
-    idle_for(250); // TAPPING_TERM 超え。ホールド確定
-    mi.press();
-    run_one_scan_loop();
-    idle_for(250);
-    ko.release(); // 左を離す。右はまだ押されている
-    run_one_scan_loop();
-    idle_for(120);
-    tap_key(ha, 120);
-    idle_for(120);
-    mi.release();
-    run_one_scan_loop();
-    idle_for(120);
-    VERIFY_AND_CLEAR(driver);
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA); // 次のテストへかなを持ち越さない
 }
 
-/* 右 → 左 の持ち替え。逆向きでも同じ */
 TEST_F(ThumbShift, handover_right_to_left_keeps_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    handover(this, driver, key(POS_MI), key(POS_KO));
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+/* 後から押したほうがまだホールドになっていないうちに先のほうを離すと、Shift は
+ * いったん離れる。ホールドかどうかは次のキーの押下で決まるので、次のキーには
+ * Shift が戻って乗る */
+TEST_F(ThumbShift, handover_before_next_key_shifts_next_key) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
     auto ko = key(POS_KO);
     auto mi = key(POS_MI);
-    auto ha = key(POS_HA);
+    auto no = key(POS_NO);
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_F));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // み の押下で こ のホールド確定
+        EXPECT_EMPTY_REPORT(driver);            // こ 解放。み はまだホールドではない
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // 「の」の押下で み のホールド確定
+        expect_touten(driver);
+        EXPECT_EMPTY_REPORT(driver); // み 解放
     }
 
-    mi.press();
-    run_one_scan_loop();
-    idle_for(250);
     ko.press();
     run_one_scan_loop();
     idle_for(250);
-    mi.release();
+    mi.press();
     run_one_scan_loop();
-    idle_for(120);
-    tap_key(ha, 120);
-    idle_for(120);
+    idle_for(250);
     ko.release();
     run_one_scan_loop();
     idle_for(120);
+    tap_key(no, 120);
+    idle_for(120);
+    mi.release();
+    run_one_scan_loop();
+    idle_for(120);
     VERIFY_AND_CLEAR(driver);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
 }
 
-/* 「こ」+「み」同時押しの半角スペース (issue #36)。
- *
- * 実機では、同時押しの1打鍵目だけスペースにShiftが乗っていた。以前は
- * del_mods()/set_mods() で real_mods を書き換えていて、この2つはレポートを
- * 送らない。そのためホストへ届く1本目が
- *
- *   [LSFT] (ホールド確定) → [KC_SPC]     ← Shiftを離すのとSpaceを押すのが同時
- *
- * という形になっていた。しかも HOLD_ON_OTHER_KEY_PRESS で「こ」のホールドは
- * 「み」の押下で確定するので、同時押しではこの2本が1msしか離れない。
- * 2打鍵目以降が無事なのは前のレポートから間が空いているだけの話で、
- * process_shift_pair() の「Shiftを外して送る」経路 (issue #36) と同じ症状。
- *
- * そこでShiftを外すレポートが1本独立していることと、送出の間隔の両方を見る。 */
+/* 片方の親指Shiftをホールドしたまま、もう片方をタップすると半角スペース。
+ * Shift は外して送り、外したレポートを1本独立させる (issue #36)。
+ * 外す前後にウェイトが挟まっていることも見る */
 TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
     TestDriver driver;
     set_windmill_keymap();
@@ -158,9 +182,10 @@ TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
 
     ko.press();
     run_one_scan_loop();
-    mi.press(); // 同時押し。TAPPING_TERM を待たず こ のホールドが確定する
+    idle_for(250);
+    mi.press(); // こ のホールド確定
     run_one_scan_loop();
-    mi.release(); // すぐ離すのでタップ確定 = スペース
+    mi.release(); // 他のキーを押さずに離したのでタップ = スペース
     run_one_scan_loop();
     idle_for(120);
     tap_key(mi, 120); // 2打鍵目
@@ -173,6 +198,72 @@ TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
     // ホールド確定 → Shift外し → スペース が同じスキャンに固まっていないこと
     EXPECT_GE(uint16_t(at_drop - at_hold), uint16_t(IME_WAIT_MS));
     EXPECT_GE(uint16_t(at_space - at_drop), uint16_t(IME_WAIT_MS));
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+/* Shift 開始後に他のキーを押していたら、もう片方のタップは何も出さない (誤入力ガード) */
+TEST_F(ThumbShift, space_is_suppressed_after_other_key) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    auto ko = key(POS_KO);
+    auto mi = key(POS_MI);
+    auto no = key(POS_NO);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // 「の」の押下で こ のホールド確定
+        expect_touten(driver);
+        EXPECT_EMPTY_REPORT(driver); // こ 解放。み のタップは何も出さない
+    }
+
+    ko.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_key(no, 120);
+    idle_for(120);
+    tap_key(mi, 120);
+    idle_for(120);
+    ko.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+/* こ と み をほぼ同時に押すと、先の こ は KANA_HOLD_TERM 未満で次のキーが来たので
+ * タップになる。「こ」「み」と出て、Shift もスペースも出ない */
+TEST_F(ThumbShift, quick_ko_mi_are_two_taps) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    auto ko = key(POS_KO);
+    auto mi = key(POS_MI);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_B)); // こ
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_N)); // み
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    ko.press();
+    run_one_scan_loop();
+    mi.press();
+    run_one_scan_loop();
+    mi.release();
+    run_one_scan_loop();
+    ko.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
 }
 
 // 両方離せばShiftも落ちる。持ち替えの後始末が残っていないことの確認
@@ -183,13 +274,14 @@ TEST_F(ThumbShift, both_released_clears_shift) {
 
     auto ko = key(POS_KO);
     auto mi = key(POS_MI);
-    auto ha = key(POS_HA);
+    auto no = key(POS_NO);
 
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver);  // 両方離れた
-        EXPECT_REPORT(driver, (KC_F));// Shiftは残っていない
+        expect_touten(driver);
+        EXPECT_EMPTY_REPORT(driver);   // 両方離れた
+        EXPECT_REPORT(driver, (KC_K)); // Shiftは残っていない。「の」が出る
         EXPECT_EMPTY_REPORT(driver);
     }
 
@@ -199,13 +291,17 @@ TEST_F(ThumbShift, both_released_clears_shift) {
     mi.press();
     run_one_scan_loop();
     idle_for(250);
+    tap_key(no, 120); // 両方ともホールド
+    idle_for(120);
     ko.release();
     run_one_scan_loop();
     idle_for(120);
     mi.release();
     run_one_scan_loop();
     idle_for(120);
-    tap_key(ha, 120);
+    tap_key(no, 120);
     idle_for(120);
     VERIFY_AND_CLEAR(driver);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
 }

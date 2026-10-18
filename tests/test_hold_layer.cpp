@@ -21,10 +21,13 @@
  * かなレイヤーでは KC_1、英数レイヤーでは KC_Q なので、どちらで解決されたかが
  * ホストへ出るレポートから分かる。
  *
- * 特に効かせたいのは「離せば必ずかなへ戻る」ほう。自分で英数レイヤーを上げると
- * つ/さ の解放は mod-tap (LGUI_T(KC_Z)) ではなく英数レイヤー側の素の KC_LGUI で
- * 引き直されることがあり、mod-tap のキーコードで解放を待つ実装だと英数レイヤーへ
- * 貼りついたまま戻れなくなる (update_hold_layer 参照)。
+ * 特に効かせたいのは「離せば必ずかなへ戻る」ほう。以前の つ/さ は QMK の mod-tap で、
+ * 自分で英数レイヤーを上げると解放が英数レイヤー側の素の KC_LGUI で引き直されることが
+ * あり、英数レイヤーへ貼りついたまま戻れなくなった。今は自前のホールド判定
+ * (issue #79) だが、Ctrl を先に押したときは英数レイヤーの素の KC_LGUI / KC_LALT を
+ * 数えるので、同じ所を壊しうる。
+ *
+ * つ/さ は、押してから KANA_HOLD_TERM 以上たって次のキーを押したときにホールドになる。
  *
  * 起動直後のベースレイヤーは英数 (issue #22) なので、かなレイヤー上の挙動を
  * 見るには先に MY_LCTL をタップしてかなへ切り替えておく必要がある。 */
@@ -59,7 +62,7 @@ TEST_F(HoldLayer, gui_hold_switches_to_alpha_and_back) {
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    auto tsu = key(POS_TSU); // つ  LGUI_T(KC_Z)
+    auto tsu = key(POS_TSU); // つ  ホールドで Win
     auto nu  = key(POS_NU);  // ぬ  かな = KC_1 / 英数 = KC_Q
 
     {
@@ -74,7 +77,7 @@ TEST_F(HoldLayer, gui_hold_switches_to_alpha_and_back) {
 
     tsu.press();
     run_one_scan_loop();
-    idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    idle_for(250); // KANA_HOLD_TERM 超え。ぬ の押下でホールド確定
     tap_key(nu, 120);
     idle_for(120);
     tsu.release();
@@ -91,7 +94,7 @@ TEST_F(HoldLayer, alt_hold_switches_to_alpha_and_back) {
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    auto sa = key(POS_SA); // さ  LALT_T(KC_X)
+    auto sa = key(POS_SA); // さ  ホールドで Alt
     auto nu = key(POS_NU);
 
     {
@@ -117,10 +120,9 @@ TEST_F(HoldLayer, alt_hold_switches_to_alpha_and_back) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 別キー割り込みでホールドが確定する経路 (HOLD_ON_OTHER_KEY_PRESS)。
- * 割り込んだキー自身も英数レイヤーで解決される必要があるので、レイヤーを
- * 上げるのは押下の処理中でなければ間に合わない */
-TEST_F(HoldLayer, gui_hold_by_interrupt_resolves_on_alpha) {
+/* KANA_HOLD_TERM 未満で次のキーを押すと、つ はタップになる。その場で「つ」が出て、
+ * 次のキーはかなのまま解決される */
+TEST_F(HoldLayer, quick_next_key_makes_tap) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
@@ -130,15 +132,15 @@ TEST_F(HoldLayer, gui_hold_by_interrupt_resolves_on_alpha) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_GUI));       // ぬ の押下でホールド確定
-        EXPECT_REPORT(driver, (KC_LEFT_GUI, KC_Q)); // 割り込んだ ぬ も英数
-        EXPECT_REPORT(driver, (KC_LEFT_GUI));
+        EXPECT_REPORT(driver, (KC_Z)); // ぬ の押下でタップに決まる
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_1)); // ぬ はかなのまま
         EXPECT_EMPTY_REPORT(driver);
     }
 
     tsu.press();
     run_one_scan_loop();
-    nu.press(); // TAPPING_TERM を待たずホールドが確定する
+    nu.press();
     run_one_scan_loop();
     idle_for(120);
     nu.release();
@@ -167,7 +169,7 @@ TEST_F(HoldLayer, tap_stays_on_kana) {
         EXPECT_EMPTY_REPORT(driver);
     }
 
-    tap_key(tsu, 50); // TAPPING_TERM 未満
+    tap_key(tsu, 50);
     idle_for(120);
     tap_key(nu, 120);
     idle_for(120);
@@ -177,7 +179,7 @@ TEST_F(HoldLayer, tap_stays_on_kana) {
 /* Ctrl + Win の重ね押し。先に離したほうのぶんだけ下がる。
  *
  * Ctrlが先に押されていると英数レイヤーが既に上がっているので、つ の押下は
- * mod-tap ではなく英数レイヤー側の素の KC_LGUI として解決される。そちらを
+ * 英数レイヤー側の素の KC_LGUI として解決される。そちらを
  * 数え損ねると、Ctrlを離した時点でかなへ戻ってしまう */
 TEST_F(HoldLayer, ctrl_and_gui_overlap_keeps_alpha) {
     TestDriver driver;
@@ -275,6 +277,8 @@ TEST_F(HoldLayer, base_layer_switch_works_after_gui_hold) {
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_GUI)); // Winホールド
+        EXPECT_REPORT(driver, (KC_LEFT_GUI, KC_Q));
+        EXPECT_REPORT(driver, (KC_LEFT_GUI));
         EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_LNG2));     // MY_LCTL タップ → 英数
         EXPECT_EMPTY_REPORT(driver);
@@ -289,10 +293,11 @@ TEST_F(HoldLayer, base_layer_switch_works_after_gui_hold) {
     tsu.press();
     run_one_scan_loop();
     idle_for(250);
+    tap_key(nu, 120); // ホールド確定
+    idle_for(120);
     tsu.release();
     run_one_scan_loop();
     idle_for(120);
-
     tap_key(lctl, 50); // 英数へ
     settle();
     tap_key(nu, 120);
