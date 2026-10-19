@@ -37,7 +37,7 @@ extern uint8_t test_host; // test_host_os.cpp
 
 extern "C" void keyboard_post_init_kb(void);
 
-/* EEPROM上の位置。bit0: 旧形式のAndroid、bit1: LEDの明るさ、bit2〜11: 接続先ごとの
+/* EEPROM上の位置。bit0: 予約 (旧形式のAndroid)、bit1: LEDの明るさ、bit2〜11: 接続先ごとの
  * OS、bit12〜21: 接続先ごとの配列。リリース後に動かすと、覚えた設定が別の接続先の
  * ものとして読まれる */
 #define OS_BIT(host) (2 + (host) * 2)
@@ -178,8 +178,7 @@ TEST_F(HostLayoutBootRead, boot_reads_eeprom) {
 }
 
 /* この設定が入る前のファームウェアで使っていた機体は、配列のビットが 0 のまま
- * 起動してくる。OSやLEDの設定がどうなっていても JIS として読め、旧形式の Android の
- * 移行 (issue #58) が配列のビットを汚さない */
+ * 起動してくる。OSやLEDの設定がどうなっていても JIS として読める */
 TEST_F(HostLayoutUpgrade, eeprom_without_layout_is_jis) {
     TestDriver driver;
 
@@ -187,12 +186,6 @@ TEST_F(HostLayoutUpgrade, eeprom_without_layout_is_jis) {
     eeconfig_update_kb(0b10u | (0b0101010101u << 2));
     keyboard_post_init_kb();
     set_windmill_keymap();
-    expect_layouts(ALL_HOSTS, WINDMILL_LAYOUT_JIS);
-
-    // 旧形式の Android + LED暗
-    eeconfig_update_kb(0b11);
-    keyboard_post_init_kb();
-    EXPECT_EQ(eeconfig_read_kb(), 0b10u | (0b0101010101u << 2));
     expect_layouts(ALL_HOSTS, WINDMILL_LAYOUT_JIS);
 }
 

@@ -14,18 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* Windmill 共通処理。
- *
- * キー処理は geonix41/minipeg48 からの移植で、QMK標準の mod-tap / layer-tap /
- * default_layer_set を使う。ただしかなレイヤー最下段のタップ・ホールドは自前で
- * 判定する (「かなレイヤー最下段のタップ・ホールド」参照)。かな入力はOS側の
- * IMEに任せる (かなのキーは、JISかな配列でそのかなが載っている位置のキーを送る)。
- * 英数レイヤー以外の文字キーは1キー1出力で、送るキーは出力表で引く
- * (「文字キーの出力表」参照)。
- *
- * LEDはキーコードの種類ごとに色を割り当てる独自実装で、こちらは従来のまま。
- * LED非搭載機 (minipeg48) では WINDMILL_LED_ENABLE が立たず、配色処理は
- * 丸ごとコンパイルから外れる。 */
+/* Windmill 共通処理。かな入力はOS側のIMEに任せ、かなのキーは JISかな配列で
+ * そのかなが載っている位置のキーを送る */
 
 #include "windmill.h"
 #include "keymap_japanese.h" // JP_*。出力表を、キーの位置ではなく JIS 配列で出る文字で書くため
@@ -43,58 +33,63 @@ __attribute__((weak)) uint8_t windmill_board_host(void) {
     return WINDMILL_HOST_USB;
 }
 
-/* 接続先のOS。言語切替 (MY_LCTL) のキーと、Shift 面の「」(KN_LKAKKO /
- * KN_RKAKKO) はOSのIME実装で必要なキーが異なるため、MY_WIN / MY_ANDR で切り替える。
- *
- * 無線機では接続先を切り替えるたびにOSを設定し直すのが手間なので、接続先
- * (WINDMILL_HOST_*) ごとに覚える (issue #58)。1つあたり2bitで、今使っているのは
- * Windows と Android の2種だけだが、Mac / iOS を足せるよう4種ぶん確保してある。
- * EEPROMリセット時は全ての接続先が Windows/デスクトップ向け (0) に戻る */
+/*
+ * 接続先ごとの設定
+ */
+
+/* 接続先のOS。言語切替と「」は、IMEの実装で要るキーが違う */
 #define OS_WIN  0 // Windows/デスクトップ
 #define OS_ANDR 1 // Android
 // 2, 3 は予約 (Mac / iOS 用)。読めても Windows と同じに扱う
-#define OS_BITS 2
-#define OS_MASK ((1u << OS_BITS) - 1)
 
-/* 接続先のキーボード配列 (WINDMILL_LAYOUT_*)。同じ文字でも送るべきキーコードは
- * 相手がどの配列として受け取るかで変わるので、MY_JIS / MY_US で選ぶ (issue #74)。
- * OSと同じく接続先ごとに覚える。
- *
- * JIS を 0 にしてあるのは既定にするため。EEPROMリセット時だけでなく、この設定が
- * 入る前のファームウェアで使っていた機体も、ここのビットは 0 のまま起動してくる。
- * 2bitなのはOSと揃えただけで、今は2種しか無い */
-#define LAYOUT_BITS 2
-#define LAYOUT_MASK ((1u << LAYOUT_BITS) - 1)
+/* 無線機は接続先ごとに相手が違うので、OSと配列 (WINDMILL_LAYOUT_*) を接続先ごとに
+ * 2bitずつ覚える (issue #58)。0 を既定 (Windows / JIS) にしてあるのは、EEPROMリセット
+ * 直後も、配列の設定が入る前のファームウェアで使っていた機体も、0 のまま起動するから */
+enum {
+    HOST_OS,
+    HOST_LAYOUT,
+    HOST_SETTING_SIZE,
+};
+#define HOST_BITS 2
+#define HOST_MASK ((1u << HOST_BITS) - 1)
 
 typedef union {
     uint32_t raw;
     struct {
-        /* 旧形式 (接続先を区別しない) のAndroid設定。ビット位置を変えずに
-         * 残してあるのは、以前のファームウェアで Android にしていた人の設定を
-         * 起動時に引き継ぐため (keyboard_post_init_kb 参照)。移行後は常に0 */
-        bool     legacy_android : 1;
+        bool     reserved : 1;     // 予約。旧形式のAndroid設定の跡で、後ろの項目の位置を変えないために残す
         bool     led_darkmode : 1; // LEDを暗いほうの配色にする (LED非搭載機では未使用)
-        uint16_t host_os : WINDMILL_HOST_SIZE * OS_BITS; // 接続先ごとのOS。WINDMILL_HOST_* 番目の2bit
-        /* 接続先ごとの配列。WINDMILL_HOST_* 番目の2bit。
-         * 型を uint16_t にすると、host_os の続きに置くか16bit境界まで送るかが
-         * AVR とそれ以外で分かれ、EEPROM上の位置が機種で変わってしまう */
-        uint32_t host_layout : WINDMILL_HOST_SIZE * LAYOUT_BITS;
+        uint32_t host : HOST_SETTING_SIZE * WINDMILL_HOST_SIZE * HOST_BITS; // HOST_* ごとに、接続先の数だけ並ぶ
     };
 } windmill_config_t;
 _Static_assert(sizeof(windmill_config_t) == sizeof(uint32_t), "windmill_config_t が eeconfig_kb の32bitに収まっていない");
 static windmill_config_t windmill_config;
 
-/* 接続先の番号は機種側が返す。範囲外が来てもEEPROMの隣の接続先を壊さないよう、
- * 有線扱いに丸める */
+/* 範囲外が来てもEEPROMの隣の接続先を壊さないよう、有線扱いに丸める */
 static uint8_t current_host(void) {
     const uint8_t host = windmill_board_host();
     return host < WINDMILL_HOST_SIZE ? host : WINDMILL_HOST_USB;
 }
 
-/* 接続先の切り替えはキーを押した時点のものを引けば足りるので、キャッシュはせず
- * 毎回EEPROMの写し (windmill_config) から読む */
+static uint8_t host_shift(uint8_t setting) {
+    return (setting * WINDMILL_HOST_SIZE + current_host()) * HOST_BITS;
+}
+
+/* 接続先の切り替えを追わずに済むよう、キャッシュせず毎回引く */
+static uint8_t get_host_setting(uint8_t setting) {
+    return (windmill_config.host >> host_shift(setting)) & HOST_MASK;
+}
+
+// いま繋がっている接続先のぶんだけ書き換える
+static void set_host_setting(uint8_t setting, uint8_t value) {
+    const uint8_t  shift = host_shift(setting);
+    const uint32_t next  = (windmill_config.host & ~((uint32_t)HOST_MASK << shift)) | ((uint32_t)(value & HOST_MASK) << shift);
+    if (windmill_config.host == next) return; // 無変更ならEEPROMを書かない
+    windmill_config.host = next;
+    eeconfig_update_kb(windmill_config.raw);
+}
+
 static uint8_t get_host_os(void) {
-    return (windmill_config.host_os >> (current_host() * OS_BITS)) & OS_MASK;
+    return get_host_setting(HOST_OS);
 }
 
 static bool is_android(void) {
@@ -102,7 +97,7 @@ static bool is_android(void) {
 }
 
 uint8_t windmill_host_layout(void) {
-    const uint8_t layout = (windmill_config.host_layout >> (current_host() * LAYOUT_BITS)) & LAYOUT_MASK;
+    const uint8_t layout = get_host_setting(HOST_LAYOUT);
     return layout == WINDMILL_LAYOUT_US ? WINDMILL_LAYOUT_US : WINDMILL_LAYOUT_JIS; // 予約の値は既定に倒す
 }
 
@@ -110,13 +105,9 @@ uint8_t windmill_host_layout(void) {
  * 起動時のベースレイヤー
  */
 
-/* 英数/かなの切り替え (MY_LCTL) はEEPROMに保存しない (switch_lang 参照)。
- * つまり起動時のベースレイヤーはEEPROMの値を復元するのではなく、電源を入れる
- * たびに固定で決まる。以前は eeconfig_init_kb() (EEPROM初期化直後のみ呼ばれる
- * コールバック) で英数に切り替えていたが、これは通常の電源投入時には呼ばれず
- * 実機ではレイヤー0(かな)のままだった (issue #22)。keyboard_post_init_kb() は
- * 毎回の起動時に呼ばれるので、ここで直接 default_layer_state を書き換えて
- * EEPROMを経由せずに強制する (default_layer_set() は eeconfig も書いてしまう) */
+/* 英数/かなはEEPROMに保存せず、起動のたびに英数から始める。eeconfig_init_kb() は
+ * EEPROMの初期化直後にしか呼ばれないので keyboard_post_init_kb() から呼ぶ (issue #22)。
+ * default_layer_set() は eeconfig も書いてしまうので、直接書き換える */
 static void reset_default_layer(void) {
     default_layer_state = (layer_state_t)1 << LAYER_ALPHA;
 }
@@ -147,9 +138,7 @@ void windmill_init_keycolors(uint8_t *user_colorset) {
 
 uint16_t windmill_base_keycode(uint16_t keycode) {
     if (IS_QK_MOD_TAP(keycode)) {
-        /* タップ側が KC_NO のもの (MY_LCTL) は、タップの意味を windmill.c が
-         * 自前で持っている。展開すると KC_NO になって keymap.c 側が
-         * MY_LCTL として色を引けなくなるので、そのまま返す */
+        /* タップ側が KC_NO のもの (MY_LCTL) は、展開すると keymap.c 側が色を引けない */
         const uint16_t tap = QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
         return tap == KC_NO ? keycode : tap;
     }
@@ -187,10 +176,8 @@ static void apply_keycolors(void) {
 #endif
 }
 
-/* 有効なレイヤーを上から順に見て、透過でない最初の色を採用する。
- * どのレイヤーでも透過ならレイヤー0の色 (QMKのキーコード解決と同じ挙動)。
- * default_layer_state_set_kb() からは更新後の値を渡す必要があるので、
- * グローバルを読まずに引数で受け取る。 */
+/* 有効なレイヤーを上から見て、透過でない最初の色を採用する (QMKのキーコード解決と同じ)。
+ * default_layer_state_set_kb() からは更新後の値を渡すので、グローバルを読まない */
 static void refresh_keycolors(layer_state_t layers, layer_state_t defaults) {
     const layer_state_t active = layers | defaults;
 
@@ -205,7 +192,7 @@ static void refresh_keycolors(layer_state_t layers, layer_state_t defaults) {
         if (keycolor != CL_TRANS) cached_keycolors[i] = keycolor;
     }
 
-    // RGB Matrix は rgb_matrix_indicators_kb() で毎フレーム描き直すので何もしない
+    // RGB Matrix は rgb_matrix_indicators_kb() で毎フレーム描き直す
 #ifndef RGB_MATRIX_ENABLE
     if (led_initialized && led_on) apply_keycolors();
 #endif
@@ -225,7 +212,6 @@ static void toggle_darkmode(void) {
 static void refresh_led_timeout(void) {
     if (!led_on) {
         led_on = true;
-        // 消灯時に消していた分を描き直す (RGB Matrix は毎フレーム描くので不要)
 #ifndef RGB_MATRIX_ENABLE
         if (led_initialized) apply_keycolors();
 #endif
@@ -268,19 +254,10 @@ static bool process_led_timeout(uint16_t keycode, keyrecord_t *record) {
  * 修飾キーのホールド中だけ英数レイヤーへ移す
  */
 
-/* かな中でも Ctrl+C や Win+V がかな配列のまま解決されないよう、修飾キーを
- * ホールドしている間だけ英数レイヤーを上げる。Ctrl (MY_LCTL) だけだったのを
- * Win(つ) / Alt(さ) にも揃えた (issue #34)。
+/* かな中でも Ctrl+C や Win+V がかな配列のまま解決されないようにする (issue #34)。
  *
- * レイヤーを上げている修飾を1ビットずつ覚える。QMKのレイヤーは参照カウントを
- * 持たないので、素のままだと Ctrl+Win の重ね押しで先に離したほうの layer_off()
- * が、まだ押している側のぶんまで落としてしまう。
- *
- * 上げ下げの契機は修飾ごとに違う。Ctrl は QMK の mod-tap なので、ホストへ出ている
- * 修飾を毎スキャン見て下ろす (update_hold_layer)。Win / Alt は、かなレイヤーの
- * つ / さ なら windmill.c 自身がホールドを出し入れするので、そこで上げ下げする
- * (apply_bottom_hold)。英数レイヤー側の素の KC_LGUI / KC_LALT は押下と解放で
- * 上げ下げする (process_alpha_gui_alt)。 */
+ * QMKのレイヤーは参照カウントを持たないので、上げている修飾を1ビットずつ覚える。
+ * 素のままだと、重ね押しで先に離したほうが、まだ押している側のぶんまで落とす */
 #define HOLD_LAYER LAYER_ALPHA
 
 static uint8_t hold_layer_mods      = 0;     // レイヤーを上げている修飾 (MOD_BIT)
@@ -301,40 +278,18 @@ static void hold_layer_off(uint8_t mod) {
 /*
  * MY_LCTL: tap = 言語切替 (英数⇔かな), hold = Ctrl + 英数レイヤー
  *
- * QMK標準の mod-tap (LCTL_T(KC_NO)、windmill.h 参照)。tapping term の計測も、
- * 別キー割り込みでのホールド確定 (HOLD_ON_OTHER_KEY_PRESS) も、Ctrl の
- * 上げ下げも QMK がやる。ここはタップ時の言語切替と、ホールド中だけ英数
- * レイヤーへ移すぶんだけを持つ。かなレイヤーの Win(つ) / Alt(さ) と違い、
- * 判定は QMK のまま (issue #85)。
- *
- * タップした直後 (QUICK_TAP_TERM = TAPPING_TERM 以内) に押し直すと、QMKは
- * ホールドではなくタップの繰り返しとみなす。MY_LCTL のタップ側は KC_NO で
- * 繰り返す中身が無いので、言語切替がもう一度走り、Ctrlは取れない。
- * get_quick_tap_term() で MY_LCTL だけ切れるが、そのために全機種へ config.h が
- * 要る。切り替えた直後にCtrlを押し続ける打ち方はしないので、素のままにする。
+ * 判定は QMK の mod-tap のまま。タップ直後に押し直すとタップの繰り返しになって Ctrl は
+ * 取れないが、切り替えた直後に Ctrl を押し続ける打ち方はしないので、それを切るために
+ * 全機種へ config.h を足すことはしない。
  */
 
-/* 以前は 1回タップ = KC_LNG2 (英数)、2回タップ = KC_LNG1 (かな) と、モードを
- * 直接指定していた。Android でも KC_LNGx 自体は効くが、日本語IMEは入力欄を
- * 移るたびに既定のかなへ戻ってしまい、英数を保てない。そこでタップのたびに
- * 英数⇔かなを入れ替える形に改め、Android ではIMEそのものを切り替える
- * (issue #53)。ダブルタップを待つ必要が無いので、離した時点で確定する。
+/* タップのたびに英数⇔かなを入れ替える。キーボード側はIMEの状態を読めないので、
+ * ベースレイヤーを自分で反転させて追う。
  *
- * キーボード側はIMEの状態を読めないので、ベースレイヤーは自分で反転させて追う。
- * 起動時はどちらも英数から始まる前提 (reset_default_layer 参照)。
- *
- * IMEへ送るキーはOSで違うので MY_WIN / MY_ANDR (接続先ごとの設定) で出し分ける。
- * - Windows: 反転後のベースレイヤーに合わせて KC_LNG1 (かな) / KC_LNG2 (英数) を
- *   交互に送る。IME側をマウスなどで切り替えてずれても、LNGx はモードを直接
- *   指定するので、もう一度タップすれば揃う。半角/全角のようなトグルのキーを
- *   送ると、ずれたまま戻せなくなる
- * - Android: Ctrl+Space で日本語IME⇔英語IMEを切り替える。英語IMEなら入力欄を
- *   移っても勝手にかなへ戻らない。日本語IMEは移るたびにかなへ戻るが、それは
- *   こちらのかなレイヤーと一致しているのでずれない。ただしトグルなので、IME側を
- *   別の手段で切り替えてずれた場合は、IME側を合わせ直すしかない
- *
- * Symレイヤーの数字・記号などで使う一時的な KC_LNG2 → キー → KC_LNG1 は、同じ
- * 入力欄の中で完結するので Android でもそのまま使える。 */
+ * - Windows: KC_LNG1 / KC_LNG2 でモードを直接指定する。トグルのキーと違い、IME側が
+ *   ずれてもタップし直せば揃う
+ * - Android: 日本語IMEは入力欄を移るたびにかなへ戻ってしまうので、Ctrl+Space で
+ *   英語IMEと入れ替える (issue #53)。トグルなので、ずれたら MY_IME で合わせ直す */
 #define LANG_TOGGLE_ANDR C(KC_SPC)
 
 /* ホストのIMEを layer (LAYER_KANA / LAYER_ALPHA) の側へ切り替える。
@@ -347,8 +302,7 @@ static void send_lang_to_host(uint8_t layer) {
     }
 }
 
-/* タップ確定。ベースレイヤーを反転させ、IMEもそちらへ切り替える。
- * default_layer_set はEEPROMを書かないので頻繁な切り替えでも安全 */
+// default_layer_set はEEPROMを書かないので頻繁な切り替えでも安全
 static void switch_lang(void) {
     const uint8_t next = get_highest_layer(default_layer_state) == LAYER_KANA ? LAYER_ALPHA : LAYER_KANA;
 
@@ -360,34 +314,16 @@ static void switch_lang(void) {
  * 文字キーの出力表
  */
 
-/* 文字キー (KN_* / SY_*) と、かなレイヤー最下段のキー (KB_*) のタップは独自キーコードで、
- * ホストへ送るキーはここの表で引く (issue #73)。同じ文字でも、送るべきキーコードは
- * 接続先のキーボード配列で変わる (「@」は US なら Shift+2、JIS なら単独のキー)。
- * キーマップに素のキーコードを直接置くとそこを吸収できないので、キーマップは
- * 「どの文字のキーか」だけを持ち、配列やOSごとの違いはここで持つ。
+/* 文字キー (KN_* / SY_*) と最下段のタップ (KB_*) でホストへ送るキー (issue #73)。
+ * 同じ文字でも送るキーは接続先の配列で変わる (「@」は US なら Shift+2、JIS なら単独の
+ * キー) ので、キーマップは「どの文字のキーか」だけを持ち、違いはここで吸収する。
  *
- * 1キー1値 (issue #82)。値はホストに届くべき最終形で、S() 付きなら Shift 付きで
- * 届く。押されている Shift で出し分けることはしない。Shift で別の文字を出したい
- * キーは、かなの Shift 面 (LAYER_KANA_SHIFT) に別のキーとして置く。
- *
- * 基準は Windows + JIS で、別の配列・OSは差分の例外 (key_output_exceptions[]) として
- * 持つ。JIS を基準にしたのは、かなの刻印がそのまま JIS 配列の位置だから。
- * 引く配列は接続先ごとの設定 (MY_JIS / MY_US、windmill_host_layout) で、既定は JIS
- * (issue #80)。
- *
- * Android (Gboard) の JIS も Windows と同じ表を引く。HIDの使用番号から Android の
- * キーへの対応 (AOSP の Generic.kl) では、JIS で使う ろ (KC_INT1) と ¥ (KC_INT3) も
- * 専用のキー (RO / YEN) になっていて、Windows と違うと分かっているキーは無い。
- * 違いが見つかったら OS_ANDR の例外として足す */
+ * 基準を Windows + JIS にしたのは、かなの刻印がそのまま JIS 配列の位置だから。
+ * Android (Gboard) の JIS も同じ表を引く。AOSP の Generic.kl では ろ (KC_INT1) と
+ * ¥ (KC_INT3) も専用のキーで、Windows と違うと分かっているキーは無い */
 
 #define ROW(keycode) ((keycode) - KEY_OUTPUT_FIRST)
 
-/* 行は独自キーコード。値は Windows + JIS で送るもの。
- *
- * かなはOSのIMEがキーの位置で決めるので、「JISかな配列でそのかなが載っている位置」の
- * キーになる。Shift 面のかなのうち、IMEが同じキーの Shift で出すもの (ぁ、を など) は
- * S() 付きにしてある。記号は keymap_japanese.h の JP_* で書く。JP_AT は「JIS 配列で
- * @ が出るキー」で、中身は KC_LBRC */
 static const uint16_t PROGMEM key_outputs[] = {
     // かなレイヤー最下段のタップ
     [ROW(KB_TSU)]      = KC_Z,
@@ -440,7 +376,7 @@ static const uint16_t PROGMEM key_outputs[] = {
     [ROW(KN_ME)]       = JP_SLSH,
     [ROW(KN_RO)]       = JP_BSLS,
 
-    // かなの Shift 面
+    // かなの Shift 面。IMEが同じキーの Shift で出すもの (ぁ、を など) は S() 付き
     [ROW(KN_XA)]       = S(KC_3),
     [ROW(KN_XU)]       = S(KC_4),
     [ROW(KN_XE)]       = S(KC_5),
@@ -504,14 +440,9 @@ _Static_assert(WINDMILL_KEYCODE_END - 1 <= QK_USER_MAX, "独自キーコード�
 #define OS_ANY 0xFF // 例外の、対象OSを問わない行
 
 /* key_outputs[] の例外。上から見て、キー・配列・OSが当たった最初の行を使う。
- * 当たらなければ key_outputs[] のまま。
- *
- * US の列は、表にする前に送っていたものそのまま。US 配列でもかなは「JISかな配列の
- * 位置」で出るので、JIS と位置が違う記号のキーに載っているかなだけ行がある。
- *
- * 「」はIMEによって載っている位置が違う。US 配列のとき、Windows (Microsoft IME) は
- * [ と ] の Shift で出るが、Android (Gboard) は ] と \ の Shift で出る。Android の
- * 「は JIS と同じキーになるが、Windows の行より先に当たるよう書いておく */
+ * US 配列でもかなは JISかな配列の位置で出るので、JIS と位置が違う記号のキーに
+ * 載っているかなだけ行がある。「」は US のとき、Microsoft IME は [ ] の Shift、
+ * Gboard は ] \ の Shift で出る */
 static const struct {
     uint16_t keycode;
     uint8_t  layout; // WINDMILL_LAYOUT_*
@@ -571,12 +502,8 @@ uint16_t windmill_output_keycode(uint16_t keycode) {
  * 文字キーの送り方
  */
 
-/* IMEがレポートを取りこぼさないためのウェイト。効かない場合は増やし、
- * もたつくなら減らす。
- *
- * 修飾の上げ下げも英数/かなの切り替えもIMEが非同期に処理するので、
- * レポートを続けて送ると前のぶんを取りこぼす。1本ごとに間を空けて
- * ホスト側での順序を保証する (issue #17、issue #36、issue #87)。 */
+/* IMEは修飾の上げ下げも英数/かなの切り替えも非同期に処理するので、レポートを続けて
+ * 送ると前のぶんを取りこぼす (issue #36)。効かなければ増やし、もたつくなら減らす */
 #define IME_WAIT_MS 10
 
 // 出力に Shift が要るか (S(KC_x))
@@ -585,21 +512,15 @@ static bool is_shifted_keycode(uint16_t keycode) {
 }
 
 /* 英数に切り替えて送る文字か。記号レイヤーの数字・記号と、Shift 面の半角「？」は
- * かな入力のままでは打てない (issue #17) */
+ * かな入力のままでは打てない */
 static bool is_alpha_output(uint16_t keycode) {
     if (get_highest_layer(default_layer_state) != LAYER_KANA) return false;
     return (keycode >= SY_1 && keycode <= SY_QUES) || keycode == KB_QUES;
 }
 
-/* Shift を from から to へ移す。変わるときは前後にウェイトを挟む。
- *
- * Shift の上げ下げとキーの押下・解放が続けて届くと、IMEが Shift の変化を追い切れない。
- * Shift を外した直後のキーに Shift が乗ったまま解釈されたり (issue #36)、かなを打った
- * 直後に Shift を足したキーで Shift が落ちたりする (issue #87)。
- *
- * del_mods()/set_mods() ではなく register 系を使うのは、ホスト側にも上げ下げを
- * 届ける必要があるから (issue #18)。from と to が両方 Shift を持つことは無い
- * (押されている Shift を使えるときはそのまま使う。send_output 参照) */
+/* Shift を from から to へ移し、変わるときは前後にウェイトを挟む。挟まないとIMEが
+ * 追い切れず、外した Shift が次のキーに乗ったり、足した Shift が落ちたりする (issue #87)。
+ * register 系を使うのは、ホストにも上げ下げを届けるため (issue #18) */
 static void set_shift(uint8_t from, uint8_t to) {
     if (from == to) return;
     wait_ms(IME_WAIT_MS);
@@ -608,30 +529,20 @@ static void set_shift(uint8_t from, uint8_t to) {
     wait_ms(IME_WAIT_MS);
 }
 
-/* 文字を1つ送る (issue #82)。押下と解放を続けて送り切るので、押しっぱなしにしても
- * リピートしない。押されている Shift は打ち消し、出力に Shift が要るときだけ足す。
+/* 文字を1つ、押下と解放を続けて送り切る。押されている Shift は打ち消し、出力に
+ * Shift が要るときだけ足す。
  *
- * |                       | Shift を押している | 押していない       |
- * |-----------------------|--------------------|--------------------|
- * | 出力に Shift が要る   | そのまま送る       | Shift を足して送る |
- * | 出力に Shift が要らない | Shift を外して送る | そのまま送る       |
+ * Shift が要るとき押されている Shift をそのまま使うのは、左Shiftへ付け替えると
+ * 「右Shiftを離して左Shiftを押す」レポートが挟まり、そこだけ Shift が効かない機種が
+ * あるため。
  *
- * Shift が要るときに押されている Shift をそのまま使うのは、weak Shift (左Shift) を
- * 付け直すと修飾が入れ替わって見えるため。「み」の右Shiftを押しているときに
- * 左Shiftへ入れ替えると、ホストには「右Shiftを離して左Shiftを押す」レポートが1本
- * 挟まり、そこだけ Shift が効かない機種があった (issue #18)。
- *
- * alpha なら、英数 (KC_LNG2) に切り替えてから送り、かな (KC_LNG1) に戻す。
- * 切り替えのキーに Shift が乗っているとIMEが英数/かなキーとして受け取らず、
- * かなのまま文字だけが届く (Shift+「も」の半角「?」が「・」になっていた)。その間だけ
- * 押されている Shift も外し、送る文字の Shift には外したものを戻して使う */
+ * alpha なら英数に切り替えて送り、かなに戻す。切り替えのキーに Shift が乗っていると
+ * IMEが英数/かなキーとして受け取らないので、その間は押されている Shift も外す */
 static void send_output(uint16_t output, bool alpha) {
     const uint8_t held  = get_mods() & MOD_MASK_SHIFT;
     const uint8_t shift = is_shifted_keycode(output) ? (held ? held : MOD_BIT(KC_LEFT_SHIFT)) : 0;
 
-    /* 前の文字キーが QMK の register_code16() で残した weak Shift は無いはずだが、
-     * あれば送るレポートに乗ってしまうので落としておく */
-    clear_weak_mods();
+    clear_weak_mods(); // 残っていれば送るレポートに乗ってしまう
 
     if (alpha) {
         set_shift(held, 0);
@@ -655,10 +566,7 @@ static void send_output(uint16_t output, bool alpha) {
 }
 
 /* 文字キー (KN_* / SY_*) を送る。常に false (QMKには渡さない)。
- * 押下で送り切るので、解放では何もしない。
- *
- * 機種側の process_record にも、素のキーコードとして押下と解放を渡す。geonix41 の
- * ブロブはキーマップに直接置いていたころからこれらのキーを見ている */
+ * 機種側の process_record にも素のキーコードで渡す。geonix41 のブロブがこれらのキーを見ている */
 static bool process_char_key(uint16_t keycode, keyrecord_t *record) {
     const uint16_t output = get_key_output(keycode);
     if (!windmill_board_process_record(QK_MODS_GET_BASIC_KEYCODE(output), record)) return false;
@@ -671,18 +579,13 @@ static bool process_char_key(uint16_t keycode, keyrecord_t *record) {
  * 英数レイヤーの記号 (JIS)
  */
 
-/* 英数レイヤーのキーは素のキーコードで、ホストが US 配列として受け取る前提の並び。
- * 英字や「, . /」は JIS でも同じ文字が出るが、この3キーは出る文字が変わる
- * (JIS では KC_QUOT が「:」、「"」は Shift+2)。そこで JIS のときだけ横取りし、
- * 押されている Shift の有無で送るものを決めて、文字キーと同じ1キー1出力で送る
- * (issue #80)。Shift の要る要らないが US と食い違う (「:」は JIS では Shift 無し)
- * ので、Shift は send_output() に打ち消させる。そのぶん、この3キーはリピートしない。
+/* 英数レイヤーの ; ' \ は、JIS として受け取られると別の文字が出る (KC_QUOT が「:」)。
+ * JIS のときだけ横取りし、押されている Shift で送るものを決めて1キー1出力で送る
+ * (issue #80)。Shift の要否が US と食い違うので send_output() に打ち消させ、そのぶん
+ * リピートしない。
  *
- * US のときは横取りせず、QMKの標準どおり (押されている Shift が乗り、リピートする)。
- * 「\」は LT(LAYER_SYM,KC_BSLS) のタップ側で、タップのときだけ見る。
- * 「\」に ¥ のキー (KC_INT3) ではなく ろ のキー (KC_INT1) を使うのは、Windows の JIS
- * ならどちらでも「\」が出るが、¥ のキーは円記号 (U+00A5) を出す環境 (macOS の JIS など)
- * があるため */
+ * 「\」に ¥ のキー (KC_INT3) ではなく ろ のキー (KC_INT1) を使うのは、¥ のキーは
+ * 円記号を出す環境 (macOS の JIS など) があるため */
 static const struct {
     uint16_t keycode; // 英数レイヤーの素のキーコード (LT() はタップ側)
     uint16_t plain;   // Shift 無しで送るもの (JIS)
@@ -693,11 +596,8 @@ static const struct {
     {KC_BSLS, JP_BSLS, JP_PIPE}, // \ |
 };
 
-/* 横取りしたら false (そのイベントは消費済み)。押下で送り切るので、解放では何もしない。
- *
- * 機種側の process_record には、横取りする前のキーコードのまま押下と解放を渡す。
- * 送るものは押下時の Shift で決まるので、送るキーコードを渡すと押下と解放で
- * 食い違うことがある */
+/* 横取りしたら false。機種側の process_record には横取り前のキーコードで渡す。
+ * 送るものは押下時の Shift で決まるので、送るキーコードでは押下と解放が食い違いうる */
 static bool process_jis_alpha_symbol(uint16_t keycode, keyrecord_t *record) {
     uint16_t basic = keycode;
     if (IS_QK_LAYER_TAP(keycode)) {
@@ -719,38 +619,12 @@ static bool process_jis_alpha_symbol(uint16_t keycode, keyrecord_t *record) {
 }
 
 /*
- * 接続先ごとの設定
- */
-
-// いま繋がっている接続先のOSだけを書き換える。他の接続先の設定は触らない
-static void set_host_os(uint8_t os) {
-    const uint8_t  shift = current_host() * OS_BITS;
-    const uint16_t next  = (windmill_config.host_os & ~(OS_MASK << shift)) | ((os & OS_MASK) << shift);
-    if (windmill_config.host_os == next) return; // 無変更ならEEPROMを書かない
-    windmill_config.host_os = next;
-    eeconfig_update_kb(windmill_config.raw);
-}
-
-// 配列も同じく、いま繋がっている接続先のぶんだけを書き換える
-static void set_host_layout(uint8_t layout) {
-    const uint8_t  shift = current_host() * LAYOUT_BITS;
-    const uint32_t next  = (windmill_config.host_layout & ~((uint32_t)LAYOUT_MASK << shift)) | ((uint32_t)(layout & LAYOUT_MASK) << shift);
-    if (windmill_config.host_layout == next) return; // 無変更ならEEPROMを書かない
-    windmill_config.host_layout = next;
-    eeconfig_update_kb(windmill_config.raw);
-}
-
-/*
  * 英数レイヤーの Win / Alt と Ctrl
  */
 
-/* Ctrlを先に押していると英数レイヤーが既に上がっていて、つ / さ の位置は
- * 英数レイヤー側の素の KC_LGUI / KC_LALT として解決される。そちらも数えないと、
- * Ctrlを先に離した時点でレイヤーが落ちてしまう (issue #34)。
- *
- * 解放は押下と同じ英数レイヤーのキーコードで届く (QMKが押下時のレイヤーを
- * 覚えている) ので、押下と解放の対で上げ下げすればよい。英数ベースのときは
- * 英数レイヤーが元から有効なので何もしない */
+/* Ctrl で英数レイヤーが上がった後の つ / さ は、素の KC_LGUI / KC_LALT になる。
+ * これも数えないと、Ctrl を先に離した時点でレイヤーが落ちる。英数ベースでは
+ * レイヤーが元から有効なので何もしない */
 static void process_alpha_gui_alt(uint16_t keycode, keyrecord_t *record) {
     const uint8_t mod = (keycode == KC_LGUI) ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
     if (!record->event.pressed) {
@@ -761,15 +635,10 @@ static void process_alpha_gui_alt(uint16_t keycode, keyrecord_t *record) {
     hold_layer_on(mod);
 }
 
-/* Ctrl (MY_LCTL) で上げたレイヤーを下ろすのは、キーの解放イベントではなく
- * **ホストへ出ている修飾**を毎スキャン見て判断する。
- *
- * MY_LCTL の位置は英数レイヤーで透過なので、今のところ解放は MY_LCTL のまま
- * 届く。ただ、自分で英数レイヤーを上げたせいで解放が別のキーコードに引き直される
- * と、MY_LCTL の解放を待っていても永久に来ない (以前の つ / さ の mod-tap がこの罠を
- * 踏んでいた)。修飾の状態を見るなら英数レイヤーの並びを変えても壊れない。
- * ただしレイヤーを上げた直後は、QMKがまだ修飾を register していないスキャンが
- * ありうる。一度ホストへ出たのを確認してから下ろす。 */
+/* Ctrl (MY_LCTL) で上げたレイヤーは、解放イベントではなくホストへ出ている修飾を見て
+ * 下ろす。レイヤーを上げたせいで解放が別のキーコードに引き直されると、待っても来ない
+ * ため。上げた直後は QMK がまだ Ctrl を register していないスキャンがあるので、
+ * 一度出たのを確かめてから下ろす */
 static void update_hold_layer(void) {
     const uint8_t ctrl = MOD_BIT(KC_LEFT_CTRL);
     if (!(hold_layer_mods & ctrl)) return;
@@ -785,37 +654,29 @@ static void update_hold_layer(void) {
  * Android での Win / Alt
  */
 
-/* Android は Win (Meta) と Alt を特別扱いする (issue #57)。効いてくるのは次の2つで、
- * どちらもキーそのものではなく押し離しの順序で決まる (AOSP の
- * PhoneWindowManager / KeyGestureController)。
+/* Android は Win (Meta) と Alt の押し離しの順序に反応する (issue #57)。
  *
- * - Win と Alt の片方を押している間にもう片方を押すと、どちらかを離した時点で
- *   Caps Lock が切り替わる。間に他のキーを挟めば取り消される
- * - Win を押して、他のキーを何も挟まずに離すと、アプリ一覧が開く
+ * - Win と Alt を重ねると、どちらかを離した時点で Caps Lock が切り替わる
+ * - Win を、他のキーを挟まずに離すと、アプリ一覧が開く
  *
- * かなレイヤーの「つ」「さ」は隣り合った Win / Alt なので、続けて打つだけで
- * 前者を踏む。両方が未判定のまま揃ってホールドになることもあるし、「つ」の
- * ホールドで英数レイヤーが上がった後なら「さ」は素の KC_LALT になる。
- * 前者は apply_bottom_hold()、後者はここで、後から出るほうを握りつぶす。 */
+ * つ / さ は隣り合っているので、続けて打つだけで前者を踏む。後から出るほうを握りつぶす */
 
-// 後から出そうとした修飾を握りつぶすか。押下時のOS設定で決める
+// 押下時のOS設定で決める
 static bool android_blocks_mod(uint8_t mod) {
     const uint8_t other = (mod & MOD_MASK_GUI) ? MOD_MASK_ALT : MOD_MASK_GUI;
     return is_android() && (get_mods() & other);
 }
 
-/* 押下を握りつぶした修飾 (MOD_BIT)。離すイベントも消費するために覚える。
- * 握りつぶしたほうは、先に押したほうを離しても出さない。出すと押した覚えの無い
- * 修飾が遅れて効くことになる */
+/* 押下を握りつぶした修飾 (MOD_BIT)。先に押したほうを離しても出さない。出すと押した
+ * 覚えの無い修飾が遅れて効く */
 static uint8_t android_blocked_mods = 0;
 
-/* 英数レイヤーの KC_LGUI / KC_LALT。後から押したほうをホストへ出さない。
- * falseを返したらそのイベントは消費済み(以降の処理をスキップ) */
+// 英数レイヤーの KC_LGUI / KC_LALT。false なら消費済み
 static bool process_android_gui_alt(uint16_t keycode, keyrecord_t *record) {
     const uint8_t mod = (keycode == KC_LGUI) ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
 
     if (!record->event.pressed) {
-        // 押下時のOS設定は見ない。押している間に設定を変えても離すぶんは消費する
+        // 押している間に設定を変えても、離すぶんは消費する
         if (!(android_blocked_mods & mod)) return true;
         android_blocked_mods &= ~mod;
         return false;
@@ -826,11 +687,9 @@ static bool process_android_gui_alt(uint16_t keycode, keyrecord_t *record) {
     return false;
 }
 
-/* Win を押したまま、Android に「Win を単独で押して離した」と見なされないようにする。
- * 他のキーを1つ挟めば取り消されるので、何も起こさないキーを空打ちする。
- * 右Ctrlにしたのは、このキーマップに無く (Ctrl は左だけ)、Win との組み合わせに
- * ショートカットが無いため。QMK の DUMMY_MOD_NEUTRALIZER_KEYCODE でも
- * 推奨されている */
+/* 「Win を単独で押して離した」と見なされないよう、何も起こさないキーを空打ちする。
+ * 右Ctrlはこのキーマップに無く、Win との組み合わせにショートカットも無い
+ * (QMK の DUMMY_MOD_NEUTRALIZER_KEYCODE の推奨と同じ) */
 static void neutralize_gui_tap(void) {
     tap_code(KC_RIGHT_CTRL);
 }
@@ -838,14 +697,9 @@ static void neutralize_gui_tap(void) {
 // Win+. を Alt+. に読み替えて送ったあとの、ピリオドの解放待ち
 static bool android_gui_dot_sent = false;
 
-/* Win+. は Alt+. として送る。Windows の Win+. (絵文字) に揃えるため。
- *
- * Win を Alt に差し替えるには Win をいったん離すしかない (重ねると Caps Lock)。
- * ただ離すだけだとアプリ一覧が開いてしまうので、離す前に空打ちを挟む。
- * 押し直したあとも同じで、挟まないと指を離したときに開く。
- *
- * 押下の中で送り切って、Win を外している間にスキャンを挟まない。
- * falseを返したらそのイベントは消費済み(以降の処理をスキップ) */
+/* Win+. は、Windows の Win+. (絵文字) に揃えて Alt+. として送る。Win を重ねたままだと
+ * Caps Lock、ただ離すとアプリ一覧になるので、離す前と押し直した後に空打ちを挟む。
+ * Win を外している間にスキャンを挟まないよう、押下の中で送り切る。false なら消費済み */
 static bool process_android_gui_dot(keyrecord_t *record) {
     if (!record->event.pressed) {
         if (!android_gui_dot_sent) return true;
@@ -871,20 +725,12 @@ static bool process_android_gui_dot(keyrecord_t *record) {
  */
 
 /* 左右のFnを両方ホールドしている間だけ設定レイヤーへ移す (issue #62)。
+ * MO() に任せると、先に離したほうがまだ押している側のぶんまで落とす (hold_layer_on と
+ * 同じ理由) ので、ホールド中のFnを左右1ビットずつ覚え、Fnレイヤーと設定レイヤーの
+ * 上げ下げを両方ここで持つ。
  *
- * Fnレイヤーの Fn の位置へ MO(4) を置けばコードは要らないが、それだと設定レイヤーを
- * 上げているのは後から押したほうのFnだけになる。先に押したほうを離しても
- * 設定レイヤーが残り、「両方押している間だけ」にならない。そこでホールド中の
- * Fnを左右1ビットずつ覚えて、Fnレイヤーと設定レイヤーの上げ下げを両方とも
- * ここで持つ。QMKのレイヤーは参照カウントを持たないので、Fnレイヤーのほうも
- * QMK の MO() に任せると、先に離したほうがまだ押している側のぶんまで落としてしまう。
- *
- * 呼ぶのは、かなレイヤーの そ / ね のホールド (apply_bottom_hold) と、英数レイヤーの
- * MO(LAYER_FN) (process_fn)。どちらも同じビットを使うので、混ぜて押しても数が合う。
- *
- * 設定レイヤーの Fn の位置は透過にしておくこと。片方を離して押し直したとき、
- * その押下は設定レイヤーで引かれる。透過でないと下のレイヤーの Fn に落ちず、
- * Fn として押せなくなる */
+ * 設定レイヤーの Fn の位置は透過にしておくこと。片方を押し直したとき、下のレイヤーの
+ * Fn に落ちないと Fn として押せない */
 static uint8_t fn_held = 0;
 
 #define FN_BIT_L 1
@@ -904,15 +750,13 @@ static void set_fn(uint8_t bit, bool on) {
     layer_state_set(state);
 }
 
-/* 英数レイヤーの MO(LAYER_FN)。左右は matrix の列で見分ける (windmill.h 参照)。
- * レイヤーの上げ下げは全て set_fn() が持つので、QMKには渡さない */
+// 英数レイヤーの MO(LAYER_FN)。左右は matrix の列で見分ける (windmill.h 参照)
 static bool process_fn(keyrecord_t *record) {
     set_fn(record->event.key.col == FN_L_COL ? FN_BIT_L : FN_BIT_R, record->event.pressed);
     return false;
 }
 
-/* 記号レイヤー。かなレイヤーの ひ / も のどちらかをホールドしている間だけ上げる。
- * Fnと同じく左右1ビットずつ覚えて、片方を離しても落ちないようにする */
+// 記号レイヤー (ひ / も)。Fnと同じく左右1ビットずつ覚える
 static uint8_t sym_held = 0;
 
 static void set_sym(uint8_t bit, bool on) {
@@ -929,34 +773,18 @@ static void set_sym(uint8_t bit, bool on) {
  * かなレイヤー最下段のタップ・ホールド
  */
 
-/* かなレイヤー最下段の8キー (KB_*) は、タップでかなを出し、ホールドで修飾か
- * レイヤーになる。以前は QMK の LT() / MT() だったが、判定を自前で持つ (issue #85)。
- * QMK の tap-hold はキーごとに独立して決まるので、親指Shift同士の組で半角スペースを
- * 出す規則や、未判定のキーを複数抱えたまま押した順に出す規則を表せない。
+/* QMK の tap-hold はキーごとに独立して決まり、親指の組のスペースや、未判定のキーを
+ * 複数抱えたまま押した順に出す規則を表せないので、判定を自前で持つ (issue #85)。
  *
- * - ホールドに決まるのは、押してから BOTTOM_HOLD_MS たったとき (単独の長押しを含む)、
- *   または BOTTOM_INTERRUPT_MS 以上たっていて、後から最下段以外のキーが押されているとき
- * - 未判定のまま離せばタップ
- * - 最下段のキーの押下では、先に押された未判定のキーを判定しない。後から押した
- *   最下段のキーがタップに決まった時点で、先のキーが BOTTOM_INTERRUPT_MS 以上たって
- *   いれば、先のキーをホールドにする (decide_bottom_tap)
- * - こ / み の組は別の規則で半角スペースになる (settle_thumb_pair)
+ * - 押してから BOTTOM_HOLD_MS たてばホールド
+ * - BOTTOM_INTERRUPT_MS 以上たっていて、後から最下段以外のキーが押されればホールド
+ * - 後から押した最下段のキーがタップに決まった時点で、BOTTOM_INTERRUPT_MS 以上たって
+ *   いればホールド (decide_bottom_tap)
+ * - 未判定のまま離せばタップ。境界はどれも「以上」
  *
- * 未判定のキーより後に起きたキーイベントは、そのキーが決まるまでキューで待たせる。
- * 押した順を保つためで、最下段のキーのタップも同じキューに並ぶ。待っていたキーは
- * 取り出した時点のレイヤーと修飾で解決し直す。ホールドの規則から、BOTTOM_INTERRUPT_MS
- * 以上たったキーは別のキーの押下で決まるので、待たされるのはそれ未満の間に
- * 押したキーだけになる。
- *
- * 時間の判定はスキャンごと (matrix_scan_kb) に行い、キーイベントの前にもその時刻で
- * 行う。境界はどちらも「以上」。250ms ちょうどに離したキーはホールドになる。
- *
- * タップは押下と解放を続けて送るので、押しっぱなしにしてもリピートしない。
- *
- * かなの Shift 面 (LAYER_KANA_SHIFT) の最下段にも独自キーコード (KB_XTSU など) を
- * 置いてある。どれも同じ位置のかなレイヤーのキーと同じホールドの役割を持ち、
- * タップで出るものだけが変わる。判定の状態はキーの位置ごとに1つで、どちらの
- * キーコードで押されても、かなレイヤーのキーの番号で持つ (bottom_index)。 */
+ * 未判定のキーより後のイベントは、押した順を保つためキューで待たせ、取り出した時点の
+ * レイヤーと修飾で解決し直す。Shift 面の最下段 (KB_XTSU など) は同じ位置のかなレイヤーの
+ * キーと役割が同じなので、状態はかなレイヤーのキーの番号で持つ (bottom_index) */
 #define BOTTOM_INTERRUPT_MS 150 // これ以上たっていれば、別のキーの押下でホールドになる
 #define BOTTOM_HOLD_MS      250 // 押したままこれだけたてばホールドになる
 
@@ -968,9 +796,8 @@ static bool is_bottom_keycode(uint16_t keycode) {
     return keycode >= KEY_BOTTOM_FIRST && keycode <= KEY_BOTTOM_LAST;
 }
 
-/* 最下段のキーの番号 (BOTTOM(KB_*))。Shift 面のキーは、同じ位置のかなレイヤーの
- * キーの番号になる。Shift 面の 空 は こ と み の両方の位置にあるので、キーコードだけ
- * では決まらない。最下段のキーでなければ NO_BOTTOM */
+/* Shift 面の 空 は こ と み の両方の位置にあるので、キーコードだけでは決まらない。
+ * 最下段のキーでなければ NO_BOTTOM */
 static uint8_t bottom_index(uint16_t keycode, keypos_t pos) {
     if (!is_bottom_keycode(keycode)) return NO_BOTTOM;
     if (keycode > KB_NE) keycode = keymap_key_to_keycode(LAYER_KANA, pos);
@@ -979,10 +806,10 @@ static uint8_t bottom_index(uint16_t keycode, keypos_t pos) {
 
 // ホールドの役割
 enum {
-    BOTTOM_HOLD_OS_MOD, // Win / Alt。ホールド中は英数レイヤーへ移す (issue #34)
-    BOTTOM_HOLD_FN,     // Fn。左右両方で設定レイヤー (set_fn)
+    BOTTOM_HOLD_OS_MOD, // Win / Alt。ホールド中は英数レイヤー
+    BOTTOM_HOLD_FN,     // Fn (set_fn)
     BOTTOM_HOLD_SYM,    // 記号レイヤー (set_sym)
-    BOTTOM_HOLD_SHIFT,  // Shift。左右それぞれ自分の Shift だけを上げ下げする。ホールド中は Shift 面
+    BOTTOM_HOLD_SHIFT,  // Shift。ホールド中は Shift 面
 };
 
 typedef struct {
@@ -1054,8 +881,8 @@ typedef struct {
     keyrecord_t record;
 } bottom_entry_t;
 
-/* 待たせられるのは、未判定のキーを押してから BOTTOM_HOLD_MS の間に起きたイベント
- * だけ。両手で打っても収まる数にしてある。溢れたら先頭を決めて空ける */
+/* 待たせるのは未判定のキーを押してから BOTTOM_HOLD_MS の間のイベントだけなので、
+ * 両手で打っても収まる。溢れたら先頭を決めて空ける */
 #define BOTTOM_QUEUE_SIZE 16
 
 static bottom_entry_t bottom_queue[BOTTOM_QUEUE_SIZE];
@@ -1089,8 +916,7 @@ static uint8_t bottom_entry_decision(const bottom_entry_t *entry) {
     return state->seq == entry->seq ? state->decision : entry->decision;
 }
 
-/* イベントを待たせたまま、もう一度 QMK に処理させる。キーコードはその時点の
- * レイヤーで引き直される */
+// もう一度 QMK に処理させる。キーコードはその時点のレイヤーで引き直される
 static void bottom_replay(keyrecord_t *record) {
     const bool replaying = bottom_replaying;
     bottom_replaying     = true;
@@ -1098,11 +924,9 @@ static void bottom_replay(keyrecord_t *record) {
     bottom_replaying = replaying;
 }
 
-/* 未判定のキーをタップに決める。
- *
- * タップに決まった時点で、先に押された未判定のキーが BOTTOM_INTERRUPT_MS 以上
- * たっていれば、そちらをホールドにする。後のキーはそのホールドのレイヤーで出る
- * (ひ を押しながら こ をタップすると、記号レイヤーの「|」) */
+/* 未判定のキーをタップに決め、先に押されて BOTTOM_INTERRUPT_MS 以上たった未判定の
+ * キーをホールドにする。後のキーはそのホールドのレイヤーで出る (ひ を押しながら こ を
+ * タップすると、記号レイヤーの「|」) */
 static void decide_bottom_tap(uint8_t i, uint16_t now) {
     bottom_state_t *state = &bottom_states[i];
     state->decision       = BOTTOM_TAP;
@@ -1124,22 +948,14 @@ static void decide_bottom_tap(uint8_t i, uint16_t now) {
  * 次をすべて満たすと半角スペースを1つ出す。
  *
  * - X を BOTTOM_INTERRUPT_MS 以上押している (離したなら、押下から解放までが以上)
- * - Y の押下が X の解放より前 (組ができる条件そのもの)
- * - Y の押下から解放までが BOTTOM_HOLD_MS 未満 (Y が未判定のまま離れる)
+ * - Y の押下から解放までが BOTTOM_HOLD_MS 未満
  * - Y の解放の時点で、X と Y のどちらも他のキーにシフトとしてかかっていない
  *
- * スペースは、Y の解放と、X が BOTTOM_INTERRUPT_MS に達した時点 (それより前に X を
- * 離したなら X の解放) の遅い方で決まる。シフトとしてかかったかどうかは Y の解放の
- * 時点で見るので、決まったスペースは後から X がかかっても取り消さない。X を押したまま
- * Y をタップし直せば、そのたびに新しい組になってスペースが出る。
- *
- * スペースが決まったとき X をまだ押していれば、X はホールドにする。X のタップは
- * スペースに含まれたので出さず、続けて打つキーには Shift として乗る。X を
- * BOTTOM_INTERRUPT_MS 以上押して先に離していれば、X の出力も Y の結果を待つ。
+ * スペースは、Y の解放と、X が BOTTOM_INTERRUPT_MS に達した時点 (先に離したなら X の
+ * 解放) の遅い方で決まり、後から X がかかっても取り消さない。そのとき X を押していれば
+ * X はホールドになり、続けて打つキーに Shift として乗る。
  *
  * 満たさなくなった時点で組は解け、それぞれ通常の判定に戻る (thumb_pair_fail)。
- * X を短く離せば X はタップ、Y が BOTTOM_HOLD_MS に達すれば Y はホールドで、
- * 待っていた X はタップになる。
  */
 
 static bool in_thumb_pair(uint8_t i) {
@@ -1198,7 +1014,6 @@ static void apply_bottom_hold(uint8_t i) {
     const bottom_key_t key = get_bottom_key(i);
     switch (key.hold) {
         case BOTTOM_HOLD_OS_MOD:
-            // Android では Win と Alt の後から出るほうを握りつぶす (issue #57)
             if (android_blocks_mod(key.arg)) return;
             register_mods(key.arg);
             hold_layer_on(key.arg);
@@ -1243,16 +1058,9 @@ static void release_bottom_hold(uint8_t i) {
     }
 }
 
-/* タップを出す。キーは出す時点のレイヤーで引き直す。
- *
- * 先に押したキーのホールドで記号レイヤーが上がっていれば、そこにあるキーを出す。
- * 記号レイヤーの最下段は大半が透過で、そのときは自分のかなが出る。自分以外のキー
- * なら、押下と解放を作って QMK に処理させる (記号はIMEを英数に切り替えて送るなど、
- * 通常のキーと同じ扱いになる)。
- *
- * Shift 面が上がっていれば、同じ位置の Shift 面のキー (っ ？ 、) を出す。ただし 空 は
- * 親指の組が成り立ったときのもの (send_thumb_space) で、組にならずにタップに決まった
- * ときは、かなレイヤーの こ / み として出す (issue #85 のケース a / y) */
+/* タップを、出す時点のレイヤーで引き直して出す。記号レイヤーなど自分以外のキーに
+ * 引かれたら、押下と解放を作って QMK に処理させ、通常のキーと同じ扱いにする。
+ * 空 は親指の組が成り立ったときのものなので、組にならないタップは こ / み として出す */
 static void send_bottom_tap(uint8_t i, keypos_t pos) {
     uint16_t keycode = keymap_key_to_keycode(layer_switch_get_layer(pos), pos);
     if (bottom_index(keycode, pos) != i) {
@@ -1267,15 +1075,9 @@ static void send_bottom_tap(uint8_t i, keypos_t pos) {
     send_output(get_key_output(keycode), is_alpha_output(keycode));
 }
 
-/* 親指の組の半角スペース。Shift 面の 空 (KB_SPC) の出力を送る。組のキーはどちらも
- * 離れているので、ホールドとして出ている Shift はここで下ろす (後から届く解放では
- * 何もしない)。
- *
- * 押されている Shift は send_output() が外して送り、戻す。ホールドを下ろしたことで
- * Shift が離れたときも、そのレポートとスペースの間にウェイトを挟む。挟まないと、
- * IMEがShiftの上げ下げを追い切れず、Shiftが乗ったまま解釈されることがある
- * (issue #36)。組の外の Shift (相方ではない別のキーなど) が押されていれば、
- * 送った後に戻る */
+/* 親指の組の半角スペース。組のキーはどちらも離れているので、ホールドの Shift はここで
+ * 下ろす (後から届く解放では何もしない)。下ろした Shift のレポートとスペースの間にも
+ * ウェイトを挟む (IME_WAIT_MS と同じ理由) */
 static void send_thumb_space(void) {
     const bool had_shift = get_mods() & MOD_MASK_SHIFT;
     if (!bottom_states[BOTTOM(KB_KO)].pressed) release_bottom_hold(BOTTOM(KB_KO));
@@ -1461,8 +1263,8 @@ static bool process_bottom_row(uint16_t keycode, keyrecord_t *record) {
             consumed = false;
         }
     } else {
-        /* 最下段のキーの解放は位置で見分ける。タップを記号レイヤーで出したあとなどは、
-         * QMKが覚えている押下時のレイヤーが変わっていて、キーコードが別物で届く */
+        /* 解放は位置で見分ける。タップを記号レイヤーで出したあとなどは、QMKが覚えている
+         * 押下時のレイヤーが変わっていて、キーコードが別物で届く */
         const uint8_t i = find_pressed_bottom(record->event.key);
         if (i != NO_BOTTOM) {
             bottom_release(i, record);
@@ -1501,8 +1303,7 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 #ifdef WINDMILL_LED_ENABLE
     if (!process_led_timeout(keycode, record)) return false;
 #endif
-    /* かなレイヤー最下段のタップ・ホールド。待たせたイベントは後で取り出して
-     * ここへ流し直すので、そのときは通さない */
+    // 待たせたイベントは後でここへ流し直すので、そのときは通さない
     if (!bottom_replaying && !process_bottom_row(keycode, record)) return false;
     if (is_bottom_keycode(keycode)) return false; // 流し直しで最下段のキーに引かれた。押下を見ていないので捨てる
 
@@ -1523,41 +1324,14 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             return false;
 #endif
 
-        case MY_WIN:
-            if (record->event.pressed) {
-                set_host_os(OS_WIN);
-            }
-            return false;
+        case MY_WIN:  if (record->event.pressed) set_host_setting(HOST_OS, OS_WIN); return false;
+        case MY_ANDR: if (record->event.pressed) set_host_setting(HOST_OS, OS_ANDR); return false;
+        case MY_JIS:  if (record->event.pressed) set_host_setting(HOST_LAYOUT, WINDMILL_LAYOUT_JIS); return false;
+        case MY_US:   if (record->event.pressed) set_host_setting(HOST_LAYOUT, WINDMILL_LAYOUT_US); return false;
 
-        case MY_ANDR:
-            if (record->event.pressed) {
-                set_host_os(OS_ANDR);
-            }
-            return false;
-
-        case MY_JIS:
-            if (record->event.pressed) {
-                set_host_layout(WINDMILL_LAYOUT_JIS);
-            }
-            return false;
-
-        case MY_US:
-            if (record->event.pressed) {
-                set_host_layout(WINDMILL_LAYOUT_US);
-            }
-            return false;
-
-        /* Fn+Ctrl: ホスト側のIMEだけ切り替える。ベースレイヤーは動かさない。
-         *
-         * IMEの状態はキーボードからは読めないので、IME側だけが切り替わるとずれる。
-         * Windows は MY_LCTL のタップが KC_LNG1/KC_LNG2 でモードを直接指定するため
-         * タップし直せば揃うが、Android は Ctrl+Space のトグルしか無く、
-         * キーボードとIMEが同じ向きに動いてしまってずれたままになる。
-         * こちらはキーボードを動かさずにIMEだけを動かすので、ずれを解消できる。
-         *
-         * 送るのは今のベースレイヤーに合わせたほう。Windows ではモードの直接指定に
-         * なるので、ずれていなければ何も起きず、ずれていれば揃う。Android は
-         * トグルなので、揃っている状態で押すと逆にずれる (もう一度押せば戻る) */
+        /* Fn+Ctrl: IMEだけを今のベースレイヤーの側へ切り替える。Android のトグルが
+         * ずれたとき、キーボードを動かさずに合わせ直すため。Windows では揃っていれば
+         * 何も起きないが、Android では揃っている状態で押すと逆にずれる */
         case MY_IME:
             if (record->event.pressed) {
                 send_lang_to_host(get_highest_layer(default_layer_state));
@@ -1566,18 +1340,17 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
         case KC_LGUI: // 英数レイヤーの Win / Alt (Ctrlのホールドで英数レイヤーが上がったときを含む)
         case KC_LALT:
-            /* レイヤーを上げるより先に見る。握りつぶした修飾はホストへ出ないので、
-             * 上げてしまうと下ろす機会を失う */
+            // 先に見る。握りつぶした修飾でレイヤーを上げると、下ろす機会を失う
             if (!process_android_gui_alt(keycode, record)) {
                 return false;
             }
             process_alpha_gui_alt(keycode, record);
             break; // 修飾そのものはQMKに任せる
 
-        case ALPHA_FN: // 英数レイヤーの Fn。左右とも押している間は設定レイヤーへ (issue #62)
+        case ALPHA_FN: // 英数レイヤーの Fn
             return process_fn(record);
 
-        case KC_DOT: // 英数レイヤーのピリオド。Android では Win+. を Alt+. に読み替える (issue #57)
+        case KC_DOT: // 英数レイヤーのピリオド
             if (!process_android_gui_dot(record)) {
                 return false;
             }
@@ -1593,7 +1366,7 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) {
                 hold_layer_on(MOD_BIT(KC_LEFT_CTRL)); // Ctrl自体はQMKのmod-tapが押す
             }
-            break; // ホールドはQMKに任せる。レイヤーを下ろすのは update_hold_layer
+            break; // レイヤーを下ろすのは update_hold_layer
     }
 
     return windmill_board_process_record(keycode, record);
@@ -1614,15 +1387,6 @@ void keyboard_post_init_kb(void) {
     reset_default_layer();
 
     windmill_config.raw = eeconfig_read_kb();
-    if (windmill_config.legacy_android) {
-        /* 以前は接続先を区別していなかったので、どの接続先もAndroidだったことになる。
-         * 移行は一度きりで、以後は legacy_android が立たない */
-        windmill_config.legacy_android = false;
-        for (uint8_t host = 0; host < WINDMILL_HOST_SIZE; ++host) {
-            windmill_config.host_os |= OS_ANDR << (host * OS_BITS);
-        }
-        eeconfig_update_kb(windmill_config.raw);
-    }
 #ifdef WINDMILL_LED_ENABLE
     led_darkmode = windmill_config.led_darkmode;
 #endif

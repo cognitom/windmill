@@ -125,7 +125,7 @@ TEST_F(HostOsEeprom, holds_two_bits_per_host) {
     test_host = WINDMILL_HOST_2P4G;
     select_os(this, driver, POS_ANDR);
 
-    // bit0: 旧形式のAndroid、bit1: LEDの明るさ、bit2〜: 接続先ごとのOS
+    // bit0: 予約 (旧形式のAndroid)、bit1: LEDの明るさ、bit2〜: 接続先ごとのOS
     EXPECT_EQ(eeconfig_read_kb(), 1u << (2 + WINDMILL_HOST_2P4G * 2));
 }
 
@@ -163,20 +163,19 @@ TEST_F(HostOsWinBack, win_on_one_host_keeps_others) {
     }
 }
 
-/* 以前のファームウェアで Android にしていた (bit0 が立っている) なら、
- * 起動時に全ての接続先を Android として引き継ぎ、bit0 は下ろす。
- * LEDの明るさ (bit1) はそのまま残る */
-TEST_F(HostOsLegacy, legacy_android_migrates_to_all_hosts) {
+/* bit0 (旧形式のAndroid設定) は予約で、読まない。立っていても全ての接続先が
+ * Windows のままで、起動時に書き戻しもしない */
+TEST_F(HostOsLegacy, reserved_bit_is_ignored) {
     TestDriver driver;
 
     eeconfig_update_kb(0b11); // 旧形式の Android + LED暗
     keyboard_post_init_kb();  // 起動時の読み込みをやり直す
     set_windmill_keymap();
 
-    EXPECT_EQ(eeconfig_read_kb(), 0b10u | (0b0101010101u << 2));
+    EXPECT_EQ(eeconfig_read_kb(), 0b11u);
 
     for (uint8_t host = 0; host < WINDMILL_HOST_SIZE; ++host) {
         test_host = host;
-        expect_lang_toggle(this, driver, true);
+        expect_lang_toggle(this, driver, false);
     }
 }
