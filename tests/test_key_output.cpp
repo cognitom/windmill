@@ -28,8 +28,12 @@
  *   足し、Shift の押下と文字キーの押下は別のレポートになる
  * - Shift が要らない文字は、押されている Shift を外して送り、戻す
  *
- * 期待値の文字は US 配列のもの。配列の切り替え (issue #80) まではどちらを選んでも
- * US になる。英数レイヤーの記号は素のキーコードのままで、QMKの標準どおり Shift が乗る。 */
+ * 配列 (MY_JIS / MY_US) は接続先ごとの設定で、既定は JIS (issue #80)。KeyOutput は
+ * US を選んでから見る。期待値はこの設定が入る前に送っていたものそのままで、変えない。
+ * KeyOutputJis は JIS のまま、同じ位置を総当たりで見る。
+ *
+ * 英数レイヤーの記号は、US では素のキーコードのままで、QMKの標準どおり Shift が乗る。
+ * JIS では ; ' \ の3キーだけ横取りし、Shift の有無で送るものを決めて1キー1出力で送る。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -49,6 +53,10 @@ class KeyOutput : public WindmillTest {};
  * (test_android_mods.cpp と同じ) */
 class KeyOutputAndroid : public WindmillTest {};
 
+// 配列も同じくEEPROMに残る。JIS のテストは、選び直さない既定の JIS のまま見る
+class KeyOutputJis : public WindmillTest {};
+class KeyOutputJisAndroid : public WindmillTest {};
+
 // 英数から MY_LCTL 1回タップでかなへ切り替える。レポートの中身は問わない
 static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
     EXPECT_ANY_REPORT(driver).Times(AnyNumber());
@@ -56,6 +64,14 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
     f->tap_key(f->key(POS_LCTL), 120);
     f->settle();
 
+    VERIFY_AND_CLEAR(driver);
+}
+
+// 設定レイヤーで配列 (MY_JIS / MY_US) やOSを選ぶ。レポートは出ない
+static void select_conf(WindmillTest* f, TestDriver& driver, uint8_t row, uint8_t col) {
+    EXPECT_NO_REPORT(driver);
+    f->tap_on_conf(row, col);
+    f->settle();
     VERIFY_AND_CLEAR(driver);
 }
 
@@ -225,6 +241,7 @@ static void expect_kana_shifted(WindmillTest* f, TestDriver& driver, const Key (
 TEST_F(KeyOutput, kana_keys_without_shift) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
     switch_to_kana(this, driver);
 
     expect_kana_plain(this, driver, kana_keys);
@@ -235,6 +252,7 @@ TEST_F(KeyOutput, kana_keys_without_shift) {
 TEST_F(KeyOutput, kana_shift_layer_with_right_thumb) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
     switch_to_kana(this, driver);
 
     expect_kana_shifted(this, driver, kana_shift_keys, POS_MI, KC_RIGHT_SHIFT);
@@ -245,6 +263,7 @@ TEST_F(KeyOutput, kana_shift_layer_with_right_thumb) {
 TEST_F(KeyOutput, kana_shift_layer_with_left_thumb) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
     switch_to_kana(this, driver);
 
     expect_kana_shifted(this, driver, kana_shift_keys, POS_KO, KC_LEFT_SHIFT);
@@ -257,6 +276,7 @@ TEST_F(KeyOutput, kana_shift_layer_with_left_thumb) {
 TEST_F(KeyOutput, kana_key_does_not_repeat) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
     switch_to_kana(this, driver);
 
     auto nu = key(POS_NU);
@@ -297,25 +317,18 @@ TEST_F(KeyOutput, kana_key_does_not_repeat) {
     default_layer_set((layer_state_t)1 << LAYER_ALPHA);
 }
 
-// 設定レイヤーでOSを選ぶ。レポートは出ない
-static void select_os(WindmillTest* f, TestDriver& driver, uint8_t row, uint8_t col) {
-    EXPECT_NO_REPORT(driver);
-    f->tap_on_conf(row, col);
-    f->settle();
-    VERIFY_AND_CLEAR(driver);
-}
-
 TEST_F(KeyOutputAndroid, kana_brackets_follow_host_os) {
     TestDriver driver;
     set_windmill_keymap();
-    select_os(this, driver, POS_ANDR);
+    select_conf(this, driver, POS_US);
+    select_conf(this, driver, POS_ANDR);
     switch_to_kana(this, driver);
 
     expect_kana_plain(this, driver, kana_keys_android);
     expect_kana_shifted(this, driver, kana_shift_keys_android, POS_MI, KC_RIGHT_SHIFT);
 
     default_layer_set((layer_state_t)1 << LAYER_ALPHA);
-    select_os(this, driver, POS_WIN); // EEPROMに残るので戻しておく
+    select_conf(this, driver, POS_WIN); // EEPROMに残るので戻しておく
 }
 
 /*
@@ -328,12 +341,15 @@ static const Key alpha_sym_keys[] = {
     {1, 11, KC_QUOT, PLAIN}, // ' "
     {2, 8, KC_COMM, PLAIN},  // , <
     {2, 9, KC_DOT, PLAIN},   // . >
+    {3, 4, KC_BSLS, PLAIN},  // \ | (LT(LAYER_SYM,KC_BSLS) のタップ)
+    {3, 7, KC_SLSH, PLAIN},  // / ? (LT(LAYER_SYM,KC_SLSH) のタップ)
 };
 // clang-format on
 
 TEST_F(KeyOutput, alpha_symbols_without_shift) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
 
     {
         InSequence s;
@@ -346,12 +362,13 @@ TEST_F(KeyOutput, alpha_symbols_without_shift) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* Shift時の文字 (: " < >) は、押されているShiftがそのまま乗って出る。
+/* Shift時の文字 (: " < > | ?) は、押されているShiftがそのまま乗って出る。
  * 右の親指は右Shift (issue #88)。左Shift へ入れ替えるレポートが挟まると、
  * issue #18 と同じく実機で Shift が取りこぼされうるので、列ごと固定する */
 TEST_F(KeyOutput, alpha_symbols_with_thumb_shift) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
 
     auto shift = key(POS_ALPHA_SHIFT);
 
@@ -390,6 +407,7 @@ static const Key alpha_letter_keys[] = {
 TEST_F(KeyOutput, alpha_letters_with_thumb_shift) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
 
     auto shift = key(POS_ALPHA_SHIFT);
 
@@ -417,6 +435,7 @@ TEST_F(KeyOutput, alpha_letters_with_thumb_shift) {
 TEST_F(KeyOutput, alpha_symbol_stays_down_while_held) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
 
     auto scln = key(1, 10);
 
@@ -495,6 +514,7 @@ static void tap_sym_keys(WindmillTest* f, uint8_t held_col = 0) {
 TEST_F(KeyOutput, sym_layer_on_alpha) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
 
     {
         InSequence s;
@@ -508,6 +528,7 @@ TEST_F(KeyOutput, sym_layer_on_alpha) {
 TEST_F(KeyOutput, sym_layer_on_kana_wraps_with_ime_switch) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
     switch_to_kana(this, driver);
 
     {
@@ -525,6 +546,7 @@ TEST_F(KeyOutput, sym_layer_on_kana_wraps_with_ime_switch) {
 TEST_F(KeyOutput, sym_layer_on_alpha_ignores_shift) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
 
     auto shift = key(POS_ALPHA_SHIFT);
 
@@ -552,6 +574,7 @@ TEST_F(KeyOutput, sym_layer_on_alpha_ignores_shift) {
 TEST_F(KeyOutput, sym_layer_on_kana_ignores_shift) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
     switch_to_kana(this, driver);
 
     auto ko = key(POS_KO);
@@ -583,6 +606,7 @@ TEST_F(KeyOutput, sym_layer_on_kana_ignores_shift) {
 TEST_F(KeyOutput, sym_roll_over_does_not_leak_shift) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
 
     auto sym  = key(POS_SYM);
     auto exlm = key(1, 1); // !
@@ -628,6 +652,7 @@ TEST_F(KeyOutput, sym_roll_over_does_not_leak_shift) {
 TEST_F(KeyOutput, sym_after_kana_waits_between_shift_and_key) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
     switch_to_kana(this, driver);
 
     auto nu   = key(POS_NU);
@@ -686,6 +711,7 @@ TEST_F(KeyOutput, sym_after_kana_waits_between_shift_and_key) {
 TEST_F(KeyOutput, kana_key_released_under_sym_layer_is_not_stuck) {
     TestDriver driver;
     set_windmill_keymap();
+    select_conf(this, driver, POS_US);
     switch_to_kana(this, driver);
 
     auto nu  = key(POS_NU);
@@ -712,4 +738,370 @@ TEST_F(KeyOutput, kana_key_released_under_sym_layer_is_not_stuck) {
     VERIFY_AND_CLEAR(driver);
 
     default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+/*
+ * JIS (issue #80)
+ *
+ * 既定の配列。出力表は Windows + JIS が基準なので、表そのもの (key_outputs[]) を引く。
+ * US と違うのは、JIS 配列で位置の違う記号のキーだけ
+ */
+
+// clang-format off
+// かなレイヤー。US と違うのは ろ だけ
+static const Key kana_keys_jis[] = {
+    // ぬ ふ あ う え お や ゆ よ わ
+    {0, 1, KC_1, PLAIN}, {0, 2, KC_2, PLAIN}, {0, 3, KC_3, PLAIN}, {0, 4, KC_4, PLAIN}, {0, 5, KC_5, PLAIN},
+    {0, 6, KC_6, PLAIN}, {0, 7, KC_7, PLAIN}, {0, 8, KC_8, PLAIN}, {0, 9, KC_9, PLAIN}, {0, 10, KC_0, PLAIN},
+    // た て い す か ん な に ら せ ゛
+    {1, 1, KC_Q, PLAIN}, {1, 2, KC_W, PLAIN}, {1, 3, KC_E, PLAIN}, {1, 4, KC_R, PLAIN}, {1, 5, KC_T, PLAIN},
+    {1, 6, KC_Y, PLAIN}, {1, 7, KC_U, PLAIN}, {1, 8, KC_I, PLAIN}, {1, 9, KC_O, PLAIN}, {1, 10, KC_P, PLAIN},
+    {1, 11, KC_LBRC, PLAIN}, // ゛ (JIS の @ のキー)
+    // ち と し は き く ま の り れ け
+    {2, 1, KC_A, PLAIN}, {2, 2, KC_S, PLAIN}, {2, 3, KC_D, PLAIN}, {2, 4, KC_F, PLAIN}, {2, 5, KC_G, PLAIN},
+    {2, 6, KC_H, PLAIN}, {2, 7, KC_J, PLAIN}, {2, 8, KC_K, PLAIN}, {2, 9, KC_L, PLAIN},
+    {2, 10, KC_SCLN, PLAIN}, // れ (JIS の ; のキー)
+    {2, 11, KC_QUOT, PLAIN}, // け (JIS の : のキー)
+    // つ さ そ ひ こ み も ね (タップ) る め ろ
+    {3, 1, KC_Z, PLAIN}, {3, 2, KC_X, PLAIN}, {3, 3, KC_C, PLAIN}, {3, 4, KC_V, PLAIN}, {3, 5, KC_B, PLAIN},
+    {3, 6, KC_N, PLAIN}, {3, 7, KC_M, PLAIN}, {3, 8, KC_COMM, PLAIN},
+    {3, 9, KC_DOT, PLAIN}, {3, 10, KC_SLSH, PLAIN},
+    {3, 11, KC_INT1, PLAIN}, // ろ (JIS の \ のキー)
+};
+
+// Shift 面。US と違うのは へ む 「 」 ー ろ
+static const Key kana_shift_keys_jis[] = {
+    // ぬ ふ ぁ ぅ ぇ ぉ ゃ ゅ ょ を
+    {0, 1, KC_1, PLAIN}, {0, 2, KC_2, PLAIN}, {0, 3, KC_3, SHIFT}, {0, 4, KC_4, SHIFT}, {0, 5, KC_5, SHIFT},
+    {0, 6, KC_6, SHIFT}, {0, 7, KC_7, SHIFT}, {0, 8, KC_8, SHIFT}, {0, 9, KC_9, SHIFT}, {0, 10, KC_0, SHIFT},
+    // た へ ぃ む か ん ほ に 「 」 ゜
+    {1, 1, KC_Q, PLAIN},
+    {1, 2, KC_EQL, PLAIN},    // へ (JIS の ^ のキー)
+    {1, 3, KC_E, SHIFT},      // ぃ
+    {1, 4, KC_NUHS, PLAIN},   // む (JIS の ] のキー)
+    {1, 5, KC_T, PLAIN}, {1, 6, KC_Y, PLAIN},
+    {1, 7, KC_MINS, PLAIN},   // ほ
+    {1, 8, KC_I, PLAIN},
+    {1, 9, KC_RBRC, SHIFT},   // 「 (JIS の [ のキー)
+    {1, 10, KC_NUHS, SHIFT},  // 」 (JIS の ] のキー)
+    {1, 11, KC_RBRC, PLAIN},  // ゜ (JIS の [ のキー)
+    // っ と し は き く ま 、 。 ・ ー
+    {2, 1, KC_Z, SHIFT},
+    {2, 2, KC_S, PLAIN}, {2, 3, KC_D, PLAIN}, {2, 4, KC_F, PLAIN}, {2, 5, KC_G, PLAIN}, {2, 6, KC_H, PLAIN},
+    {2, 7, KC_J, PLAIN},
+    {2, 8, KC_COMM, SHIFT}, {2, 9, KC_DOT, SHIFT}, {2, 10, KC_SLSH, SHIFT},
+    {2, 11, KC_INT3, PLAIN},  // ー (JIS の ¥ のキー)
+    // っ さ そ ひ (タップ) ？ 、 。 ・ ろ
+    {3, 1, KC_Z, SHIFT},
+    {3, 2, KC_X, PLAIN}, {3, 3, KC_C, PLAIN}, {3, 4, KC_V, PLAIN},
+    {3, 7, KC_SLSH, ALPHA},   // ？ 半角
+    {3, 8, KC_COMM, SHIFT}, {3, 9, KC_DOT, SHIFT}, {3, 10, KC_SLSH, SHIFT},
+    {3, 11, KC_INT1, PLAIN},  // ろ
+};
+
+/* 記号レイヤー。JIS 配列でその記号が出るキー。US と Shift の要る要らないが逆に
+ * なるもの (@ ^ = + : など) もある */
+static const Key sym_keys_jis[] = {
+    // 1 2 3 4 5 6 7 8 9 0
+    {0, 1, KC_1, PLAIN}, {0, 2, KC_2, PLAIN}, {0, 3, KC_3, PLAIN}, {0, 4, KC_4, PLAIN}, {0, 5, KC_5, PLAIN},
+    {0, 6, KC_6, PLAIN}, {0, 7, KC_7, PLAIN}, {0, 8, KC_8, PLAIN}, {0, 9, KC_9, PLAIN}, {0, 10, KC_0, PLAIN},
+    // ! @ # $ % ^ & * ( ) `
+    {1, 1, KC_1, SHIFT},
+    {1, 2, KC_LBRC, PLAIN},   // @
+    {1, 3, KC_3, SHIFT}, {1, 4, KC_4, SHIFT}, {1, 5, KC_5, SHIFT},
+    {1, 6, KC_EQL, PLAIN},    // ^
+    {1, 7, KC_6, SHIFT},      // &
+    {1, 8, KC_QUOT, SHIFT},   // *
+    {1, 9, KC_8, SHIFT},      // (
+    {1, 10, KC_9, SHIFT},     // )
+    {1, 11, KC_LBRC, SHIFT},  // `
+    // = + - _ [ ] ~ { }
+    {2, 1, KC_MINS, SHIFT},   // =
+    {2, 2, KC_SCLN, SHIFT},   // +
+    {2, 3, KC_MINS, PLAIN},   // -
+    {2, 4, KC_INT1, SHIFT},   // _
+    {2, 5, KC_RBRC, PLAIN},   // [
+    {2, 6, KC_NUHS, PLAIN},   // ]
+    {2, 7, KC_EQL, SHIFT},    // ~
+    {2, 8, KC_RBRC, SHIFT},   // {
+    {2, 9, KC_NUHS, SHIFT},   // }
+    // | ?
+    {3, 5, KC_INT3, SHIFT},   // |
+    {3, 6, KC_SLSH, SHIFT},   // ?
+};
+// clang-format on
+
+TEST_F(KeyOutputJis, default_layout_is_jis) {
+    ASSERT_EQ(windmill_host_layout(), WINDMILL_LAYOUT_JIS);
+}
+
+TEST_F(KeyOutputJis, kana_keys_without_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    expect_kana_plain(this, driver, kana_keys_jis);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+TEST_F(KeyOutputJis, kana_shift_layer_with_right_thumb) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    expect_kana_shifted(this, driver, kana_shift_keys_jis, POS_MI, KC_RIGHT_SHIFT);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+TEST_F(KeyOutputJis, kana_shift_layer_with_left_thumb) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    expect_kana_shifted(this, driver, kana_shift_keys_jis, POS_KO, KC_LEFT_SHIFT);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+TEST_F(KeyOutputJis, sym_layer_on_alpha) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    {
+        InSequence s;
+        for (const auto& k : sym_keys_jis) expect_sym(driver, k, 0, false);
+    }
+    tap_sym_keys(this);
+    VERIFY_AND_CLEAR(driver);
+}
+
+TEST_F(KeyOutputJis, sym_layer_on_kana_wraps_with_ime_switch) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    {
+        InSequence s;
+        for (const auto& k : sym_keys_jis) expect_sym(driver, k, 0, true);
+    }
+    tap_sym_keys(this);
+    VERIFY_AND_CLEAR(driver);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+// 記号レイヤーで Shift が効かないのも US と同じ
+TEST_F(KeyOutputJis, sym_layer_on_alpha_ignores_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto shift = key(POS_ALPHA_SHIFT);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        for (const auto& k : sym_keys_jis) {
+            if (!is_held(k, 6)) expect_sym(driver, k, KC_RIGHT_SHIFT, false);
+        }
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    shift.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_sym_keys(this, 6);
+    shift.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+TEST_F(KeyOutputJis, sym_layer_on_kana_ignores_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    auto ko = key(POS_KO);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        for (const auto& k : sym_keys_jis) {
+            if (!is_held(k, 5)) expect_sym(driver, k, KC_LEFT_SHIFT, true);
+        }
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    ko.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_sym_keys(this, 5);
+    ko.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+/* 英数レイヤーの記号。; ' \ は横取りして1キー1出力、, . / は素のキーコードのまま。
+ * 素のキーコードは押下と解放が別々に届くが、tap_all() の叩き方ではどちらも
+ * 押下 → 解放の2本になる */
+// clang-format off
+static const Key alpha_sym_keys_jis[] = {
+    {1, 10, KC_SCLN, PLAIN}, // ;
+    {1, 11, KC_7, SHIFT},    // '
+    {2, 8, KC_COMM, PLAIN},  // ,
+    {2, 9, KC_DOT, PLAIN},   // .
+    {3, 4, KC_INT1, PLAIN},  // \ (LT(LAYER_SYM,KC_BSLS) のタップ)
+    {3, 7, KC_SLSH, PLAIN},  // / (LT(LAYER_SYM,KC_SLSH) のタップ)
+};
+
+// Shift 時。: は JIS では Shift 無しのキーなので、押されている Shift を外して送る
+static const Key alpha_sym_keys_jis_shifted[] = {
+    {1, 10, KC_QUOT, PLAIN}, // :
+    {1, 11, KC_2, SHIFT},    // "
+    {3, 4, KC_INT3, SHIFT},  // |
+};
+// clang-format on
+
+TEST_F(KeyOutputJis, alpha_symbols_without_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    {
+        InSequence s;
+        for (const auto& k : alpha_sym_keys_jis) expect_char(driver, k, 0);
+    }
+    tap_all(this, alpha_sym_keys_jis);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* 右の親指 (右Shift) を押したまま。横取りした3キーは押されている右Shift を
+ * そのまま使うか外すかで、左Shift への入れ替えは挟まらない。, . / は素のまま
+ * 右Shift が乗る */
+TEST_F(KeyOutputJis, alpha_symbols_with_thumb_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto shift = key(POS_ALPHA_SHIFT);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        expect_char(driver, alpha_sym_keys_jis_shifted[0], KC_RIGHT_SHIFT); // :
+        expect_char(driver, alpha_sym_keys_jis_shifted[1], KC_RIGHT_SHIFT); // "
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_COMM));                   // <
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_DOT)); // >
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        expect_char(driver, alpha_sym_keys_jis_shifted[2], KC_RIGHT_SHIFT); // |
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_SLSH));                   // ?
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    shift.press();
+    run_one_scan_loop();
+    idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    tap_all(this, alpha_sym_keys_jis);
+    shift.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* 左の親指 (左Shift) でも同じ。Shift の要る「"」「|」は押されている左Shift をそのまま使う */
+TEST_F(KeyOutputJis, alpha_symbols_with_left_thumb_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto shift = key(POS_KO); // 英数レイヤーでは LSFT_T(KC_SPC)
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        for (const auto& k : alpha_sym_keys_jis_shifted) expect_char(driver, k, KC_LEFT_SHIFT);
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    shift.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_all(this, alpha_sym_keys_jis_shifted);
+    shift.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* 横取りした3キーは、押し続けてもリピートしない。押した時点で送り切り、離しても
+ * 何も出ない。US では押しっぱなし (alpha_symbol_stays_down_while_held) */
+TEST_F(KeyOutputJis, alpha_symbol_does_not_repeat) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto scln = key(1, 10);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_SCLN));
+        EXPECT_EMPTY_REPORT(driver);
+    }
+    scln.press();
+    run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+
+    EXPECT_NO_REPORT(driver);
+    idle_for(600);
+    scln.release();
+    run_one_scan_loop();
+    idle_for(50);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* \ の位置 (LT(LAYER_SYM,KC_BSLS)) を長押しすれば、横取りせずに記号レイヤーになる */
+TEST_F(KeyOutputJis, backslash_key_hold_is_sym_layer) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto sym = key(POS_SYM);
+
+    {
+        InSequence s;
+        expect_char(driver, {1, 2, KC_LBRC, PLAIN}, 0); // 記号レイヤーの @
+    }
+    sym.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_key(key(1, 2), 50);
+    sym.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* 対象OSが Android でも、JIS では Windows と同じキーを送る。US では「」が違う
+ * (kana_brackets_follow_host_os) が、JIS で Windows と違うと分かっているキーは無い
+ * (windmill.c「文字キーの出力表」参照)。違いが見つかって例外を足したら、ここも直す */
+TEST_F(KeyOutputJisAndroid, same_as_windows) {
+    TestDriver driver;
+    set_windmill_keymap();
+    select_conf(this, driver, POS_ANDR);
+
+    {
+        InSequence s;
+        for (const auto& k : sym_keys_jis) expect_sym(driver, k, 0, false);
+    }
+    tap_sym_keys(this);
+    VERIFY_AND_CLEAR(driver);
+
+    switch_to_kana(this, driver);
+    expect_kana_plain(this, driver, kana_keys_jis);
+    expect_kana_shifted(this, driver, kana_shift_keys_jis, POS_MI, KC_RIGHT_SHIFT);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+    select_conf(this, driver, POS_WIN);
 }
