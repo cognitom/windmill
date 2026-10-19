@@ -180,7 +180,7 @@ TEST_F(ShiftPair, without_shift_sends_plain_keycode) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* Shift 面のキーが Shift 付きのもの (「「」= S(KC_LBRC)) なら、押されている Shift をそのまま使う。
+/* Shift 面のキーが Shift 付きのもの (「「」= JIS で S(KC_RBRC)) なら、押されている Shift をそのまま使う。
  * 修飾の付け外しレポートが挟まらないこと。 */
 TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     TestDriver driver;
@@ -188,12 +188,12 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
-    auto ra = key(POS_RA); // Shift 面では KN_LKAKKO -> S(KC_LBRC)
+    auto ra = key(POS_RA); // Shift 面では KN_LKAKKO -> S(KC_RBRC)
 
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_LEFT_BRACKET));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_RIGHT_BRACKET));
         EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);
     }
@@ -209,7 +209,7 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* Shift 面のキーが Shift 不要なもの (「む」= バックスラッシュ) では、いったん
+/* Shift 面のキーが Shift 不要なもの (「む」= JIS の ] のキー、KC_NUHS) では、いったん
  * Shift を外して戻す。del_mods()/set_mods() はレポートを送らないので、
  * ここは register 系でなければ戻りがホストへ伝わらない。 */
 TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
@@ -218,13 +218,13 @@ TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
     switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
-    auto su = key(POS_SU); // Shift 面では KN_MU -> KC_BSLS
+    auto su = key(POS_SU); // Shift 面では KN_MU -> KC_NUHS
 
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);             // Shift を外す
-        EXPECT_REPORT(driver, (KC_BACKSLASH));
+        EXPECT_REPORT(driver, (KC_NONUS_HASH));
         EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));  // Shift を戻す (レポートが出ること)
         EXPECT_EMPTY_REPORT(driver);             // み 解放

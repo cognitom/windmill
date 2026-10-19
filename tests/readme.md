@@ -63,7 +63,7 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test.mk` | `firmware/windmill.c` をテストへリンクする |
 | `test_keymap.hpp` | テスト用キーマップと `WindmillTest` フィクスチャ |
 | `test_shift_pair.cpp` | 親指Shift で Shift 面のキーを打ったときのレポート列。押されている Shift をそのまま使うこと、Shift を外す前後の間隔 |
-| `test_key_output.cpp` | 文字キー (独自キーコード `KN_*` / `SY_*` / `KB_*` のタップ) の出力を、かな・Shift 面・記号レイヤーの全キーぶん総当たりで見る。出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。1キー1出力でリピートしないこと、押されている Shift を打ち消すこと、記号レイヤーで Shift が効かないこと、かなの直後の記号で Shift と記号キーの間が空くこと (issue #87) も見る (issue #73、issue #82)。英数レイヤーの記号は素のキーコードのままであることも |
+| `test_key_output.cpp` | 文字キー (独自キーコード `KN_*` / `SY_*` / `KB_*` のタップ) の出力を、かな・Shift 面・記号レイヤーの全キーぶん総当たりで見る。配列が US のとき (`KeyOutput`) と JIS のとき (`KeyOutputJis`。Android も) の両方。JIS では英数レイヤーの `;` `'` `\` を横取りして1キー1出力で送ることも (issue #80)。出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。1キー1出力でリピートしないこと、押されている Shift を打ち消すこと、記号レイヤーで Shift が効かないこと、かなの直後の記号で Shift と記号キーの間が空くこと (issue #87) も見る (issue #73、issue #82)。US では英数レイヤーの記号が素のキーコードのままであることも |
 | `test_bottom_row.cpp` | かなレイヤー最下段のタップ・ホールド (issue #85)。issue の「テストで固定するケース」a〜ab (Shift 面を通しても同じ文字になること) と、150ms / 250ms の境界、待っている間はレポートが出ないこと、待っていたキーが押した順に出ることのレポート列 |
 | `test_kana_qmark.cpp` | Shift 面の「？」(かなレイヤーの「も」の位置。半角`?`) のレポート列 |
 | `test_thumb_shift.cpp` | かなレイヤーの親指Shift (こ = 左Shift / み = 右Shift) の持ち替えと、同時押しスペースの前に Shift を下ろすレポートと間隔 |
@@ -75,7 +75,7 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_android_mods.cpp` | 対象OSが Android のときの Win / Alt。重ね押しで後から押したほうが出ないこと、Win+. が Alt+. として出ること。Win を外す前後に空打ちが挟まっていることも見る |
 | `geonix41/` | geonix41 の配線で親のテストを通し直す。`config.h` で最下段の matrix の列と、左右の Fn の列 (`FN_L_COL` など) を geonix41 に合わせ、`test_conf_layer.cpp` をそのまま取り込む (issue #68) |
 | `test_host_os.cpp` | `MY_WIN` / `MY_ANDR` の設定を接続先 (USB / BLE1〜3 / 2.4G) ごとに覚えること。接続先は `windmill_board_host()` をこのファイルで差し替えて切り替える。旧形式の設定の引き継ぎも見る |
-| `test_host_layout.cpp` | `MY_JIS` / `MY_US` の設定を接続先ごとに覚えること。既定が JIS であること、EEPROM上の位置、起動し直しても残ること、この設定が入る前のEEPROMが JIS として読めること。配列の切り替えを有効にするまで (issue #80) は、どちらを選んでも出力が US のままであることも見る (issue #74) |
+| `test_host_layout.cpp` | `MY_JIS` / `MY_US` の設定を接続先ごとに覚えること。既定が JIS であること、EEPROM上の位置、起動し直しても残ること、この設定が入る前のEEPROMが JIS として読めること。選んだ配列が、接続先ごとに出力へ効くことも1キーで見る (issue #74、issue #80) |
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、

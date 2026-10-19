@@ -109,12 +109,14 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
   押した瞬間に押し離しを送り切り、リピートしない。押されている Shift は打ち消し、
   出力に Shift が要るときだけ足す。Shift の上げ下げとキーの間には `IME_WAIT_MS` を挟む。
   かなベースの記号は英数に切り替えて送る。実装は `send_output()`。
-  英数レイヤーのキーと文字以外のキー (Enter、矢印など) は素のキーコードで、QMK 標準
+  英数レイヤーのキーと文字以外のキー (Enter、矢印など) は素のキーコードで、QMK 標準。
+  ただし接続先が JIS のときは、英数レイヤーの `;` `'` `\` だけ横取りして1キー1出力で送る
+  (`process_jis_alpha_symbol()`)
 - **出力表** — 文字キーは独自キーコード (`KN_*` / `SY_*` / `KB_*`) で、ホストへ送るキーは
   `key_outputs[]` のテーブル引きで決める。1キー1値で、値はホストに届くべき最終形
   (`S()` 付きなら Shift 付き)。基準は Windows + JIS で、別の配列・OS は
-  `key_output_exceptions[]` に差分として持つ。配列の切り替えは無効で、常に US を引く
-  (`output_layout()`。有効にするのは issue #80)
+  `key_output_exceptions[]` に差分として持つ。引く配列は接続先ごとの設定
+  (`MY_JIS` / `MY_US`、`windmill_host_layout()`) で、既定は JIS
 - **Shift 面** — `LAYER_KANA_SHIFT`。こ / み のどちらかがホールド中だけ有効な、かなの
   Shift 側。透過のキーは下のかなを Shift を打ち消して出す。最下段は同じ位置の
   かなのキーと同じホールドの役割で、タップで出るものだけが変わる

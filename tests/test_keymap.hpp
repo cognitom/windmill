@@ -100,8 +100,8 @@ static inline uint8_t windmill_matrix_col(uint8_t row, uint8_t col) {
 #define POS_KO 3, 5    // こ  KB_KO  ホールドで左Shift と Shift 面。英数レイヤーでは LSFT_T(KC_SPC)
 #define POS_MI 3, 6    // み  KB_MI  ホールドで右Shift と Shift 面。英数レイヤーでは RSFT_T(KC_SPC)
 #define POS_NO 2, 8    // の  KN_NO  Shift 面では S(KC_COMM) = 、
-#define POS_RA 1, 9    // ら  KN_RA  Shift 面では S(KC_LBRC) = 「
-#define POS_SU 1, 4    // す  KN_SU  Shift 面では KC_BSLS = む (Shiftを外す必要がある)
+#define POS_RA 1, 9    // ら  KN_RA  Shift 面では「(JIS で S(KC_RBRC))
+#define POS_SU 1, 4    // す  KN_SU  Shift 面では む (JIS で KC_NUHS。Shiftを外す必要がある)
 #define POS_NA 1, 7    // な  KN_NA  Shift 面では KC_MINS = ほ (Shiftを外す必要がある)
 #define POS_HA 2, 4    // は  KN_HA  英数レイヤーでは "f"
 #define POS_HI 3, 4    // ひ  KB_HI  ホールドで記号レイヤー

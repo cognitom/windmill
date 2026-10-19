@@ -107,7 +107,7 @@ __ っ __ __ __ 空 空 ？ 、 。 ・ __
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Enter</kbd> | QK_BOOT | ファームウェアを書き込めるモードへ |
 | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Esc</kbd> / <kbd>Q</kbd> / <kbd>W</kbd> / <kbd>E</kbd> / <kbd>R</kbd> | MD_USB / MD_BLE1 / MD_BLE2 / MD_BLE3 / MD_24G | 接続先を USB / Bluetooth 1〜3 / 2.4G に (Geonix Rev2.5 のみ) |
 
-対象OSとキーボード配列は、接続先 (USB / Bluetooth 1〜3 / 2.4G) ごとに覚えます。キーボード配列は選べるようになっただけで、今はどちらを選んでも US 配列向けのキーを送ります (JIS 配列への対応は準備中)。
+対象OSとキーボード配列は、接続先 (USB / Bluetooth 1〜3 / 2.4G) ごとに覚えます。キーボード配列については[接続先の配列の切り替え](#接続先の配列の切り替え)を参照。
 
 片方の <kbd>Fn</kbd> を離すと、残したほうでファンクションキーの入力へ戻ります。
 
@@ -129,13 +129,33 @@ __ っ __ __ __ 空 空 ？ 、 。 ・ __
 
 | 独自キーコード | キー | 対象OS | 配列の認識 | IME | かな/英数切り替えで送るキー |
 |--|--|--|--|--|--|
-| MY_WIN | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | Windows 11 | English (US) | Microsof IME | <kbd>かな</kbd> / <kbd>英数</kbd> を交互に (`KC_LNG1` / `KC_LNG2`) |
-| MY_ANDR | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | Android | English (US) | Gboard | <kbd>Ctrl</kbd>+<kbd>Space</kbd> (日本語⇔英語のIMEを切り替え) |
+| MY_WIN | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | Windows 11 | 日本語 (JIS) / English (US) | Microsof IME | <kbd>かな</kbd> / <kbd>英数</kbd> を交互に (`KC_LNG1` / `KC_LNG2`) |
+| MY_ANDR | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | Android | 日本語 (JIS) / English (US) | Gboard | <kbd>Ctrl</kbd>+<kbd>Space</kbd> (日本語⇔英語のIMEを切り替え) |
+
+「配列の認識」は、OS側でこのキーボードをどの配列として設定しているか。どちらでも使えますが、キーボード側の設定を[合わせておきます](#接続先の配列の切り替え)。
 
 対象OSが Android のときは、GUI と Alt の扱いも変わります。
 
 - <kbd>GUI</kbd> と <kbd>Alt</kbd> の同時押しは、後から押したほうを送りません。Android はこの組み合わせを Caps Lock の切り替えとして扱うため、かな入力で「つ」「さ」を続けて打つだけで Caps Lock がかかってしまいます
 - <kbd>GUI</kbd>+<kbd>.</kbd> は <kbd>Alt</kbd>+<kbd>.</kbd> として送ります。Windows の <kbd>Win</kbd>+<kbd>.</kbd> と同じ操作にするためです
+
+### 接続先の配列の切り替え
+
+接続先のOSが、このキーボードを日本語 (JIS) と English (US) のどちらの配列として認識しているかに合わせて、送るキーを切り替えます。どちらに設定しても、キー配列の図のとおりの文字が出ます。キーは[設定レイヤー](#設定レイヤー)にあります。
+
+| 独自キーコード | キー | 接続先の配列 |
+|--|--|--|
+| MY_JIS | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Z</kbd> | 日本語 (JIS)。既定 |
+| MY_US | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>X</kbd> | English (US) |
+
+対象OSと同じく、接続先 (USB / Bluetooth 1〜3 / 2.4G) ごとに覚えます。
+
+- 送るキーが変わるのは、記号と、JIS と US で位置の違うかな (へ む ろ ー 「 」) です
+- JIS のとき、英数レイヤーの <kbd>;</kbd> <kbd>'</kbd> <kbd>\\</kbd> (Shift 時の <kbd>:</kbd> <kbd>"</kbd> <kbd>|</kbd> も) は、押した瞬間に1文字を送り、押し続けてもリピートしません。JIS と US でこれらの文字の位置や Shift の要否が違うため、他の記号と同じ送り方にしています
+- JIS のときの <kbd>\\</kbd> は、「ろ」のキー (円記号ではないほう) で送ります
+
+> [!IMPORTANT]
+> この切り替えが入る前のファームウェアは、JIS / US のどちらを選んでいても US 配列向けのキーを送っていました。更新すると、全ての接続先が既定の JIS になります。OS側を English (US) にしている接続先は、その接続先へ繋いだ状態で <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>X</kbd> を押して US を選び直してください。
 
 ## v3での変更点
 

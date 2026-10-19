@@ -371,14 +371,14 @@ static void switch_lang(void) {
  * キーは、かなの Shift 面 (LAYER_KANA_SHIFT) に別のキーとして置く。
  *
  * 基準は Windows + JIS で、別の配列・OSは差分の例外 (key_output_exceptions[]) として
- * 持つ。JIS を基準にしたのは、かなの刻印がそのまま JIS 配列の位置だから。 */
-
-/* 表を引く配列。配列の切り替え (MY_JIS / MY_US) を有効にするまでは、どちらを
- * 選んでいても US を引く。有効にするのは issue #80 で、ここを windmill_host_layout()
- * にすればよい */
-static uint8_t output_layout(void) {
-    return WINDMILL_LAYOUT_US;
-}
+ * 持つ。JIS を基準にしたのは、かなの刻印がそのまま JIS 配列の位置だから。
+ * 引く配列は接続先ごとの設定 (MY_JIS / MY_US、windmill_host_layout) で、既定は JIS
+ * (issue #80)。
+ *
+ * Android (Gboard) の JIS も Windows と同じ表を引く。HIDの使用番号から Android の
+ * キーへの対応 (AOSP の Generic.kl) では、JIS で使う ろ (KC_INT1) と ¥ (KC_INT3) も
+ * 専用のキー (RO / YEN) になっていて、Windows と違うと分かっているキーは無い。
+ * 違いが見つかったら OS_ANDR の例外として足す */
 
 #define ROW(keycode) ((keycode) - KEY_OUTPUT_FIRST)
 
@@ -550,7 +550,7 @@ static bool is_key_output_target(uint16_t keycode) {
 
 // keycode は KEY_OUTPUT_FIRST 〜 KEY_OUTPUT_LAST であること
 static uint16_t get_key_output(uint16_t keycode) {
-    const uint8_t layout = output_layout();
+    const uint8_t layout = windmill_host_layout();
     const uint8_t os     = get_host_os();
 
     for (uint8_t i = 0; i < ARRAY_SIZE(key_output_exceptions); ++i) {
@@ -665,6 +665,57 @@ static bool process_char_key(uint16_t keycode, keyrecord_t *record) {
 
     if (record->event.pressed) send_output(output, is_alpha_output(keycode));
     return false;
+}
+
+/*
+ * 英数レイヤーの記号 (JIS)
+ */
+
+/* 英数レイヤーのキーは素のキーコードで、ホストが US 配列として受け取る前提の並び。
+ * 英字や「, . /」は JIS でも同じ文字が出るが、この3キーは出る文字が変わる
+ * (JIS では KC_QUOT が「:」、「"」は Shift+2)。そこで JIS のときだけ横取りし、
+ * 押されている Shift の有無で送るものを決めて、文字キーと同じ1キー1出力で送る
+ * (issue #80)。Shift の要る要らないが US と食い違う (「:」は JIS では Shift 無し)
+ * ので、Shift は send_output() に打ち消させる。そのぶん、この3キーはリピートしない。
+ *
+ * US のときは横取りせず、QMKの標準どおり (押されている Shift が乗り、リピートする)。
+ * 「\」は LT(LAYER_SYM,KC_BSLS) のタップ側で、タップのときだけ見る。
+ * 「\」に ¥ のキー (KC_INT3) ではなく ろ のキー (KC_INT1) を使うのは、Windows の JIS
+ * ならどちらでも「\」が出るが、¥ のキーは円記号 (U+00A5) を出す環境 (macOS の JIS など)
+ * があるため */
+static const struct {
+    uint16_t keycode; // 英数レイヤーの素のキーコード (LT() はタップ側)
+    uint16_t plain;   // Shift 無しで送るもの (JIS)
+    uint16_t shifted; // Shift 時に送るもの (JIS)
+} PROGMEM jis_alpha_symbols[] = {
+    {KC_SCLN, JP_SCLN, JP_COLN}, // ; :
+    {KC_QUOT, JP_QUOT, JP_DQUO}, // ' "
+    {KC_BSLS, JP_BSLS, JP_PIPE}, // \ |
+};
+
+/* 横取りしたら false (そのイベントは消費済み)。押下で送り切るので、解放では何もしない。
+ *
+ * 機種側の process_record には、横取りする前のキーコードのまま押下と解放を渡す。
+ * 送るものは押下時の Shift で決まるので、送るキーコードを渡すと押下と解放で
+ * 食い違うことがある */
+static bool process_jis_alpha_symbol(uint16_t keycode, keyrecord_t *record) {
+    uint16_t basic = keycode;
+    if (IS_QK_LAYER_TAP(keycode)) {
+        if (!record->tap.count) return true; // ホールド (記号レイヤー) はQMKに任せる
+        basic = QK_LAYER_TAP_GET_TAP_KEYCODE(keycode);
+    }
+    if (windmill_host_layout() != WINDMILL_LAYOUT_JIS) return true;
+
+    for (uint8_t i = 0; i < ARRAY_SIZE(jis_alpha_symbols); ++i) {
+        if (pgm_read_word(&jis_alpha_symbols[i].keycode) != basic) continue;
+        if (!windmill_board_process_record(keycode, record)) return false;
+        if (record->event.pressed) {
+            const bool shifted = get_mods() & MOD_MASK_SHIFT;
+            send_output(pgm_read_word(shifted ? &jis_alpha_symbols[i].shifted : &jis_alpha_symbols[i].plain), false);
+        }
+        return false;
+    }
+    return true;
 }
 
 /*
@@ -1460,6 +1511,8 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
     if (keycode >= KEY_CHAR_FIRST && keycode <= KEY_CHAR_LAST) { // 数字・記号・かな
         return process_char_key(keycode, record);
     }
+
+    if (!process_jis_alpha_symbol(keycode, record)) return false; // 英数レイヤーの ; ' \ (JIS のときだけ)
 
     switch (keycode) {
 #ifdef WINDMILL_LED_ENABLE

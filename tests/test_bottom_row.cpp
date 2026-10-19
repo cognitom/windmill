@@ -544,7 +544,7 @@ TEST_F(BottomRow, z_later_tap_promotes_earlier_to_hold) {
 
     {
         InSequence s;
-        expect_sym_wrapped(driver, KC_BACKSLASH); // こ の位置は記号レイヤーで「|」
+        expect_sym_wrapped(driver, KC_INTERNATIONAL_3); // こ の位置は記号レイヤーで「|」(JIS)
     }
     play({{POS_HI, DN, 0}, {POS_KO, DN, 200}, {POS_KO, UP, 230}, {POS_HI, UP, 260}});
     VERIFY_AND_CLEAR(driver);
