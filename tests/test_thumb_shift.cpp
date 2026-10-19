@@ -165,11 +165,11 @@ TEST_F(ThumbShift, both_released_clears_shift) {
 /* 半角スペースの前に Shift を下ろすレポートが1本独立していて、スペースとの間が
  * 空いていること。
  *
- * こ を押してから み をタップし、こ を 250ms ちょうどで離す。こ はそのスキャンで
- * ホールドに決まって左Shiftを出し、同じスキャンの解放で組が決まる。Shift の上げ下げと
- * スペースが同じスキャンに固まると、IMEがShiftの上げ下げを追い切れず、Shift が
- * 乗ったまま解釈される (issue #36 と同じ罠)。del_mods() で外すとレポートが出ず、
- * 「Shiftを離す」と「Spaceを押す」が1本にまとまってしまう */
+ * こ を押したまま み をタップする。み を離した時点で組が決まり、こ はそのスキャンで
+ * ホールドに決まって左Shiftを出し、同じスキャンでスペースのために外す。Shift の
+ * 上げ下げとスペースが同じスキャンに固まると、IMEがShiftの上げ下げを追い切れず、
+ * Shift が乗ったまま解釈される (issue #36 と同じ罠)。del_mods() で外すとレポートが
+ * 出ず、「Shiftを離す」と「Spaceを押す」が1本にまとまってしまう */
 TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
     TestDriver driver;
     set_windmill_keymap();
@@ -178,13 +178,15 @@ TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
     auto ko = key(POS_KO); // 左親指Shift
     auto mi = key(POS_MI); // 右親指Shift
 
-    uint16_t at_drop = 0, at_space = 0;
+    uint16_t at_drop = 0, at_space = 0, at_restore = 0;
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // こ ホールド確定
         EXPECT_EMPTY_REPORT(driver).WillOnce(InvokeWithoutArgs([&] { at_drop = timer_read(); }));
         EXPECT_REPORT(driver, (KC_SPACE)).WillOnce(InvokeWithoutArgs([&] { at_space = timer_read(); }));
         EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)).WillOnce(InvokeWithoutArgs([&] { at_restore = timer_read(); }));
+        EXPECT_EMPTY_REPORT(driver); // こ 解放
     }
 
     ko.press();
@@ -193,7 +195,7 @@ TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
     mi.press(); // 100ms
     run_one_scan_loop();
     idle_for(99);
-    mi.release(); // 200ms
+    mi.release(); // 200ms。ここで組が決まる
     run_one_scan_loop();
     idle_for(49);
     ko.release(); // 250ms
@@ -202,10 +204,11 @@ TEST_F(ThumbShift, space_drops_shift_in_its_own_report) {
     VERIFY_AND_CLEAR(driver);
 
     EXPECT_GE(uint16_t(at_space - at_drop), uint16_t(IME_WAIT_MS));
+    EXPECT_GE(uint16_t(at_restore - at_space), uint16_t(IME_WAIT_MS));
 }
 
-/* 半角スペースのあとに Shift は戻らない。組のキーはどちらも離れているので、
- * 次のキーは素のまま出る */
+/* こ を離した後に組が決まったときは、半角スペースのあとに Shift は戻らない。
+ * 組のキーはどちらも離れているので、次のキーは素のまま出る */
 TEST_F(ThumbShift, no_shift_left_after_space) {
     TestDriver driver;
     set_windmill_keymap();
@@ -217,7 +220,7 @@ TEST_F(ThumbShift, no_shift_left_after_space) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // こ 250ms でホールド
         EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_SPACE));
         EXPECT_EMPTY_REPORT(driver);
@@ -227,10 +230,14 @@ TEST_F(ThumbShift, no_shift_left_after_space) {
 
     ko.press();
     run_one_scan_loop();
-    idle_for(300); // こ はホールドで左Shiftが出ている
-    tap_key(mi, 50);
+    idle_for(200);
+    mi.press();
+    run_one_scan_loop();
+    idle_for(100);
+    ko.release(); // み より先に離す
+    run_one_scan_loop();
     idle_for(50);
-    ko.release(); // ここで組が決まる
+    mi.release(); // ここで組が決まる
     run_one_scan_loop();
     idle_for(120);
     tap_key(ha, 50);

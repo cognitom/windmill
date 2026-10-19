@@ -984,7 +984,7 @@ enum {
     BOTTOM_TAP,
     BOTTOM_HOLD,
     BOTTOM_SPACE,   // こ / み の組の半角スペース
-    BOTTOM_NOTHING, // 何も出さない (組のスペースを相方が出す、または誤入力ガード)
+    BOTTOM_NOTHING, // 何も出さない (組のスペースを相方が出す)
 };
 
 /* キーごとの、いちばん新しい押下の状態 */
@@ -996,13 +996,13 @@ typedef struct {
     bool     pressed;     // 物理的に押されている
     bool     interrupted; // 押してから、最下段以外のキーが押された
     bool     used;        // ホールドとして他のキーにかかった
-    bool     guarded;     // タップしても何も出さない (bottom_press 参照)
 } bottom_state_t;
 
 static bottom_state_t bottom_states[BOTTOM_COUNT];
 static uint8_t        bottom_seq   = 0;
 static uint8_t        bottom_held  = 0;         // ホールドを出しているキー (1 << 番号)
 static uint8_t        thumb_pair_y = NO_BOTTOM; // 親指の組の、後から押したほう (settle_thumb_pair)
+static bool           thumb_pair_ready = false; // Y を離した時点で、X も Y もシフトとしてかかっていなかった
 
 /* 出力を待たせているイベント。押した順に並ぶ */
 enum {
@@ -1063,18 +1063,14 @@ static void bottom_replay(keyrecord_t *record) {
     bottom_replaying = replaying;
 }
 
-/* 未判定のキーをタップに決める。誤入力ガードが掛かっていれば何も出さない。
+/* 未判定のキーをタップに決める。
  *
  * タップに決まった時点で、先に押された未判定のキーが BOTTOM_INTERRUPT_MS 以上
  * たっていれば、そちらをホールドにする。後のキーはそのホールドのレイヤーで出る
  * (ひ を押しながら こ をタップすると、記号レイヤーの「|」) */
 static void decide_bottom_tap(uint8_t i, uint16_t now) {
     bottom_state_t *state = &bottom_states[i];
-    if (state->guarded) {
-        state->decision = BOTTOM_NOTHING;
-        return;
-    }
-    state->decision = BOTTOM_TAP;
+    state->decision       = BOTTOM_TAP;
 
     for (uint8_t k = 0; k < BOTTOM_COUNT; ++k) {
         bottom_state_t *earlier = &bottom_states[k];
@@ -1089,25 +1085,26 @@ static void decide_bottom_tap(uint8_t i, uint16_t now) {
 /*
  * 親指の組 (こ / み)
  *
- * 先に押したほうを X、X を押している間に押した相方を Y とする。次をすべて満たすと、
- * X と Y の組で半角スペースを1つ出す。
+ * 先に押したほうを X、X を押している間に押した相方を Y とする。Y のタップごとに、
+ * 次をすべて満たすと半角スペースを1つ出す。
  *
- * - X の押下から解放までが BOTTOM_INTERRUPT_MS 以上
+ * - X を BOTTOM_INTERRUPT_MS 以上押している (離したなら、押下から解放までが以上)
  * - Y の押下が X の解放より前 (組ができる条件そのもの)
  * - Y の押下から解放までが BOTTOM_HOLD_MS 未満 (Y が未判定のまま離れる)
- * - X と Y のどちらも、他のキーにシフトとしてかかっていない
+ * - Y の解放の時点で、X と Y のどちらも他のキーにシフトとしてかかっていない
  *
- * どちらが先に離れても、両方離れるまで結果は決まらない。X を押している間は
- * まだ X が他のキーにかかりうるので、Y を先に離しても待つ。X を
- * BOTTOM_INTERRUPT_MS 以上押して先に離したときは、X の出力も Y の結果を待つ。
+ * スペースは、Y の解放と、X が BOTTOM_INTERRUPT_MS に達した時点 (それより前に X を
+ * 離したなら X の解放) の遅い方で決まる。シフトとしてかかったかどうかは Y の解放の
+ * 時点で見るので、決まったスペースは後から X がかかっても取り消さない。X を押したまま
+ * Y をタップし直せば、そのたびに新しい組になってスペースが出る。
+ *
+ * スペースが決まったとき X をまだ押していれば、X はホールドにする。X のタップは
+ * スペースに含まれたので出さず、続けて打つキーには Shift として乗る。X を
+ * BOTTOM_INTERRUPT_MS 以上押して先に離していれば、X の出力も Y の結果を待つ。
  *
  * 満たさなくなった時点で組は解け、それぞれ通常の判定に戻る (thumb_pair_fail)。
  * X を短く離せば X はタップ、Y が BOTTOM_HOLD_MS に達すれば Y はホールドで、
  * 待っていた X はタップになる。
- *
- * 以前の親指Shiftは「Shiftを押している間に相方をタップすると半角スペース。ただし
- * 間に他のキーを押していたら何も出さない」という作りだった。後半の誤入力ガードは、
- * X がシフトとしてかかった後に Y を押したときに残してある (bottom_press の guarded)。
  */
 
 static bool in_thumb_pair(uint8_t i) {
@@ -1132,23 +1129,30 @@ static void settle_thumb_pair(uint16_t now) {
     bottom_state_t *xs = &bottom_states[x];
     bottom_state_t *ys = &bottom_states[y];
 
-    /* X がかかった / Y がホールドになった (他のキーにかかった場合を含む) /
-     * X を短く離してタップに決まった */
+    // Y がホールドになった (他のキーにかかった場合を含む) / X を短く離してタップに決まった
     const bool x_tapped = xs->decision != BOTTOM_UNDECIDED && xs->decision != BOTTOM_HOLD;
-    if (xs->used || ys->decision == BOTTOM_HOLD || x_tapped) {
+    if (ys->decision == BOTTOM_HOLD || x_tapped) {
         thumb_pair_fail(now);
         return;
     }
-    if (xs->pressed || ys->pressed) return; // まだ揃っていない
+    if (ys->pressed) return; // Y の解放を待つ
+    if (!thumb_pair_ready) {
+        thumb_pair_fail(now); // Y の解放の時点で、どちらかがシフトとしてかかっていた
+        return;
+    }
+    if (xs->decision == BOTTOM_UNDECIDED && xs->pressed && bottom_age(xs, now) < BOTTOM_INTERRUPT_MS) {
+        return; // X が BOTTOM_INTERRUPT_MS に達するか、離すのを待つ
+    }
 
     // 成立。スペースは出力が先に並んでいるほうで出す
     thumb_pair_y = NO_BOTTOM;
-    if (xs->decision == BOTTOM_UNDECIDED) {
-        xs->decision = BOTTOM_SPACE;
+    if (xs->decision == BOTTOM_UNDECIDED && !xs->pressed) {
+        xs->decision = BOTTOM_SPACE; // 離したまま Y を待っていた
         ys->decision = BOTTOM_NOTHING;
-    } else {
-        ys->decision = BOTTOM_SPACE; // X はホールドとして出ている
+        return;
     }
+    if (xs->decision == BOTTOM_UNDECIDED) xs->decision = BOTTOM_HOLD; // 押したままなら Shift として残す
+    ys->decision = BOTTOM_SPACE;
 }
 
 /*
@@ -1351,15 +1355,9 @@ static void bottom_press(uint8_t i, keyrecord_t *record) {
         .pressed    = true,
     };
 
-    if (is_thumb_key(i)) {
-        const bottom_state_t *partner = &bottom_states[get_bottom_key(i).partner];
-        if (partner->pressed && partner->decision == BOTTOM_HOLD && partner->used) {
-            /* 相方がもうシフトとしてかかっているので、組にはならない。このキーの
-             * タップは、Shift を押しながら打ち損じた親指として捨てる */
-            state->guarded = true;
-        } else if (partner->pressed) {
-            thumb_pair_y = i;
-        }
+    if (is_thumb_key(i) && bottom_states[get_bottom_key(i).partner].pressed) {
+        thumb_pair_y     = i;
+        thumb_pair_ready = false;
     }
 
     bottom_push(BOTTOM_ENTRY_PRESS, i, record);
@@ -1373,10 +1371,13 @@ static void bottom_release(uint8_t i, keyrecord_t *record) {
     if (state->decision == BOTTOM_UNDECIDED) {
         if (!in_thumb_pair(i)) {
             decide_bottom_tap(i, now);
-        } else if (i != thumb_pair_y && bottom_age(state, now) < BOTTOM_INTERRUPT_MS) {
+        } else if (i == thumb_pair_y) {
+            // シフトとしてかかったかは、Y を離したこの時点で見る。結果は settle_thumb_pair で決まる
+            thumb_pair_ready = !bottom_states[get_bottom_key(i).partner].used;
+        } else if (bottom_age(state, now) < BOTTOM_INTERRUPT_MS) {
             decide_bottom_tap(i, now); // X を短く離した。組は settle_thumb_pair で解ける
         }
-        // それ以外の組のキーは、相方の結果を待つ
+        // それ以外の X は、Y の結果を待つ
     }
 
     if (bottom_queue_len) {

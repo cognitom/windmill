@@ -91,6 +91,16 @@ static void expect_sym_wrapped(TestDriver& driver, uint8_t keycode) {
     EXPECT_EMPTY_REPORT(driver);
 }
 
+/* 親指の組の半角スペースが、X (こ) を押したまま決まったときのレポート列。
+ * X はホールド (左Shift) になり、スペースはその Shift を外して送ってから戻す */
+static void expect_space_while_x_held(TestDriver& driver) {
+    EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // こ はホールド
+    EXPECT_EMPTY_REPORT(driver);            // Shift を外してから
+    EXPECT_REPORT(driver, (KC_SPACE));
+    EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // 押したままの こ の Shift を戻す
+}
+
 /*
  * issue #85 のケース
  */
@@ -205,10 +215,8 @@ TEST_F(BottomRow, g_partner_tap_is_space) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // 250ms で こ がホールド
-        EXPECT_EMPTY_REPORT(driver);            // 組が決まり、Shiftを下ろしてから
-        EXPECT_REPORT(driver, (KC_SPACE));
-        EXPECT_EMPTY_REPORT(driver);
+        expect_space_while_x_held(driver); // み を離した 230ms で決まる
+        EXPECT_EMPTY_REPORT(driver); // こ 解放
     }
     play({{POS_KO, DN, 0}, {POS_MI, DN, 200}, {POS_MI, UP, 230}, {POS_KO, UP, 260}});
     VERIFY_AND_CLEAR(driver);
@@ -335,8 +343,8 @@ TEST_F(BottomRow, o_long_press_is_alt_only) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 親指の組で半角スペースになるもの (p 〜 s、u)。こ が 250ms に達していれば
- * 左Shiftが一度出て、組が決まった時点で下ろしてからスペースを送る */
+/* 親指の組で半角スペースになるもの (p 〜 s、u)。こ を離した後に組が決まったときで、
+ * こ が 250ms に達していれば左Shiftが一度出て、下ろしてからスペースを送る */
 static void expect_space_after_shift(TestDriver& driver) {
     InSequence s;
     EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
@@ -368,7 +376,11 @@ TEST_F(BottomRow, q_space_y_released_first_after_250ms) {
     set_windmill_keymap();
     switch_to_kana(driver);
 
-    expect_space_after_shift(driver);
+    {
+        InSequence s;
+        expect_space_while_x_held(driver); // み を離した 300ms で決まる
+        EXPECT_EMPTY_REPORT(driver);
+    }
     play({{POS_KO, DN, 0}, {POS_MI, DN, 200}, {POS_MI, UP, 300}, {POS_KO, UP, 400}});
     VERIFY_AND_CLEAR(driver);
 }
@@ -390,7 +402,11 @@ TEST_F(BottomRow, s_space_y_released_first) {
     set_windmill_keymap();
     switch_to_kana(driver);
 
-    expect_space_after_shift(driver);
+    {
+        InSequence s;
+        expect_space_while_x_held(driver); // み を離した 200ms で決まる
+        EXPECT_EMPTY_REPORT(driver);
+    }
     play({{POS_KO, DN, 0}, {POS_MI, DN, 100}, {POS_MI, UP, 200}, {POS_KO, UP, 300}});
     VERIFY_AND_CLEAR(driver);
 }
@@ -418,8 +434,20 @@ TEST_F(BottomRow, u_space_both_short) {
     set_windmill_keymap();
     switch_to_kana(driver);
 
-    expect_space(driver);
+    uint16_t start = 0, at_space = 0;
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver).WillOnce(InvokeWithoutArgs([&] { at_space = since(start); }));
+        EXPECT_REPORT(driver, (KC_SPACE));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver); // こ 解放
+    }
+    start = timer_read();
     play({{POS_KO, DN, 0}, {POS_MI, DN, 100}, {POS_MI, UP, 130}, {POS_KO, UP, 200}});
+    VERIFY_AND_CLEAR(driver);
+    EXPECT_EQ(at_space, 150); // み の解放ではなく、こ が 150ms に達した時点で決まる
     VERIFY_AND_CLEAR(driver);
 }
 
@@ -478,9 +506,9 @@ TEST_F(BottomRow, x_both_hold) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* y: こ↓0 あ↓200 あ↑230 み↓300 こ↑350 み↑400 → ぁ
- * こ がシフトとしてかかった後に押した み のタップは何も出さない (誤入力ガード) */
-TEST_F(BottomRow, y_partner_tap_after_shift_was_used_is_dropped) {
+/* y: こ↓0 あ↓200 あ↑230 み↓300 こ↑350 み↑400 → ぁみ
+ * み を離した時点で こ はシフトとしてかかっているので組にならず、み は通常のタップ */
+TEST_F(BottomRow, y_partner_tap_after_shift_was_used_is_tap) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(driver);
@@ -490,7 +518,9 @@ TEST_F(BottomRow, y_partner_tap_after_shift_was_used_is_dropped) {
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_3)); // ぁ
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver); // こ 解放 (み が決まるまで待っていた)
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_N)); // み。こ の解放は み が決まるまで待っていた
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver); // こ 解放
     }
     play({{POS_KO, DN, 0}, {POS_A, DN, 200}, {POS_A, UP, 230}, {POS_MI, DN, 300}, {POS_KO, UP, 350}, {POS_MI, UP, 400}});
     VERIFY_AND_CLEAR(driver);
@@ -507,6 +537,47 @@ TEST_F(BottomRow, z_later_tap_promotes_earlier_to_hold) {
         expect_sym_wrapped(driver, KC_BACKSLASH); // こ の位置は記号レイヤーで「|」
     }
     play({{POS_HI, DN, 0}, {POS_KO, DN, 200}, {POS_KO, UP, 230}, {POS_HI, UP, 260}});
+    VERIFY_AND_CLEAR(driver);
+}
+
+// aa: こ↓0 み↓200 み↑230 み↓300 み↑330 こ↑400 → 半角スペース2つ
+TEST_F(BottomRow, aa_each_partner_tap_is_space) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // 1つ目 (230ms)。こ はホールド
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_SPACE));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver); // 2つ目 (330ms)
+        EXPECT_REPORT(driver, (KC_SPACE));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver); // こ 解放
+    }
+    play({{POS_KO, DN, 0}, {POS_MI, DN, 200}, {POS_MI, UP, 230}, {POS_MI, DN, 300}, {POS_MI, UP, 330}, {POS_KO, UP, 400}});
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* ab: こ↓0 み↓200 み↑230 わ↓300 わ↑330 こ↑400 → 半角スペース、を
+ * 決まったスペースは、後から こ がシフトとしてかかっても取り消さない */
+TEST_F(BottomRow, ab_space_stays_when_shift_used_later) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    {
+        InSequence s;
+        expect_space_while_x_held(driver);
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_0)); // を
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver); // こ 解放
+    }
+    play({{POS_KO, DN, 0}, {POS_MI, DN, 200}, {POS_MI, UP, 230}, {POS_WA, DN, 300}, {POS_WA, UP, 330}, {POS_KO, UP, 400}});
     VERIFY_AND_CLEAR(driver);
 }
 
@@ -650,7 +721,11 @@ TEST_F(BottomRow, thumb_pair_boundary_150ms_is_space) {
     set_windmill_keymap();
     switch_to_kana(driver);
 
-    expect_space(driver);
+    {
+        InSequence s;
+        expect_space_while_x_held(driver); // こ が 150ms に達したスキャンで決まり、同じスキャンで離れる
+        EXPECT_EMPTY_REPORT(driver);
+    }
     play({{POS_KO, DN, 0}, {POS_MI, DN, 50}, {POS_MI, UP, 100}, {POS_KO, UP, 150}});
     VERIFY_AND_CLEAR(driver);
 }
