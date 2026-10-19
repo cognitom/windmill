@@ -25,14 +25,14 @@
  *
  * レイヤー4(設定)は左右のFnを両方ホールドしている間だけ有効になる (issue #62)。
  * 配置は全機種で共通。Fn の位置は透過のままにしておくこと
- * (windmill.c の process_fn 参照)。 */
+ * (windmill.c の set_fn 参照)。 */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [LAYER_KANA] = LAYOUT_ortho_4x12(
     KC_ESC,  KN_NU,        KN_FU,        KN_A,        KN_U,          KN_E,           KN_O,           KN_YA,         KN_YU,          KN_YO,      KN_WA,   KC_ENT,
     KC_TAB,  KN_TA,        KN_TE,        KN_I,        KN_SU,         KN_KA,          KN_N,           KN_NA,         KN_NI,          KN_RA,      KN_SE,   KN_DAKU,
     KC_BSPC, KN_CHI,       KN_TO,        KN_SHI,      KN_HA,         KN_KI,          KN_KU,          KN_MA,         KN_NO,          KN_RI,      KN_RE,   KN_KE,
-    MY_LCTL, LGUI_T(KC_Z), LALT_T(KC_X), LT(3,KC_C),  LT(2,KC_V),    LSFT_T(KC_B),   LSFT_T(KC_N),   LT(2,KC_M),    LT(3,KC_COMMA), KN_RU,      KN_ME,   KN_RO
+    MY_LCTL, KB_TSU,       KB_SA,        KB_SO,       KB_HI,         KB_KO,          KB_MI,          KB_MO,         KB_NE,          KN_RU,      KN_ME,   KN_RO
   ),
 
   [LAYER_ALPHA] = LAYOUT_ortho_4x12(
@@ -94,11 +94,11 @@ const uint8_t colorset[][6] = {
 };
 
 /* dual-role キーはタップ側のキーコードに展開されてから渡される。
- * 記号とかなのキーは独自キーコード (SY_* / KN_*) のまま渡される。 */
+ * 記号とかなのキーと、かなレイヤー最下段のキーは独自キーコード
+ * (SY_* / KN_* / KB_*) のまま渡される。 */
 uint8_t windmill_process_keycolor_user(uint8_t layer, uint16_t keycode) {
-  /* かなレイヤーは、かなが打てるキーを全て CL_BASE にする。最下段の LT() / MT() は
-   * タップ側が素のキーコードで渡ってくるが、OSのIMEがかなに変換するので
-   * (KC_Z は「つ」、KC_M は「も」…)、キーコードからは色を決められない。 */
+  /* かなレイヤーは、かなが打てるキーを全て CL_BASE にする。最下段 (KB_*) も
+   * タップでかなを出すので同じ色にする。 */
   if (layer == LAYER_KANA) {
     switch (keycode) {
       case KC_ENT ... KC_TAB: // Enter, Esc, BSpc, Tab

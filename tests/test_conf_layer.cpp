@@ -24,8 +24,8 @@
  *
  * 壊しやすいのは離すほう。QMKのレイヤーは参照カウントを持たないので、片方の
  * Fnを離したときにFnレイヤーごと落ちたり、設定レイヤーが残ったりしないことを
- * 左右それぞれで見る。かなレイヤーの LT(3,KC_C) / LT(3,KC_COMMA) と英数レイヤーの
- * MO(3) とでキーコードが違うので、両方のベースで通す。 */
+ * 左右それぞれで見る。かなレイヤーの そ / ね (KB_SO / KB_NE) と英数レイヤーの
+ * MO(3) とでキーコードも処理の経路も違うので、両方のベースで通す。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -187,15 +187,15 @@ TEST_F(ConfLayer, releasing_right_fn_returns_to_fn_layer_and_back) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* かなベースでは Fn が LT() になる。片方を離すイベントを消費しても、
- * 残りを離せばかなへ戻る (Fnレイヤーへ貼りつかない) */
+/* かなベースでは Fn が そ / ね (KB_SO / KB_NE) になる。片方を離しても Fnレイヤーに
+ * 残り、残りを離せばかなへ戻る (Fnレイヤーへ貼りつかない) */
 TEST_F(ConfLayer, releasing_one_fn_on_kana_returns_to_fn_layer) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    auto fn_l = key(POS_FN_L); // そ  LT(3,KC_C)
-    auto fn_r = key(POS_FN_R); // ね  LT(3,KC_COMMA)
+    auto fn_l = key(POS_FN_L); // そ  KB_SO
+    auto fn_r = key(POS_FN_R); // ね  KB_NE
     auto win  = key(POS_WIN);  // 設定 = MY_WIN / Fn = KC_F11 / かな = KC_Q
 
     {
@@ -210,7 +210,7 @@ TEST_F(ConfLayer, releasing_one_fn_on_kana_returns_to_fn_layer) {
     run_one_scan_loop();
     fn_r.press();
     run_one_scan_loop();
-    idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    idle_for(250); // 250ms 押し続けてホールド確定
     tap_key(win, 50);
     idle_for(50);
     fn_l.release();
@@ -241,7 +241,7 @@ TEST_F(ConfLayerAlpha, both_fn_reach_conf_layer) {
     expect_lang_toggle(this, driver, true);
 }
 
-/* かなベース (LT(3,KC_C) / LT(3,KC_COMMA)) でも同じ */
+/* かなベース (KB_SO / KB_NE) でも同じ */
 TEST_F(ConfLayerKana, both_fn_reach_conf_layer) {
     TestDriver driver;
     set_windmill_keymap();
@@ -255,8 +255,9 @@ TEST_F(ConfLayerKana, both_fn_reach_conf_layer) {
     expect_lang_toggle(this, driver, true);
 }
 
-/* 別キー割り込みでホールドが確定する経路 (HOLD_ON_OTHER_KEY_PRESS)。
- * TAPPING_TERM を待たずに3つ続けて押しても、割り込んだ設定キー自身が
+/* 別キー割り込みでホールドが確定する経路。両方の Fn を押してすぐ設定キーを叩くと、
+ * 設定キーは そ / ね が決まるまで待たされる。そ / ね はそれぞれ押してから 150ms で
+ * ホールドに決まり (後から別のキーが押されているため)、待っていた設定キーは
  * 設定レイヤーで解決される。「そ」「ね」も出ない */
 TEST_F(ConfLayerKanaInterrupt, both_fn_confirmed_by_interrupt) {
     TestDriver driver;
@@ -274,7 +275,7 @@ TEST_F(ConfLayerKanaInterrupt, both_fn_confirmed_by_interrupt) {
     run_one_scan_loop();
     idle_for(20);
     tap_key(key(POS_ANDR), 20);
-    idle_for(20);
+    idle_for(150); // ね を押してから 150ms を超えるまで押し続ける
     fn_r.release();
     run_one_scan_loop();
     fn_l.release();

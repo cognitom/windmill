@@ -46,7 +46,8 @@
 #define DEBOUNCE 5
 
 /* tap-hold は別キーが押された時点でホールド確定。
- * LGUI_T(KC_Z) や LT(2,KC_V) の打鍵感がこれで決まる */
+ * MY_LCTL や英数レイヤーの LSFT_T(KC_SPC) / LT(2,KC_BSLS) の打鍵感がこれで決まる。
+ * かなレイヤー最下段は windmill.c が自前で判定するので、これの影響を受けない */
 #define HOLD_ON_OTHER_KEY_PRESS
 
 /* rdr_lib のカスタムEEPROMドライバ用。rdr_common.h のバッファサイズにも

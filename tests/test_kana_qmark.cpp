@@ -14,9 +14,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* process_kana_qmark() のHIDレポートを検証する (issue #17)。
+/* send_kana_qmark() のHIDレポートを検証する (issue #17)。
  *
- * かなレイヤーの「も」(LT(2,KC_M)) をShiftを押しながらタップすると、
+ * かなレイヤーの「も」(KB_MO) をShiftを押しながらタップすると、
  * KC_LNG2 → Shift+KC_SLSH → KC_LNG1 の順で送出し、半角「?」を入力する。
  * キーコードの並びだけでなく、実Shiftがいつ外れていつ戻るかをレポート列で
  * 固定する (issue #18 と同じ理由で、キーコードの一致だけでは修飾の出方の
@@ -94,13 +94,13 @@ TEST_F(KanaQmark, shifted_tap_sends_halfwidth_question_mark) {
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    auto mi = key(POS_MI); // 右親指Shift
+    auto mi = key(POS_MI); // 右親指Shift (右Shift)
     auto mo = key(POS_MO);
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // み ホールド確定
-        expect_qmark_reports(driver, KC_LEFT_SHIFT);
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT)); // み ホールド確定
+        expect_qmark_reports(driver, KC_RIGHT_SHIFT);
         EXPECT_EMPTY_REPORT(driver); // み 解放
     }
 
@@ -129,11 +129,11 @@ TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));        // み ホールド確定
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_F));  // は
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        expect_qmark_reports(driver, KC_LEFT_SHIFT);   // も 1回目
-        expect_qmark_reports(driver, KC_LEFT_SHIFT);   // も 2回目
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));        // み ホールド確定
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_F));  // は
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        expect_qmark_reports(driver, KC_RIGHT_SHIFT);   // も 1回目
+        expect_qmark_reports(driver, KC_RIGHT_SHIFT);   // も 2回目
         EXPECT_EMPTY_REPORT(driver);                   // み 解放
     }
 
@@ -154,7 +154,7 @@ TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
 
 /* ホールドすれば通常どおりSymレイヤーに乗る。かなベースのままなので、数字は
  * 既存のIMEラップ (is_sym_ime_wrap_target) で KC_LNG2 -> KC_1 -> KC_LNG1 に
- * なる。process_kana_qmark がホールドに割り込んでいないことの確認 */
+ * なる。半角「?」の処理がホールドに割り込んでいないことの確認 */
 TEST_F(KanaQmark, hold_still_enters_sym_layer) {
     TestDriver driver;
     set_windmill_keymap();
@@ -175,7 +175,7 @@ TEST_F(KanaQmark, hold_still_enters_sym_layer) {
 
     mo.press();
     run_one_scan_loop();
-    idle_for(50);     // タップ確定前に、別キーの押下でホールドへ割り込ませる
+    idle_for(50);     // 150ms 未満で数字を押す。も が 150ms でホールドに決まるまで待ってから出る
     tap_key(one, 60);
     idle_for(60);
     mo.release();
