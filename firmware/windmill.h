@@ -264,7 +264,7 @@ uint16_t windmill_base_keycode(uint16_t keycode);
 #define WINDMILL_HOST_SIZE 5
 
 /* 接続先のキーボード配列。相手のOSがこのキーボードをどの配列として受け取るか。
- * 値はEEPROMに残るので変えないこと。0 が既定 (windmill.c の LAYOUT_BITS 参照) */
+ * 値はEEPROMに残るので変えないこと。0 が既定 (windmill.c の windmill_config_t 参照) */
 #define WINDMILL_LAYOUT_JIS 0 // 日本語 (JIS)
 #define WINDMILL_LAYOUT_US  1 // English (US)
 
