@@ -6,6 +6,25 @@
 
 **v3.0.1 以前は手書きのまま残してある。**
 
+## v3.2.0 (2026-10-19)
+
+- Ctrlタップで英数/かなを交互に切り替える (Windows: かな/英数キー / Android: Ctrl+Space) ([#54](https://github.com/cognitom/windmill/pull/54))
+- OSの設定 (Windows/Android) を接続先ごとに記憶する ([#61](https://github.com/cognitom/windmill/pull/61))
+- 設定キーを、左右のFnを両方押している間だけ有効な設定レイヤーへ移す ([#63](https://github.com/cognitom/windmill/pull/63))
+- Fnレイヤーの F1〜F12 を数字キーに準じた位置へ移す ([#65](https://github.com/cognitom/windmill/pull/65))
+- Fn+Tab を Caps Lock にする ([#66](https://github.com/cognitom/windmill/pull/66))
+- Android では Win+Alt の重ね押しを送らず、Win+. を Alt+. として送る ([#67](https://github.com/cognitom/windmill/pull/67))
+- Geonix41 で左右Fnの同時押し (設定レイヤー) と英数の親指Shiftの持ち替えが効かないのを直す ([#69](https://github.com/cognitom/windmill/pull/69))
+- Fn+Ctrl の IME 切替 (MY_IME) を CL_SPECIAL の色で光らせる ([#72](https://github.com/cognitom/windmill/pull/72))
+- 記号とかなのキーを独自キーコードにして、出力を表で引く (出力は変えない) ([#76](https://github.com/cognitom/windmill/pull/76))
+- 接続先ごとに配列 (US / JIS) を選べるようにする ([#77](https://github.com/cognitom/windmill/pull/77))
+- かなレイヤー最下段のタップ・ホールド判定を自前にする ([#86](https://github.com/cognitom/windmill/pull/86))
+- 文字キーを1キー1出力にし、かなの Shift 面を別レイヤーにする ([#89](https://github.com/cognitom/windmill/pull/89))
+- 英数レイヤーの右の親指Shift を右Shift にする ([#90](https://github.com/cognitom/windmill/pull/90))
+- 接続先の配列が JIS のとき、JIS 配列向けのキーを送る ([#91](https://github.com/cognitom/windmill/pull/91))
+
+---
+
 ## v3.1.0 (2026-09-11)
 
 - 親指Shiftを左右とも左Shiftに統一 (issue #37) ([#38](https://github.com/cognitom/windmill/pull/38))
