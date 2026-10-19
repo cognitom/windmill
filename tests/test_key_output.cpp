@@ -60,7 +60,7 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
 }
 
 #define POS_SYM 3, 4 // ホールドで記号レイヤー。英数では LT(LAYER_SYM,KC_BSLS)、かなでは KB_HI (ひ)
-#define POS_ALPHA_SHIFT 3, 6 // 英数レイヤーの親指Shift。LSFT_T(KC_SPC)
+#define POS_ALPHA_SHIFT 3, 6 // 英数レイヤーの右の親指Shift。RSFT_T(KC_SPC)
 
 // 送り方
 enum Kind {
@@ -346,7 +346,9 @@ TEST_F(KeyOutput, alpha_symbols_without_shift) {
     VERIFY_AND_CLEAR(driver);
 }
 
-// Shift時の文字 (: " < >) は、押されているShiftがそのまま乗って出る
+/* Shift時の文字 (: " < >) は、押されているShiftがそのまま乗って出る。
+ * 右の親指は右Shift (issue #88)。左Shift へ入れ替えるレポートが挟まると、
+ * issue #18 と同じく実機で Shift が取りこぼされうるので、列ごと固定する */
 TEST_F(KeyOutput, alpha_symbols_with_thumb_shift) {
     TestDriver driver;
     set_windmill_keymap();
@@ -355,10 +357,10 @@ TEST_F(KeyOutput, alpha_symbols_with_thumb_shift) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         for (const auto& k : alpha_sym_keys) {
-            EXPECT_REPORT(driver, (KC_LEFT_SHIFT, k.keycode));
-            EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+            EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, k.keycode));
+            EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         }
         EXPECT_EMPTY_REPORT(driver);
     }
@@ -367,6 +369,44 @@ TEST_F(KeyOutput, alpha_symbols_with_thumb_shift) {
     run_one_scan_loop();
     idle_for(250); // TAPPING_TERM 超え。ホールド確定
     tap_all(this, alpha_sym_keys);
+    shift.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+// clang-format off
+static const Key alpha_letter_keys[] = {
+    {0, 1, KC_Q, PLAIN}, {0, 2, KC_W, PLAIN}, {0, 3, KC_E, PLAIN}, {0, 4, KC_R, PLAIN}, {0, 5, KC_T, PLAIN},
+    {0, 6, KC_Y, PLAIN}, {0, 7, KC_U, PLAIN}, {0, 8, KC_I, PLAIN}, {0, 9, KC_O, PLAIN}, {0, 10, KC_P, PLAIN},
+    {1, 1, KC_A, PLAIN}, {1, 2, KC_S, PLAIN}, {1, 3, KC_D, PLAIN}, {1, 4, KC_F, PLAIN}, {1, 5, KC_G, PLAIN},
+    {1, 6, KC_H, PLAIN}, {1, 7, KC_J, PLAIN}, {1, 8, KC_K, PLAIN}, {1, 9, KC_L, PLAIN},
+    {2, 1, KC_Z, PLAIN}, {2, 2, KC_X, PLAIN}, {2, 3, KC_C, PLAIN}, {2, 4, KC_V, PLAIN}, {2, 5, KC_B, PLAIN},
+    {2, 6, KC_N, PLAIN}, {2, 7, KC_M, PLAIN},
+};
+// clang-format on
+
+// 英字も同じ。右の親指の右Shift がそのまま乗って大文字になる (issue #88)
+TEST_F(KeyOutput, alpha_letters_with_thumb_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto shift = key(POS_ALPHA_SHIFT);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        for (const auto& k : alpha_letter_keys) {
+            EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, k.keycode));
+            EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        }
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    shift.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_all(this, alpha_letter_keys);
     shift.release();
     run_one_scan_loop();
     idle_for(120);
@@ -490,9 +530,9 @@ TEST_F(KeyOutput, sym_layer_on_alpha_ignores_shift) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         for (const auto& k : sym_keys) {
-            if (!is_held(k, 6)) expect_sym(driver, k, KC_LEFT_SHIFT, false);
+            if (!is_held(k, 6)) expect_sym(driver, k, KC_RIGHT_SHIFT, false);
         }
         EXPECT_EMPTY_REPORT(driver);
     }

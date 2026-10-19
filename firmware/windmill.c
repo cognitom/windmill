@@ -668,38 +668,6 @@ static bool process_char_key(uint16_t keycode, keyrecord_t *record) {
 }
 
 /*
- * 英数レイヤーの親指Shift (SandS) のハンドオーバー
- */
-
-/* 左右とも ALPHA_THUMB_SHIFT (LSFT_T(KC_SPC)) で同じキーコードなので、
- * キーコードでは左右を区別できない。windmill.h の説明どおり matrix の列 (col) で
- * 見分ける (issue #40)。列は機種ごとに違いうるので、値は windmill.h / 機種の
- * config.h が持つ (issue #68)。
- *
- * 左右とも左Shiftなので、QMKの修飾ビットは両者で共有される。参照カウントが
- * 無いため、素のままだと先に離したほうの unregister_mods() でShiftが落ち、
- * もう片方を押していてもホストからはShiftが離れて見える。押しっぱなしのほうが
- * 残っているうちは離すイベントごと消費して、持ち替え (ハンドオーバー) を
- * 途切れさせない。Shift+タップ (半角スペース) はそのままQMKに任せる。 */
-static uint8_t alpha_thumb_shift_held = 0;
-
-#define ALPHA_THUMB_SHIFT_BIT(record) ((record)->event.key.col == ALPHA_THUMB_SHIFT_L_COL ? 1 : 2)
-
-// falseを返したらそのイベントは消費済み(以降の処理をスキップ)
-static bool process_alpha_thumb_shift(keyrecord_t *record) {
-    if (record->tap.count) return true; // タップ(スペース)はQMKに任せる
-
-    if (record->event.pressed) { // hold確定 = Shift開始
-        alpha_thumb_shift_held |= ALPHA_THUMB_SHIFT_BIT(record);
-    } else { // hold解放
-        alpha_thumb_shift_held &= ~ALPHA_THUMB_SHIFT_BIT(record);
-        // もう片方がまだShiftとして押されているなら、QMKに離させない
-        if (alpha_thumb_shift_held) return false;
-    }
-    return true; // 通常のtap(スペース)とholdはQMKに任せる
-}
-
-/*
  * 接続先ごとの設定
  */
 
@@ -1555,12 +1523,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
         case ALPHA_FN: // 英数レイヤーの Fn。左右とも押している間は設定レイヤーへ (issue #62)
             return process_fn(record);
-
-        case ALPHA_THUMB_SHIFT: // 英数レイヤーの親指Shift (issue #40)
-            if (!process_alpha_thumb_shift(record)) {
-                return false;
-            }
-            break; // 通常処理へ (tap=スペース, hold=Shift)
 
         case KC_DOT: // 英数レイヤーのピリオド。Android では Win+. を Alt+. に読み替える (issue #57)
             if (!process_android_gui_dot(record)) {

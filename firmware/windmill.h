@@ -36,28 +36,16 @@
 #define LAYER_CONF       5 // 設定。左右のFnを両方ホールドしている間だけ (set_fn 参照)
 #define LAYER_SIZE       6
 
-/* 英数レイヤーの親指Shift (SandS)。左右とも LSFT_T(KC_SPC) で同じキーコード
- * なので、キーコードでは左右を区別できない。同じ行に並んでいるので列 (col)
- * だけで見分ける (issue #40)。
+/* 英数レイヤーの Fn。左右を両方ホールドしている間だけ設定レイヤーへ移す
+ * (set_fn 参照、issue #62)。左右とも MO(LAYER_FN) で同じキーコードなので、
+ * キーコードでは左右を区別できない。同じ行に並んでいるので matrix の列 (col)
+ * だけで見分ける。
  *
  * ここで見る列は keyrecord_t に載ってくる matrix の col で、LAYOUT_ortho_4x12 の
  * 見た目の位置ではない。technik / ymd40 / minipeg48 は両者が一致するので既定値で
  * よいが、geonix41 は最下段の配線が見た目の並びと違う (keyboard.json の "layouts"
  * の "matrix" 参照)。そういう機種は config.h で上書きする (issue #68)。
- * 値は keymaps[] のレイヤー1(英数)で ALPHA_THUMB_SHIFT を置いた位置の matrix の列 */
-#define ALPHA_THUMB_SHIFT LSFT_T(KC_SPC)
-#ifndef ALPHA_THUMB_SHIFT_L_COL
-#    define ALPHA_THUMB_SHIFT_L_COL 5
-#endif
-#ifndef ALPHA_THUMB_SHIFT_R_COL
-#    define ALPHA_THUMB_SHIFT_R_COL 6
-#endif
-
-/* 英数レイヤーの Fn。左右を両方ホールドしている間だけ設定レイヤーへ移す
- * (set_fn 参照、issue #62)。左右とも MO(LAYER_FN) で同じキーコードなので、
- * ALPHA_THUMB_SHIFT と同じく matrix の列 (col) で左右を見分ける。列が見た目の
- * 位置と違う機種は config.h で上書きする (ALPHA_THUMB_SHIFT_L_COL 参照)。
- * keymaps[] のレイヤー1(英数)の並びと一致させること。かなレイヤーの Fn (そ / ね) は
+ * keymaps[] の英数レイヤーの並びと一致させること。かなレイヤーの Fn (そ / ね) は
  * 独自キーコードなので列を見ない */
 #define ALPHA_FN MO(LAYER_FN)
 #ifndef FN_L_COL

@@ -95,8 +95,9 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
 
 ## 用語
 
-- **SandS** — 英数レイヤーで Spaceをホールドすると Shift になる。QMK の `LSFT_T(KC_SPC)` で、
-  左右の持ち替えは `process_alpha_thumb_shift()`
+- **SandS** — 英数レイヤーで Spaceをホールドすると Shift になる。QMK の mod-tap で、
+  左が `LSFT_T(KC_SPC)`、右が `RSFT_T(KC_SPC)`。左右で修飾ビットが別なので、持ち替えも
+  QMK 標準のままで途切れない
 - **最下段のタップ・ホールド** — かなレイヤー最下段の8キー (つ さ そ ひ こ み も ね) は独自キーコード
   (`KB_*`) で、タップ・ホールドの判定を QMK に任せず自前で持つ。150ms 未満で離せばタップ、
   250ms でホールド、150ms 以上で別のキーを押せばホールド。未判定の間に押されたキーは
