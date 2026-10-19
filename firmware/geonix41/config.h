@@ -19,14 +19,12 @@
 
 /* 最下段は配線の都合で matrix の列が見た目の並びと違う (keyboard.json の
  * "layouts" 参照)。見た目の 3 (左Fn) が列4、5 (左親指) が列6、6 (右親指) が
- * 列1 になる。windmill.c は左右の Fn / 親指Shift を列で見分けるので、
- * 既定値 (見た目の位置) のままだと左右とも「右」になる (issue #68)。
+ * 列1 になる。windmill.c は左右の Fn を列で見分けるので、既定値 (見た目の位置)
+ * のままだと左Fn を見失う (issue #68)。
  * 右Fn は見た目の 8 と列8 が一致するが、対で読めるよう書いておく。
  * 値を変えたら tests/geonix41/config.h も揃えること */
 #define FN_L_COL 4
 #define FN_R_COL 8
-#define ALPHA_THUMB_SHIFT_L_COL 6
-#define ALPHA_THUMB_SHIFT_R_COL 1
 
 /* Mechanical locking support. Use KC_LCAP, KC_LNUM or KC_LSCR instead in keymap */
 #define LOCKING_SUPPORT_ENABLE
@@ -46,7 +44,7 @@
 #define DEBOUNCE 5
 
 /* tap-hold は別キーが押された時点でホールド確定。
- * MY_LCTL や英数レイヤーの LSFT_T(KC_SPC) / LT(LAYER_SYM,KC_BSLS) の打鍵感がこれで決まる。
+ * MY_LCTL や英数レイヤーの LSFT_T(KC_SPC) / RSFT_T(KC_SPC) / LT(LAYER_SYM,KC_BSLS) の打鍵感がこれで決まる。
  * かなレイヤー最下段は windmill.c が自前で判定するので、これの影響を受けない */
 #define HOLD_ON_OTHER_KEY_PRESS
 

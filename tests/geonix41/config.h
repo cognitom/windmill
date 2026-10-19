@@ -19,7 +19,7 @@
 /* geonix41 の配線で windmill.c を通す (issue #68)。
  *
  * 最下段の matrix の列が見た目の並びと違う (firmware/geonix41/keyboard.json の
- * "layouts" 参照)。windmill.c は左右の Fn / 親指Shift をこの列で見分けるので、
+ * "layouts" 参照)。windmill.c は左右の Fn をこの列で見分けるので、
  * 親の tests/ (位置＝列) だけでは、列の設定を誤っていても気づけない。
  *
  * テストの中身は親と同じものを使い (*.cpp 参照)、変えるのは配線と列の設定だけ */
@@ -31,5 +31,3 @@
 // firmware/geonix41/config.h と揃えること
 #define FN_L_COL 4
 #define FN_R_COL 8
-#define ALPHA_THUMB_SHIFT_L_COL 6
-#define ALPHA_THUMB_SHIFT_R_COL 1

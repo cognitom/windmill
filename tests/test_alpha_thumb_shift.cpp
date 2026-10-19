@@ -14,17 +14,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* 英数レイヤーの親指Shiftのハンドオーバーを検証する (issue #40)。
+/* 英数レイヤーの親指Shift (SandS) の持ち替えを検証する (issue #40、issue #88)。
  *
- * 英数レイヤーは左右とも LSFT_T(KC_SPC) で同じキーコード、同じ左Shift。QMKの修飾は
- * 参照カウントを持たないため、素のままだと片方を持ち替えたときに先に離したほうの
- * unregister_mods() でShiftごと落ちる。持ち替え前後のレポート列を見る。
- * (かなレイヤーの こ / み は左Shift / 右Shift に分かれていて、この問題は無い。
- * test_thumb_shift.cpp 参照)
+ * 左は LSFT_T(KC_SPC)、右は RSFT_T(KC_SPC)。以前は左右とも LSFT_T(KC_SPC) で
+ * 修飾ビットを共有していたため、先に離したほうの unregister_mods() でShiftごと落ち、
+ * 列で左右を見分けて離すイベントを消す必要があった。左右が別のビットになった今は
+ * QMK の標準処理だけで途切れない。それが崩れていないことをレポート列で見る。
+ * (かなレイヤーの こ / み も左Shift / 右Shift で、同じ形。test_thumb_shift.cpp 参照)
  *
  * POS_KO / POS_MI はかなレイヤー上の位置を指す名前だが、実体は物理位置
- * (row=3, col=5/6) で、英数レイヤーが有効な間はそのまま英数側の
- * ALPHA_THUMB_SHIFT (LSFT_T(KC_SPC)) を指す。
+ * (row=3, col=5/6) で、英数レイヤーが有効な間はそのまま英数側の親指Shiftを指す。
  *
  * 起動直後のベースレイヤーは英数 (issue #22) なので、切り替えずにそのまま打つ。
  * MY_LCTL はトグル (issue #53) で、タップするとかなへ移ってしまう。 */
@@ -47,15 +46,17 @@ TEST_F(AlphaThumbShift, handover_left_to_right_keeps_shift) {
     set_windmill_keymap();
 
     auto sft_l = key(POS_KO); // 左親指Shift (英数レイヤーでは LSFT_T(KC_SPC))
-    auto sft_r = key(POS_MI); // 右親指Shift
+    auto sft_r = key(POS_MI); // 右親指Shift (英数レイヤーでは RSFT_T(KC_SPC))
     auto nu    = key(POS_NU); // ぬ。英数レイヤーでは "q"
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));       // 左 ホールド確定
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_Q));  // 持ち替え後も Shift が乗る
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver);                   // 右 解放
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));                 // 左 ホールド確定
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_RIGHT_SHIFT)); // 右 ホールド確定
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));                // 左 解放。右Shiftは残る
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_Q));          // 持ち替え後も Shift が乗る
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);                            // 右 解放
     }
 
     sft_l.press();
@@ -86,6 +87,8 @@ TEST_F(AlphaThumbShift, handover_right_to_left_keeps_shift) {
 
     {
         InSequence s;
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_RIGHT_SHIFT));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_Q));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
@@ -121,7 +124,9 @@ TEST_F(AlphaThumbShift, both_released_clears_shift) {
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver); // 両方離れた
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_RIGHT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);   // 両方離れた
         EXPECT_REPORT(driver, (KC_Q)); // Shiftは残っていない
         EXPECT_EMPTY_REPORT(driver);
     }
@@ -139,6 +144,61 @@ TEST_F(AlphaThumbShift, both_released_clears_shift) {
     run_one_scan_loop();
     idle_for(120);
     tap_key(nu, 120);
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* 左をホールドして右をタップすると Shift+Space。タップ側はスペースとして出て、
+ * ホールド側の左Shiftが乗る */
+TEST_F(AlphaThumbShift, hold_left_tap_right_sends_shift_space) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto sft_l = key(POS_KO);
+    auto sft_r = key(POS_MI);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_SPACE));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    sft_l.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_key(sft_r, 120); // TAPPING_TERM 未満で離す
+    idle_for(120);
+    sft_l.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+// 右をホールドして左をタップしても同じ。乗るのは右Shift
+TEST_F(AlphaThumbShift, hold_right_tap_left_sends_shift_space) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto sft_l = key(POS_KO);
+    auto sft_r = key(POS_MI);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_SPACE));
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    sft_r.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_key(sft_l, 120);
+    idle_for(120);
+    sft_r.release();
+    run_one_scan_loop();
     idle_for(120);
     VERIFY_AND_CLEAR(driver);
 }

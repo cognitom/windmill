@@ -67,13 +67,13 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_bottom_row.cpp` | かなレイヤー最下段のタップ・ホールド (issue #85)。issue の「テストで固定するケース」a〜ab (Shift 面を通しても同じ文字になること) と、150ms / 250ms の境界、待っている間はレポートが出ないこと、待っていたキーが押した順に出ることのレポート列 |
 | `test_kana_qmark.cpp` | Shift 面の「？」(かなレイヤーの「も」の位置。半角`?`) のレポート列 |
 | `test_thumb_shift.cpp` | かなレイヤーの親指Shift (こ = 左Shift / み = 右Shift) の持ち替えと、同時押しスペースの前に Shift を下ろすレポートと間隔 |
-| `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左右とも同じキーコード) の持ち替え (ハンドオーバー) のレポート列 |
+| `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左 = 左Shift / 右 = 右Shift) の持ち替えと、片方のホールド中にもう片方をタップしたときの Shift+Space のレポート列 |
 | `test_hold_layer.cpp` | Ctrl / Win / Alt のホールド中だけ英数レイヤーへ移ることのレポート列 |
 | `test_lang_toggle.cpp` | Ctrl (`MY_LCTL`) のタップでの言語切替。OSごとの送るキーとベースレイヤーの反転、Fn+Ctrl (`MY_IME`) がIMEだけを切り替えることのレポート列 |
 | `test_conf_layer.cpp` | 左右のFnを両方ホールドしている間だけ設定レイヤーへ移ること。片方を離したときにFnレイヤーへ戻ること |
 | `test_fn_layer.cpp` | Fnレイヤーのファンクションキーが数字キーに準じた位置にあること。最左列の Esc が透過のまま出ること、Fn+Tab が Caps Lock になること |
 | `test_android_mods.cpp` | 対象OSが Android のときの Win / Alt。重ね押しで後から押したほうが出ないこと、Win+. が Alt+. として出ること。Win を外す前後に空打ちが挟まっていることも見る |
-| `geonix41/` | geonix41 の配線で親のテストを通し直す。`config.h` で最下段の matrix の列と、左右の Fn / 親指Shift の列 (`FN_L_COL` など) を geonix41 に合わせ、`test_conf_layer.cpp` と `test_alpha_thumb_shift.cpp` をそのまま取り込む (issue #68) |
+| `geonix41/` | geonix41 の配線で親のテストを通し直す。`config.h` で最下段の matrix の列と、左右の Fn の列 (`FN_L_COL` など) を geonix41 に合わせ、`test_conf_layer.cpp` をそのまま取り込む (issue #68) |
 | `test_host_os.cpp` | `MY_WIN` / `MY_ANDR` の設定を接続先 (USB / BLE1〜3 / 2.4G) ごとに覚えること。接続先は `windmill_board_host()` をこのファイルで差し替えて切り替える。旧形式の設定の引き継ぎも見る |
 | `test_host_layout.cpp` | `MY_JIS` / `MY_US` の設定を接続先ごとに覚えること。既定が JIS であること、EEPROM上の位置、起動し直しても残ること、この設定が入る前のEEPROMが JIS として読めること。配列の切り替えを有効にするまで (issue #80) は、どちらを選んでも出力が US のままであることも見る (issue #74) |
 
@@ -81,7 +81,7 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、
 ここだけ二重管理になっている。**キー配置を変えたら両方直すこと。**
 
-キーマップは見た目の位置で書いてある。windmill.c は左右の Fn / 親指Shift を
+キーマップは見た目の位置で書いてある。windmill.c は左右の Fn を
 matrix の列で見分けるが、geonix41 は最下段の列が見た目の並びと違うので、
 「位置＝列」の配線だけで通しても列の設定の誤りに気づけない (issue #68)。
 そこで `test_keymap.hpp` は最下段の列を `WINDMILL_TEST_ROW3_COLS` で引き直してから
