@@ -17,8 +17,12 @@
 /* かなレイヤー最下段のタップ・ホールド (issue #85) のレポート列を検証する。
  *
  * テスト名の先頭の英字は issue #85 の「テストで固定するケース」の記号。押し方は
- * 「押してからの ms」で書く。結果のコメントは IME が出す文字で、Shift 面はまだ
- * 無いので「を」「ぁ」は Shift+キーのレポートとして届く。
+ * 「押してからの ms」で書く。結果のコメントは IME が出す文字。
+ *
+ * こ / み のホールド中は Shift 面 (issue #82) が上がる。「を」「ぁ」は Shift 面の
+ * キーで、押されている Shift をそのまま使って届く。Shift 面で透過のかな (み など) は、
+ * Shift を外して届く。どちらも IME が出す文字は issue #85 のときと変わらない。
+ * ここのケースは Shift 面を通しても issue #85 と同じ文字になることを見ている。
  *
  * 判定の境界 (150ms と 250ms のちょうど) と、待っている間はレポートが出ず、
  * 待っていたキーが押した順に出ることもここで見る。 */
@@ -79,7 +83,7 @@ class BottomRow : public WindmillTest {
     }
 };
 
-/* 記号レイヤーの記号は、かなベースでは英数へ切り替えて送る (is_sym_ime_wrap_target) */
+/* 記号レイヤーの記号は、かなベースでは英数へ切り替えて送る (is_alpha_output) */
 static void expect_sym_wrapped(TestDriver& driver, uint8_t keycode) {
     EXPECT_REPORT(driver, (KC_LNG2));
     EXPECT_EMPTY_REPORT(driver);
@@ -89,6 +93,14 @@ static void expect_sym_wrapped(TestDriver& driver, uint8_t keycode) {
     EXPECT_EMPTY_REPORT(driver);
     EXPECT_REPORT(driver, (KC_LNG1));
     EXPECT_EMPTY_REPORT(driver);
+}
+
+/* Shift を押したまま、Shift の要らない文字を送るレポート列。Shift を外して送り、戻す */
+static void expect_unshifted_under(TestDriver& driver, uint8_t held, uint8_t keycode) {
+    EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (keycode));
+    EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (held));
 }
 
 /* 親指の組の半角スペースが、X (こ) を押したまま決まったときのレポート列。
@@ -113,9 +125,8 @@ TEST_F(BottomRow, a_shift_then_partner_tap_then_key) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));       // わ の押下で こ がホールド
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_N)); // み (Shift+み も み)
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));       // わ の押下で こ がホールド。Shift 面が上がる
+        expect_unshifted_under(driver, KC_LEFT_SHIFT, KC_N); // み。組にならなかった 空 は み として出る
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_0)); // を
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);                  // こ 解放
@@ -437,8 +448,8 @@ TEST_F(BottomRow, u_space_both_short) {
     uint16_t start = 0, at_space = 0;
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver).WillOnce(InvokeWithoutArgs([&] { at_space = since(start); }));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)).WillOnce(InvokeWithoutArgs([&] { at_space = since(start); }));
+        EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_SPACE));
         EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
@@ -518,8 +529,7 @@ TEST_F(BottomRow, y_partner_tap_after_shift_was_used_is_tap) {
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_3)); // ぁ
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_N)); // み。こ の解放は み が決まるまで待っていた
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        expect_unshifted_under(driver, KC_LEFT_SHIFT, KC_N); // み。こ の解放は み が決まるまで待っていた
         EXPECT_EMPTY_REPORT(driver); // こ 解放
     }
     play({{POS_KO, DN, 0}, {POS_A, DN, 200}, {POS_A, UP, 230}, {POS_MI, DN, 300}, {POS_KO, UP, 350}, {POS_MI, UP, 400}});
@@ -800,8 +810,9 @@ TEST_F(BottomRow, no_report_while_waiting) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 待っていたキーは押した順に、押し離しの重なりも保って出る。
- * こ を 150ms 未満で離したのでタップ。こ → あ → わ の順 */
+/* 待っていたキーは押した順に出る。こ を 150ms 未満で離したのでタップ。
+ * こ → あ → わ の順。あ と わ は1キー1出力 (issue #82) なので、押下の時点で
+ * 押し離しを送り切り、押している間の重なりは出ない */
 TEST_F(BottomRow, waiting_keys_keep_press_order) {
     TestDriver driver;
     set_windmill_keymap();
@@ -812,8 +823,8 @@ TEST_F(BottomRow, waiting_keys_keep_press_order) {
         EXPECT_REPORT(driver, (KC_B)); // こ
         EXPECT_EMPTY_REPORT(driver);
         EXPECT_REPORT(driver, (KC_3)); // あ
-        EXPECT_REPORT(driver, (KC_3, KC_0)); // わ (あ を押したまま)
-        EXPECT_REPORT(driver, (KC_0));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_0)); // わ
         EXPECT_EMPTY_REPORT(driver);
     }
     play({{POS_KO, DN, 0}, {POS_A, DN, 20}, {POS_WA, DN, 40}, {POS_A, UP, 60}, {POS_WA, UP, 80}, {POS_KO, UP, 100}});

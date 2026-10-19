@@ -13,7 +13,7 @@ $ bash scripts/test.sh
 ## なぜレポート列を見るのか
 
 issue #18 は「言語切り替え直後の1打鍵目だけ Shift が効かず、`、` ではなく `ね` が出る」というもので、
-原因は `process_shift_pair()` が
+原因は当時の `process_shift_pair()` (今は無い) が
 
 ```
 実Shiftを外す → shifted 側の weak Shift を付ける → 外す
@@ -36,6 +36,8 @@ issue #36 は、そのレポート列すら1打鍵目と2打鍵目で完全に�
 取りこぼしていた。この手の不具合はレポート列では固定できないので、
 `EXPECT_REPORT(...).WillOnce(...)` で `timer_read()` を控えて間隔も突き合わせる
 (`ShiftPair.unshifted_pair_waits_for_ime_on_first_keypress`)。
+記号レイヤーの記号でも、かなを打った直後の1打目だけ Shift が落ちていた (issue #87)。こちらは
+Shift の押下と記号キーの押下の間隔を見る (`KeyOutput.sym_after_kana_waits_between_shift_and_key`)。
 
 「こ」+「み」同時押しの半角スペースも同じ罠だった
 (`ThumbShift.space_drops_shift_in_its_own_report`)。こちらは `del_mods()`/`set_mods()` が
@@ -60,10 +62,10 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `config.h` | マトリクスサイズと tapping 設定。実機の `keyboard.json` / `config.h` と揃える |
 | `test.mk` | `firmware/windmill.c` をテストへリンクする |
 | `test_keymap.hpp` | テスト用キーマップと `WindmillTest` フィクスチャ |
-| `test_shift_pair.cpp` | 親指Shift + `process_shift_pair()` のレポート列 |
-| `test_key_output.cpp` | 記号とかなのキー (独自キーコード `KN_*` / `SY_*`) の出力を、かな・英数・記号の3レイヤーの全キーぶん総当たりで見る。期待値は独自キーコードにする前の出力そのもので、出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。押しっぱなしでリピートが効くこと、記号を続けて打っても Shift が次のキーへ漏れないことも見る (issue #73) |
-| `test_bottom_row.cpp` | かなレイヤー最下段のタップ・ホールド (issue #85)。issue の「テストで固定するケース」a〜z と、150ms / 250ms の境界、待っている間はレポートが出ないこと、待っていたキーが押した順に出ることのレポート列 |
-| `test_kana_qmark.cpp` | かなレイヤーの「も」でのShift+タップ (半角`?`) のレポート列 |
+| `test_shift_pair.cpp` | 親指Shift で Shift 面のキーを打ったときのレポート列。押されている Shift をそのまま使うこと、Shift を外す前後の間隔 |
+| `test_key_output.cpp` | 文字キー (独自キーコード `KN_*` / `SY_*` / `KB_*` のタップ) の出力を、かな・Shift 面・記号レイヤーの全キーぶん総当たりで見る。出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。1キー1出力でリピートしないこと、押されている Shift を打ち消すこと、記号レイヤーで Shift が効かないこと、かなの直後の記号で Shift と記号キーの間が空くこと (issue #87) も見る (issue #73、issue #82)。英数レイヤーの記号は素のキーコードのままであることも |
+| `test_bottom_row.cpp` | かなレイヤー最下段のタップ・ホールド (issue #85)。issue の「テストで固定するケース」a〜ab (Shift 面を通しても同じ文字になること) と、150ms / 250ms の境界、待っている間はレポートが出ないこと、待っていたキーが押した順に出ることのレポート列 |
+| `test_kana_qmark.cpp` | Shift 面の「？」(かなレイヤーの「も」の位置。半角`?`) のレポート列 |
 | `test_thumb_shift.cpp` | かなレイヤーの親指Shift (こ = 左Shift / み = 右Shift) の持ち替えと、同時押しスペースの前に Shift を下ろすレポートと間隔 |
 | `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左右とも同じキーコード) の持ち替え (ハンドオーバー) のレポート列 |
 | `test_hold_layer.cpp` | Ctrl / Win / Alt のホールド中だけ英数レイヤーへ移ることのレポート列 |
@@ -73,7 +75,7 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_android_mods.cpp` | 対象OSが Android のときの Win / Alt。重ね押しで後から押したほうが出ないこと、Win+. が Alt+. として出ること。Win を外す前後に空打ちが挟まっていることも見る |
 | `geonix41/` | geonix41 の配線で親のテストを通し直す。`config.h` で最下段の matrix の列と、左右の Fn / 親指Shift の列 (`FN_L_COL` など) を geonix41 に合わせ、`test_conf_layer.cpp` と `test_alpha_thumb_shift.cpp` をそのまま取り込む (issue #68) |
 | `test_host_os.cpp` | `MY_WIN` / `MY_ANDR` の設定を接続先 (USB / BLE1〜3 / 2.4G) ごとに覚えること。接続先は `windmill_board_host()` をこのファイルで差し替えて切り替える。旧形式の設定の引き継ぎも見る |
-| `test_host_layout.cpp` | `MY_JIS` / `MY_US` の設定を接続先ごとに覚えること。既定が JIS であること、EEPROM上の位置、起動し直しても残ること、この設定が入る前のEEPROMが JIS として読めること。JIS の列が入るまでは、どちらを選んでも出力が US のままであることも見る (issue #74) |
+| `test_host_layout.cpp` | `MY_JIS` / `MY_US` の設定を接続先ごとに覚えること。既定が JIS であること、EEPROM上の位置、起動し直しても残ること、この設定が入る前のEEPROMが JIS として読めること。配列の切り替えを有効にするまで (issue #80) は、どちらを選んでも出力が US のままであることも見る (issue #74) |
 
 `test_keymap.hpp` のキーマップは `firmware/technik/keymaps/default/keymap.c` と同じ内容。
 実機側は `LAYOUT_ortho_4x12` マクロと PROGMEM に依存していてそのままは読めないため、

@@ -14,20 +14,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* 記号とかなのキーの出力を、位置ごとに総当たりで固定する (issue #73)。
+/* 文字キーの出力を、位置ごとに総当たりで固定する (issue #73、issue #82)。
  *
- * これらのキーは独自キーコードで、ホストへ何を送るかは windmill.c の出力表
- * (key_outputs[]) が決める。表の行を1つ書き漏らしても、そのキーが何も出さなく
- * なるだけでコンパイルは通る。だから「この位置を打ったらこのレポート」を
- * 全キーぶん並べておく。
+ * 英数レイヤー以外の文字キーは独自キーコードで、ホストへ何を送るかは windmill.c の
+ * 出力表 (key_outputs[]) が決める。表の行を1つ書き漏らしても、そのキーが何も出さなく
+ * なるだけでコンパイルは通る。だから「この位置を打ったらこのレポート」を、かな・
+ * Shift 面・記号レイヤーの全キーぶん並べておく。
  *
- * ここの期待値は、独自キーコードにする前のキーマップ (KC_1 や S(KC_1) を直接
- * 置いていたころ) の出力をそのまま写したもの。出力表を経由しても、QMKが素の
- * キーコードを処理するのと同じレポート列になることを見ている。押している間は
- * 押しっぱなしになること (キーリピートが効くこと) も含む。
+ * 文字キーは1キー1出力 (issue #82)。押下で押し離しを送り切り、リピートしない。
+ * 押されている Shift は打ち消し、出力に Shift が要るときだけ足す。
  *
- * 接続先の配列 (US / JIS) で出力を切り替えるようになったら、ここは US の列の
- * 期待値になる。 */
+ * - Shift が要る文字は、押されている Shift をそのまま使う。押されていなければ左Shiftを
+ *   足し、Shift の押下と文字キーの押下は別のレポートになる
+ * - Shift が要らない文字は、押されている Shift を外して送り、戻す
+ *
+ * 期待値の文字は US 配列のもの。配列の切り替え (issue #80) まではどちらを選んでも
+ * US になる。英数レイヤーの記号は素のキーコードのままで、QMKの標準どおり Shift が乗る。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -39,6 +41,7 @@
 using testing::_;
 using testing::AnyNumber;
 using testing::InSequence;
+using testing::InvokeWithoutArgs;
 
 class KeyOutput : public WindmillTest {};
 
@@ -56,113 +59,164 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
     VERIFY_AND_CLEAR(driver);
 }
 
-#define POS_SYM 3, 4 // ホールドで記号レイヤー。英数では LT(2,KC_BSLS)、かなでは KB_HI (ひ)
+#define POS_SYM 3, 4 // ホールドで記号レイヤー。英数では LT(LAYER_SYM,KC_BSLS)、かなでは KB_HI (ひ)
 #define POS_ALPHA_SHIFT 3, 6 // 英数レイヤーの親指Shift。LSFT_T(KC_SPC)
+
+// 送り方
+enum Kind {
+    PLAIN, // Shift の要らない文字
+    SHIFT, // Shift の要る文字
+    ALPHA, // Shift の要る文字を、英数に切り替えて送る (Shift 面の「？」)
+};
+
+struct Key {
+    uint8_t row;
+    uint8_t col;
+    uint8_t keycode;
+    Kind    kind;
+};
+
+/* 1文字ぶんの期待レポート列。held は押されている Shift (無ければ 0)。
+ * Shift を足すときは左Shift */
+static void expect_char(TestDriver& driver, const Key& k, uint8_t held) {
+    switch (k.kind) {
+        case PLAIN:
+            if (held) EXPECT_EMPTY_REPORT(driver); // Shift を外す
+            EXPECT_REPORT(driver, (k.keycode));
+            EXPECT_EMPTY_REPORT(driver);
+            if (held) EXPECT_REPORT(driver, (held)); // Shift を戻す
+            break;
+        case SHIFT:
+            if (held) {
+                EXPECT_REPORT(driver, (held, k.keycode)); // 押されている Shift をそのまま使う
+                EXPECT_REPORT(driver, (held));
+            } else {
+                EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // Shift を足す
+                EXPECT_REPORT(driver, (KC_LEFT_SHIFT, k.keycode));
+                EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+                EXPECT_EMPTY_REPORT(driver);
+            }
+            break;
+        case ALPHA: {
+            const uint8_t shift = held ? held : KC_LEFT_SHIFT;
+            if (held) EXPECT_EMPTY_REPORT(driver); // 切り替えのキーに Shift を乗せない
+            EXPECT_REPORT(driver, (KC_LNG2));
+            EXPECT_EMPTY_REPORT(driver);
+            EXPECT_REPORT(driver, (shift));
+            EXPECT_REPORT(driver, (shift, k.keycode));
+            EXPECT_REPORT(driver, (shift));
+            EXPECT_EMPTY_REPORT(driver);
+            EXPECT_REPORT(driver, (KC_LNG1));
+            EXPECT_EMPTY_REPORT(driver);
+            if (held) EXPECT_REPORT(driver, (held));
+            break;
+        }
+    }
+}
+
+// 順に叩く。押しっぱなしの時間は最下段のキーでもタップになる長さ
+template <size_t N>
+static void tap_all(WindmillTest* f, const Key (&keys)[N]) {
+    for (const auto& k : keys) {
+        f->tap_key(f->key(k.row, k.col), 50);
+        f->idle_for(50);
+    }
+}
 
 /*
  * かなレイヤー
  */
 
-// Shiftを押しながら打ったときの出し方
-enum ShiftKind {
-    AS_IS, // 出し分けない。押されているShiftごとそのまま出る
-    KEEP,  // 別のキーを、押されているShiftを使って出す
-    DROP,  // 別のキーを、Shiftを外して出す
-};
-
-struct KanaKey {
-    uint8_t   row;
-    uint8_t   col;
-    uint8_t   plain;   // Shift無しで出るキー
-    ShiftKind kind;
-    uint8_t   shifted; // Shift時に出るキー (AS_IS なら plain と同じ)
-};
-
 // clang-format off
-static const KanaKey kana_keys[] = {
+static const Key kana_keys[] = {
     // ぬ ふ あ う え お や ゆ よ わ
-    {0, 1, KC_1, AS_IS, KC_1}, {0, 2, KC_2, AS_IS, KC_2}, {0, 3, KC_3, AS_IS, KC_3}, {0, 4, KC_4, AS_IS, KC_4},
-    {0, 5, KC_5, AS_IS, KC_5}, {0, 6, KC_6, AS_IS, KC_6}, {0, 7, KC_7, AS_IS, KC_7}, {0, 8, KC_8, AS_IS, KC_8},
-    {0, 9, KC_9, AS_IS, KC_9}, {0, 10, KC_0, AS_IS, KC_0},
+    {0, 1, KC_1, PLAIN}, {0, 2, KC_2, PLAIN}, {0, 3, KC_3, PLAIN}, {0, 4, KC_4, PLAIN}, {0, 5, KC_5, PLAIN},
+    {0, 6, KC_6, PLAIN}, {0, 7, KC_7, PLAIN}, {0, 8, KC_8, PLAIN}, {0, 9, KC_9, PLAIN}, {0, 10, KC_0, PLAIN},
     // た て い す か ん な に ら せ ゛
-    {1, 1, KC_Q, AS_IS, KC_Q},
-    {1, 2, KC_W, KEEP, KC_EQL},     // へ
-    {1, 3, KC_E, AS_IS, KC_E},
-    {1, 4, KC_R, DROP, KC_BSLS},    // む
-    {1, 5, KC_T, AS_IS, KC_T},
-    {1, 6, KC_Y, AS_IS, KC_Y},
-    {1, 7, KC_U, DROP, KC_MINS},    // ほ
-    {1, 8, KC_I, AS_IS, KC_I},
-    {1, 9, KC_O, KEEP, KC_LBRC},    // 「 (Windows)
-    {1, 10, KC_P, KEEP, KC_RBRC},   // 」 (Windows)
-    {1, 11, KC_LBRC, DROP, KC_RBRC}, // ゜
+    {1, 1, KC_Q, PLAIN}, {1, 2, KC_W, PLAIN}, {1, 3, KC_E, PLAIN}, {1, 4, KC_R, PLAIN}, {1, 5, KC_T, PLAIN},
+    {1, 6, KC_Y, PLAIN}, {1, 7, KC_U, PLAIN}, {1, 8, KC_I, PLAIN}, {1, 9, KC_O, PLAIN}, {1, 10, KC_P, PLAIN},
+    {1, 11, KC_LBRC, PLAIN},
     // ち と し は き く ま の り れ け
-    {2, 1, KC_A, KEEP, KC_Z},       // っ
-    {2, 2, KC_S, AS_IS, KC_S}, {2, 3, KC_D, AS_IS, KC_D}, {2, 4, KC_F, AS_IS, KC_F}, {2, 5, KC_G, AS_IS, KC_G},
-    {2, 6, KC_H, AS_IS, KC_H}, {2, 7, KC_J, AS_IS, KC_J},
-    {2, 8, KC_K, KEEP, KC_COMM},    // 、
-    {2, 9, KC_L, KEEP, KC_DOT},     // 。
-    {2, 10, KC_SCLN, KEEP, KC_SLSH}, // ・
-    {2, 11, KC_QUOT, KEEP, KC_MINS}, // ー
-    // る め ろ
-    {3, 9, KC_DOT, AS_IS, KC_DOT}, {3, 10, KC_SLSH, AS_IS, KC_SLSH}, {3, 11, KC_GRV, AS_IS, KC_GRV},
+    {2, 1, KC_A, PLAIN}, {2, 2, KC_S, PLAIN}, {2, 3, KC_D, PLAIN}, {2, 4, KC_F, PLAIN}, {2, 5, KC_G, PLAIN},
+    {2, 6, KC_H, PLAIN}, {2, 7, KC_J, PLAIN}, {2, 8, KC_K, PLAIN}, {2, 9, KC_L, PLAIN}, {2, 10, KC_SCLN, PLAIN},
+    {2, 11, KC_QUOT, PLAIN},
+    // つ さ そ ひ こ み も ね (タップ) る め ろ
+    {3, 1, KC_Z, PLAIN}, {3, 2, KC_X, PLAIN}, {3, 3, KC_C, PLAIN}, {3, 4, KC_V, PLAIN}, {3, 5, KC_B, PLAIN},
+    {3, 6, KC_N, PLAIN}, {3, 7, KC_M, PLAIN}, {3, 8, KC_COMM, PLAIN},
+    {3, 9, KC_DOT, PLAIN}, {3, 10, KC_SLSH, PLAIN}, {3, 11, KC_GRV, PLAIN},
+};
+
+/* Shift 面。こ / み のどちらかをホールドしている間だけ上がる。PLAIN は透過で、
+ * 下のかなを Shift を外して出す。こ と み の位置 (空) は親指の組の半角スペースで、
+ * test_bottom_row.cpp が見る */
+static const Key kana_shift_keys[] = {
+    // ぬ ふ ぁ ぅ ぇ ぉ ゃ ゅ ょ を
+    {0, 1, KC_1, PLAIN}, {0, 2, KC_2, PLAIN}, {0, 3, KC_3, SHIFT}, {0, 4, KC_4, SHIFT}, {0, 5, KC_5, SHIFT},
+    {0, 6, KC_6, SHIFT}, {0, 7, KC_7, SHIFT}, {0, 8, KC_8, SHIFT}, {0, 9, KC_9, SHIFT}, {0, 10, KC_0, SHIFT},
+    // た へ ぃ む か ん ほ に 「 」 ゜
+    {1, 1, KC_Q, PLAIN},
+    {1, 2, KC_EQL, SHIFT},   // へ
+    {1, 3, KC_E, SHIFT},     // ぃ
+    {1, 4, KC_BSLS, PLAIN},  // む
+    {1, 5, KC_T, PLAIN}, {1, 6, KC_Y, PLAIN},
+    {1, 7, KC_MINS, PLAIN},  // ほ
+    {1, 8, KC_I, PLAIN},
+    {1, 9, KC_LBRC, SHIFT},  // 「 (Windows)
+    {1, 10, KC_RBRC, SHIFT}, // 」 (Windows)
+    {1, 11, KC_RBRC, PLAIN}, // ゜
+    // っ と し は き く ま 、 。 ・ ー
+    {2, 1, KC_Z, SHIFT},
+    {2, 2, KC_S, PLAIN}, {2, 3, KC_D, PLAIN}, {2, 4, KC_F, PLAIN}, {2, 5, KC_G, PLAIN}, {2, 6, KC_H, PLAIN},
+    {2, 7, KC_J, PLAIN},
+    {2, 8, KC_COMM, SHIFT}, {2, 9, KC_DOT, SHIFT}, {2, 10, KC_SLSH, SHIFT},
+    {2, 11, KC_MINS, SHIFT}, // ー
+    // っ さ そ ひ (タップ) ？ 、 。 ・ ろ
+    {3, 1, KC_Z, SHIFT},
+    {3, 2, KC_X, PLAIN}, {3, 3, KC_C, PLAIN}, {3, 4, KC_V, PLAIN},
+    {3, 7, KC_SLSH, ALPHA},  // ？ 半角
+    {3, 8, KC_COMM, SHIFT}, {3, 9, KC_DOT, SHIFT}, {3, 10, KC_SLSH, SHIFT},
+    {3, 11, KC_GRV, PLAIN},
 };
 
 // 対象OSが Android のときだけ変わるもの。「」の出し方がIMEで違う
-static const KanaKey kana_keys_android[] = {
-    {1, 9, KC_O, KEEP, KC_RBRC},    // 「
-    {1, 10, KC_P, KEEP, KC_BSLS},   // 」
+static const Key kana_keys_android[] = {
+    {1, 9, KC_O, PLAIN},  // ら
+    {1, 10, KC_P, PLAIN}, // せ
+};
+static const Key kana_shift_keys_android[] = {
+    {1, 9, KC_RBRC, SHIFT},  // 「
+    {1, 10, KC_BSLS, SHIFT}, // 」
 };
 // clang-format on
 
 // Shift無しで順に叩く
 template <size_t N>
-static void expect_kana_plain(WindmillTest* f, TestDriver& driver, const KanaKey (&keys)[N]) {
+static void expect_kana_plain(WindmillTest* f, TestDriver& driver, const Key (&keys)[N]) {
     {
         InSequence s;
-        for (const auto& k : keys) {
-            EXPECT_REPORT(driver, (k.plain));
-            EXPECT_EMPTY_REPORT(driver);
-        }
+        for (const auto& k : keys) expect_char(driver, k, 0);
     }
-
-    for (const auto& k : keys) {
-        f->tap_key(f->key(k.row, k.col), 50);
-        f->idle_for(50);
-    }
+    tap_all(f, keys);
     VERIFY_AND_CLEAR(driver);
 }
 
-// 右の親指Shift (み、右Shift) をホールドしたまま順に叩く
+// 親指Shift (こ / み) をホールドしたまま、Shift 面のキーを順に叩く
 template <size_t N>
-static void expect_kana_shifted(WindmillTest* f, TestDriver& driver, const KanaKey (&keys)[N]) {
-    auto mi = f->key(POS_MI);
+static void expect_kana_shifted(WindmillTest* f, TestDriver& driver, const Key (&keys)[N], uint8_t row, uint8_t col, uint8_t held) {
+    auto thumb = f->key(row, col);
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT)); // み ホールド確定
-        for (const auto& k : keys) {
-            if (k.kind == DROP) {
-                EXPECT_EMPTY_REPORT(driver); // Shiftを外す
-                EXPECT_REPORT(driver, (k.shifted));
-                EXPECT_EMPTY_REPORT(driver);
-                EXPECT_REPORT(driver, (KC_RIGHT_SHIFT)); // Shiftを戻す
-            } else {
-                EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, k.shifted));
-                EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
-            }
-        }
-        EXPECT_EMPTY_REPORT(driver); // み 解放
+        EXPECT_REPORT(driver, (held)); // ホールド確定
+        for (const auto& k : keys) expect_char(driver, k, held);
+        EXPECT_EMPTY_REPORT(driver); // 解放
     }
 
-    mi.press();
+    thumb.press();
     f->run_one_scan_loop();
     f->idle_for(250); // 250ms 押し続けてホールド確定
-    for (const auto& k : keys) {
-        f->tap_key(f->key(k.row, k.col), 50);
-        f->idle_for(50);
-    }
-    mi.release();
+    tap_all(f, keys);
+    thumb.release();
     f->run_one_scan_loop();
     f->idle_for(120);
     VERIFY_AND_CLEAR(driver);
@@ -178,19 +232,29 @@ TEST_F(KeyOutput, kana_keys_without_shift) {
     default_layer_set((layer_state_t)1 << LAYER_ALPHA); // 次のテストへかなを持ち越さない
 }
 
-TEST_F(KeyOutput, kana_keys_with_thumb_shift) {
+TEST_F(KeyOutput, kana_shift_layer_with_right_thumb) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
 
-    expect_kana_shifted(this, driver, kana_keys);
+    expect_kana_shifted(this, driver, kana_shift_keys, POS_MI, KC_RIGHT_SHIFT);
 
     default_layer_set((layer_state_t)1 << LAYER_ALPHA);
 }
 
-/* 出し分けないキーは、押している間は押しっぱなし。離すまでレポートが空に
- * ならない (ホスト側のキーリピートが効く)。重ねて押せば両方が載る */
-TEST_F(KeyOutput, kana_key_stays_down_while_held) {
+TEST_F(KeyOutput, kana_shift_layer_with_left_thumb) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    expect_kana_shifted(this, driver, kana_shift_keys, POS_KO, KC_LEFT_SHIFT);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+/* 1キー1出力。押した瞬間に押し離しを送り切り、押し続けてもそれ以上は出ない
+ * (ホスト側のキーリピートも効かない)。重ねて押しても、それぞれ押した時点で出る */
+TEST_F(KeyOutput, kana_key_does_not_repeat) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(this, driver);
@@ -198,25 +262,33 @@ TEST_F(KeyOutput, kana_key_stays_down_while_held) {
     auto nu = key(POS_NU);
     auto ha = key(POS_HA);
 
-    EXPECT_REPORT(driver, (KC_1));
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_1));
+        EXPECT_EMPTY_REPORT(driver);
+    }
     nu.press();
     run_one_scan_loop();
+    VERIFY_AND_CLEAR(driver);
+
+    EXPECT_NO_REPORT(driver);
     idle_for(600); // リピートが始まる程度に押し続ける
     VERIFY_AND_CLEAR(driver);
 
-    EXPECT_REPORT(driver, (KC_1, KC_F));
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_F));
+        EXPECT_EMPTY_REPORT(driver);
+    }
     ha.press();
     run_one_scan_loop();
     idle_for(50);
     VERIFY_AND_CLEAR(driver);
 
-    EXPECT_REPORT(driver, (KC_F));
+    EXPECT_NO_REPORT(driver); // 離しても何も出ない
     nu.release();
     run_one_scan_loop();
     idle_for(50);
-    VERIFY_AND_CLEAR(driver);
-
-    EXPECT_EMPTY_REPORT(driver);
     ha.release();
     run_one_scan_loop();
     idle_for(50);
@@ -240,29 +312,22 @@ TEST_F(KeyOutputAndroid, kana_brackets_follow_host_os) {
     switch_to_kana(this, driver);
 
     expect_kana_plain(this, driver, kana_keys_android);
-    expect_kana_shifted(this, driver, kana_keys_android);
+    expect_kana_shifted(this, driver, kana_shift_keys_android, POS_MI, KC_RIGHT_SHIFT);
 
     default_layer_set((layer_state_t)1 << LAYER_ALPHA);
     select_os(this, driver, POS_WIN); // EEPROMに残るので戻しておく
 }
 
 /*
- * 英数レイヤーの記号
+ * 英数レイヤーの記号。素のキーコードのままで、QMKの標準どおりに振る舞う
  */
-
-struct Key {
-    uint8_t row;
-    uint8_t col;
-    uint8_t keycode;
-    bool    shift; // Shift付きで送るキーか (S(KC_x))
-};
 
 // clang-format off
 static const Key alpha_sym_keys[] = {
-    {1, 10, KC_SCLN, false}, // ; :
-    {1, 11, KC_QUOT, false}, // ' "
-    {2, 8, KC_COMM, false},  // , <
-    {2, 9, KC_DOT, false},   // . >
+    {1, 10, KC_SCLN, PLAIN}, // ; :
+    {1, 11, KC_QUOT, PLAIN}, // ' "
+    {2, 8, KC_COMM, PLAIN},  // , <
+    {2, 9, KC_DOT, PLAIN},   // . >
 };
 // clang-format on
 
@@ -277,11 +342,7 @@ TEST_F(KeyOutput, alpha_symbols_without_shift) {
             EXPECT_EMPTY_REPORT(driver);
         }
     }
-
-    for (const auto& k : alpha_sym_keys) {
-        tap_key(key(k.row, k.col), 50);
-        idle_for(50);
-    }
+    tap_all(this, alpha_sym_keys);
     VERIFY_AND_CLEAR(driver);
 }
 
@@ -305,13 +366,30 @@ TEST_F(KeyOutput, alpha_symbols_with_thumb_shift) {
     shift.press();
     run_one_scan_loop();
     idle_for(250); // TAPPING_TERM 超え。ホールド確定
-    for (const auto& k : alpha_sym_keys) {
-        tap_key(key(k.row, k.col), 50);
-        idle_for(50);
-    }
+    tap_all(this, alpha_sym_keys);
     shift.release();
     run_one_scan_loop();
     idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+// 英数レイヤーの記号は、押している間は押しっぱなし (QMKの標準。リピートも効く)
+TEST_F(KeyOutput, alpha_symbol_stays_down_while_held) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto scln = key(1, 10);
+
+    EXPECT_REPORT(driver, (KC_SCLN));
+    scln.press();
+    run_one_scan_loop();
+    idle_for(600);
+    VERIFY_AND_CLEAR(driver);
+
+    EXPECT_EMPTY_REPORT(driver);
+    scln.release();
+    run_one_scan_loop();
+    idle_for(50);
     VERIFY_AND_CLEAR(driver);
 }
 
@@ -321,42 +399,51 @@ TEST_F(KeyOutput, alpha_symbols_with_thumb_shift) {
 
 // clang-format off
 static const Key sym_keys[] = {
-    // 数字は素のキーコードのまま。かなベースでのIMEの切り替えは記号と同じなので並べておく
-    {0, 1, KC_1, false}, {0, 2, KC_2, false}, {0, 3, KC_3, false}, {0, 4, KC_4, false}, {0, 5, KC_5, false},
-    {0, 6, KC_6, false}, {0, 7, KC_7, false}, {0, 8, KC_8, false}, {0, 9, KC_9, false}, {0, 10, KC_0, false},
+    // 1 2 3 4 5 6 7 8 9 0
+    {0, 1, KC_1, PLAIN}, {0, 2, KC_2, PLAIN}, {0, 3, KC_3, PLAIN}, {0, 4, KC_4, PLAIN}, {0, 5, KC_5, PLAIN},
+    {0, 6, KC_6, PLAIN}, {0, 7, KC_7, PLAIN}, {0, 8, KC_8, PLAIN}, {0, 9, KC_9, PLAIN}, {0, 10, KC_0, PLAIN},
     // ! @ # $ % ^ & * ( ) `
-    {1, 1, KC_1, true}, {1, 2, KC_2, true}, {1, 3, KC_3, true}, {1, 4, KC_4, true}, {1, 5, KC_5, true},
-    {1, 6, KC_6, true}, {1, 7, KC_7, true}, {1, 8, KC_8, true}, {1, 9, KC_9, true}, {1, 10, KC_0, true},
-    {1, 11, KC_GRV, false},
+    {1, 1, KC_1, SHIFT}, {1, 2, KC_2, SHIFT}, {1, 3, KC_3, SHIFT}, {1, 4, KC_4, SHIFT}, {1, 5, KC_5, SHIFT},
+    {1, 6, KC_6, SHIFT}, {1, 7, KC_7, SHIFT}, {1, 8, KC_8, SHIFT}, {1, 9, KC_9, SHIFT}, {1, 10, KC_0, SHIFT},
+    {1, 11, KC_GRV, PLAIN},
     // = + - _ [ ] ~ { }
-    {2, 1, KC_EQL, false}, {2, 2, KC_EQL, true}, {2, 3, KC_MINS, false}, {2, 4, KC_MINS, true},
-    {2, 5, KC_LBRC, false}, {2, 6, KC_RBRC, false}, {2, 7, KC_GRV, true}, {2, 8, KC_LBRC, true}, {2, 9, KC_RBRC, true},
+    {2, 1, KC_EQL, PLAIN}, {2, 2, KC_EQL, SHIFT}, {2, 3, KC_MINS, PLAIN}, {2, 4, KC_MINS, SHIFT},
+    {2, 5, KC_LBRC, PLAIN}, {2, 6, KC_RBRC, PLAIN}, {2, 7, KC_GRV, SHIFT}, {2, 8, KC_LBRC, SHIFT}, {2, 9, KC_RBRC, SHIFT},
     // | ?
-    {3, 5, KC_BSLS, true}, {3, 6, KC_SLSH, true},
+    {3, 5, KC_BSLS, SHIFT}, {3, 6, KC_SLSH, SHIFT},
 };
 // clang-format on
 
-// キー1つぶんの押して離すレポート。Shift付きのキーは修飾の上げ下げが前後に1本ずつ付く
-static void expect_tap(TestDriver& driver, const Key& k) {
-    if (k.shift) {
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, k.keycode));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_EMPTY_REPORT(driver);
-    } else {
-        EXPECT_REPORT(driver, (k.keycode));
-        EXPECT_EMPTY_REPORT(driver);
+/* 記号レイヤーの1文字ぶん。かなベースなら英数に切り替えて送り、かなへ戻す。
+ * 押されている Shift は切り替えの前に外し、最後に戻す */
+static void expect_sym(TestDriver& driver, const Key& k, uint8_t held, bool kana) {
+    if (!kana) {
+        expect_char(driver, k, held);
+        return;
     }
+    if (held) EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (KC_LNG2));
+    EXPECT_EMPTY_REPORT(driver);
+    expect_char(driver, k, 0);
+    EXPECT_REPORT(driver, (KC_LNG1));
+    EXPECT_EMPTY_REPORT(driver);
+    if (held) EXPECT_REPORT(driver, (held));
 }
 
-// Sym をホールドしたまま sym_keys を順に叩く
-static void tap_sym_keys(WindmillTest* f) {
+// 親指Shift で押さえている位置。記号レイヤーでは「|」「?」だが、押したままなので叩けない
+static bool is_held(const Key& k, uint8_t held_col) {
+    return k.row == 3 && k.col == held_col;
+}
+
+// Sym をホールドしたまま sym_keys を順に叩く。held_col の位置は飛ばす
+static void tap_sym_keys(WindmillTest* f, uint8_t held_col = 0) {
     auto sym = f->key(POS_SYM);
 
     sym.press();
     f->run_one_scan_loop();
     f->idle_for(250); // 英数は TAPPING_TERM、かなは 250ms を超えてホールド確定
     for (const auto& k : sym_keys) {
+        if (is_held(k, held_col)) continue;
         f->tap_key(f->key(k.row, k.col), 50);
         f->idle_for(50);
     }
@@ -371,11 +458,8 @@ TEST_F(KeyOutput, sym_layer_on_alpha) {
 
     {
         InSequence s;
-        for (const auto& k : sym_keys) {
-            expect_tap(driver, k);
-        }
+        for (const auto& k : sym_keys) expect_sym(driver, k, 0, false);
     }
-
     tap_sym_keys(this);
     VERIFY_AND_CLEAR(driver);
 }
@@ -388,25 +472,74 @@ TEST_F(KeyOutput, sym_layer_on_kana_wraps_with_ime_switch) {
 
     {
         InSequence s;
-        for (const auto& k : sym_keys) {
-            EXPECT_REPORT(driver, (KC_LNG2));
-            EXPECT_EMPTY_REPORT(driver);
-            expect_tap(driver, k);
-            EXPECT_REPORT(driver, (KC_LNG1));
-            EXPECT_EMPTY_REPORT(driver);
-        }
+        for (const auto& k : sym_keys) expect_sym(driver, k, 0, true);
     }
-
     tap_sym_keys(this);
     VERIFY_AND_CLEAR(driver);
 
     default_layer_set((layer_state_t)1 << LAYER_ALPHA);
 }
 
+/* 記号レイヤーでは Shift が効かない。英数ベースで親指Shift (SandS) を押していても
+ * 同じ文字が出る。Shift の要らない数字などは Shift を外して送る */
+TEST_F(KeyOutput, sym_layer_on_alpha_ignores_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+
+    auto shift = key(POS_ALPHA_SHIFT);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        for (const auto& k : sym_keys) {
+            if (!is_held(k, 6)) expect_sym(driver, k, KC_LEFT_SHIFT, false);
+        }
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    shift.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_sym_keys(this, 6);
+    shift.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* かなベースで こ (左Shift) を押したまま ひ をホールドしても同じ。英数/かなの切り替えの
+ * キーに Shift が乗らないよう、切り替えの前に外す */
+TEST_F(KeyOutput, sym_layer_on_kana_ignores_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    auto ko = key(POS_KO);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        for (const auto& k : sym_keys) {
+            if (!is_held(k, 5)) expect_sym(driver, k, KC_LEFT_SHIFT, true);
+        }
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    ko.press();
+    run_one_scan_loop();
+    idle_for(250);
+    tap_sym_keys(this, 5);
+    ko.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
 /* 記号を続けて打つと、前のキーを離す前に次のキーを押すことがある。
- * 「!」(Shift+1) を押したまま「=」を押しても、「=」にShiftが乗って「+」に
- * 化けてはいけない。QMKは素のキーコードなら押下のたびに前のキーの weak Shift を
- * 落とすので、出力表を経由するキーも同じにしておく */
+ * 「!」(Shift+1) は押した時点で送り切っているので、「=」に Shift が漏れて「+」に
+ * 化けることは無い */
 TEST_F(KeyOutput, sym_roll_over_does_not_leak_shift) {
     TestDriver driver;
     set_windmill_keymap();
@@ -417,11 +550,12 @@ TEST_F(KeyOutput, sym_roll_over_does_not_leak_shift) {
 
     {
         InSequence s;
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)); // ! 押下
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_1));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_1)); // ! 押下
-        EXPECT_REPORT(driver, (KC_1, KC_EQL));        // = 押下。Shiftが落ちている
-        EXPECT_REPORT(driver, (KC_EQL));              // ! 解放
-        EXPECT_EMPTY_REPORT(driver);                  // = 解放
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_EQL)); // = 押下。Shift は乗らない
+        EXPECT_EMPTY_REPORT(driver);
     }
 
     sym.press();
@@ -445,13 +579,70 @@ TEST_F(KeyOutput, sym_roll_over_does_not_leak_shift) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* かなのキーを押したまま Sym をホールドして、それからかなのキーを離す。
- * かなの「ぬ」と記号レイヤーの「1」は別のキーなので、離したぶんは「ぬ」の解放と
- * して届く。
+/* issue #87 の再現手順。かなを打ってから、ひ を押したまま こ を3回打つ。
  *
- * 独自キーコードにする前はどちらも同じ KC_1 だったので、記号レイヤーの数字の
- * 解放と見分けられず、IMEの切り替えの後始末として握りつぶされていた。ホストには
- * 「ぬ」が押されたまま残っていた */
+ * Windows 標準の IME は、かなを打った直後だと英数への切り替えが遅れ、Shift を押した
+ * 直後のキーで Shift を取りこぼしていた (1打目だけ「|」ではなく「\」)。Shift の押下と
+ * 記号キーの押下を別のレポートにし、間に IME_WAIT_MS を挟む。英数への切り替えと
+ * Shift の押下の間、Shift の解放とかなへの切り替えの間も同じ */
+TEST_F(KeyOutput, sym_after_kana_waits_between_shift_and_key) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(this, driver);
+
+    auto nu   = key(POS_NU);
+    auto hi   = key(POS_HI);
+    auto pipe = key(POS_KO); // 記号レイヤーでは「|」
+
+    uint16_t at_lng2 = 0, at_shift = 0, at_key = 0, at_unshift = 0, at_lng1 = 0;
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_1)); // ぬ
+        EXPECT_EMPTY_REPORT(driver);
+
+        // 1打目。間隔を控える
+        EXPECT_REPORT(driver, (KC_LNG2));
+        EXPECT_EMPTY_REPORT(driver).WillOnce(InvokeWithoutArgs([&] { at_lng2 = timer_read(); }));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT)).WillOnce(InvokeWithoutArgs([&] { at_shift = timer_read(); }));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_BSLS)).WillOnce(InvokeWithoutArgs([&] { at_key = timer_read(); }));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver).WillOnce(InvokeWithoutArgs([&] { at_unshift = timer_read(); }));
+        EXPECT_REPORT(driver, (KC_LNG1)).WillOnce(InvokeWithoutArgs([&] { at_lng1 = timer_read(); }));
+        EXPECT_EMPTY_REPORT(driver);
+
+        // 2打目と3打目も同じレポート列
+        for (int i = 0; i < 2; ++i) expect_sym(driver, {3, 5, KC_BSLS, SHIFT}, 0, true);
+    }
+
+    tap_key(nu, 50);
+    idle_for(50);
+    hi.press();
+    run_one_scan_loop();
+    idle_for(250); // ひ がホールドに決まる
+    for (int i = 0; i < 3; ++i) {
+        tap_key(pipe, 50);
+        idle_for(50);
+    }
+    hi.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+
+    EXPECT_GE(uint16_t(at_shift - at_lng2), uint16_t(IME_WAIT_MS));
+    EXPECT_GE(uint16_t(at_key - at_shift), uint16_t(IME_WAIT_MS));
+    EXPECT_GE(uint16_t(at_unshift - at_key), uint16_t(IME_WAIT_MS));
+    EXPECT_GE(uint16_t(at_lng1 - at_unshift), uint16_t(IME_WAIT_MS));
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
+}
+
+/* かなのキーを押したまま Sym をホールドして、それからかなのキーを離す。
+ * かなの「ぬ」は押した時点で送り切っているので、離したときに何も出ず、ホストに
+ * 押しっぱなしのキーも残らない。
+ *
+ * 独自キーコードにする前は、かなの「ぬ」と記号レイヤーの「1」が同じ KC_1 で、
+ * 記号レイヤーの数字の解放と見分けられずに握りつぶされ、「ぬ」が押されたまま
+ * 残っていた */
 TEST_F(KeyOutput, kana_key_released_under_sym_layer_is_not_stuck) {
     TestDriver driver;
     set_windmill_keymap();

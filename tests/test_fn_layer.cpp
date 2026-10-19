@@ -21,7 +21,7 @@
  * その下の Tab の位置は Caps Lock (issue #56)。Android で意図せず Caps Lock が
  * かかることがあり、キーボードから外す手段が要る。
  *
- * Fn は英数レイヤーでは MO(3)、かなレイヤーでは LT(3,KC_C) とキーコードが違う。
+ * Fn は英数レイヤーでは MO(LAYER_FN)、かなレイヤーでは KB_SO / KB_NE とキーコードが違う。
  * 透過キーの落ちる先はどちらのベースでも同じ (英数でも透過) なので、両方で通す。 */
 
 #include "keyboard_report_util.hpp"
@@ -85,7 +85,7 @@ static void expect_fn_keys(WindmillTest* f, TestDriver& driver, KeymapKey fn) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 英数ベース (MO(3))。左右どちらのFnでも同じ */
+/* 英数ベース (MO(LAYER_FN))。左右どちらのFnでも同じ */
 TEST_F(FnLayer, function_keys_follow_number_row_on_alpha) {
     TestDriver driver;
     set_windmill_keymap();
@@ -94,7 +94,7 @@ TEST_F(FnLayer, function_keys_follow_number_row_on_alpha) {
     expect_fn_keys(this, driver, key(POS_FN_R));
 }
 
-/* かなベース (LT(3,KC_C) / LT(3,KC_COMMA))。「そ」「ね」は出ない */
+/* かなベース (KB_SO / KB_NE)。「そ」「ね」は出ない */
 TEST_F(FnLayer, function_keys_follow_number_row_on_kana) {
     TestDriver driver;
     set_windmill_keymap();

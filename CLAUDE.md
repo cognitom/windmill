@@ -8,7 +8,7 @@ minipeg48 / geonix41 の4つで、**キー処理の本体は `firmware/windmill.
 
 | パス | 中身 |
 |--|--|
-| `firmware/windmill.c` `firmware/windmill.h` | 全機種共通のキー処理。レイヤー、Shift出し分け、かな最下段のタップ・ホールド、LED |
+| `firmware/windmill.c` `firmware/windmill.h` | 全機種共通のキー処理。レイヤー、文字キーの出力表と送り方、かな最下段のタップ・ホールド、LED |
 | `firmware/<機種>/` | `keyboard.json`, `rules.mk`, `keymaps/default/keymap.c` |
 | `compose.agent.yaml` | QMK を動かすコンテナ。`qmk` サービスが常駐し、geonix41 のビルドだけ使い捨ての `geonix41` サービスで回す |
 | `scripts/` | lint (`lint.sh`) とテスト (`test.sh`)、ビルド (`build.sh`。geonix41 だけのものは `geonix41/` の下)、リリース (`release.sh`) |
@@ -103,13 +103,22 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
   キューで待たせ、押した順に出す。実装は `process_bottom_row()`
 - **親指の組** — こ (左Shift) と み (右Shift) の同時押しで半角スペースを出す規則。
   「こ / み」「そ / ね」「ひ / も」は同じ役割の組で、互いを「相方」と呼ぶ。
-  実装は `settle_thumb_pair()`
-- **出力表** — 記号とかなのキーは独自キーコード (`KN_*` / `SY_*`) で、ホストへ送るキーは
-  `key_outputs[]` のテーブル引きで決める。列は接続先の配列 (今は US だけ)。
-  実装は `process_key_output()`
-- **Shift出し分け** — 出力表で Shift時のキーを別に持つもの (`PAIR`) は、Shift時に
-  そちらを出す。実装は `process_shift_pair()`
-- **レイヤー** — `LAYER_KANA`(0) / `LAYER_ALPHA`(1) / `LAYER_SYM`(2) / `LAYER_FN`(3) /
-  `LAYER_CONF`(4)。0と1がベースレイヤーで `default_layer_set()` で切り替える
+  スペースは Shift 面の「空」(`KB_SPC`) の出力。実装は `settle_thumb_pair()`
+- **1キー1出力** — 英数レイヤー以外の文字キー (数字、記号、かな、最下段のタップ) は、
+  押した瞬間に押し離しを送り切り、リピートしない。押されている Shift は打ち消し、
+  出力に Shift が要るときだけ足す。Shift の上げ下げとキーの間には `IME_WAIT_MS` を挟む。
+  かなベースの記号は英数に切り替えて送る。実装は `send_output()`。
+  英数レイヤーのキーと文字以外のキー (Enter、矢印など) は素のキーコードで、QMK 標準
+- **出力表** — 文字キーは独自キーコード (`KN_*` / `SY_*` / `KB_*`) で、ホストへ送るキーは
+  `key_outputs[]` のテーブル引きで決める。1キー1値で、値はホストに届くべき最終形
+  (`S()` 付きなら Shift 付き)。基準は Windows + JIS で、別の配列・OS は
+  `key_output_exceptions[]` に差分として持つ。配列の切り替えは無効で、常に US を引く
+  (`output_layout()`。有効にするのは issue #80)
+- **Shift 面** — `LAYER_KANA_SHIFT`。こ / み のどちらかがホールド中だけ有効な、かなの
+  Shift 側。透過のキーは下のかなを Shift を打ち消して出す。最下段は同じ位置の
+  かなのキーと同じホールドの役割で、タップで出るものだけが変わる
+- **レイヤー** — `LAYER_KANA`(0) / `LAYER_KANA_SHIFT`(1) / `LAYER_ALPHA`(2) / `LAYER_SYM`(3) /
+  `LAYER_FN`(4) / `LAYER_CONF`(5)。かなと英数がベースレイヤーで `default_layer_set()` で
+  切り替える
 - **設定レイヤー** — `LAYER_CONF`。左右のFnを両方ホールドしている間だけ有効になる。
   配置は全機種で共通。実装は `set_fn()`

@@ -23,13 +23,18 @@
 #    define WINDMILL_LED_ENABLE
 #endif
 
-/* レイヤー番号。keymaps[] の並びと一致させること */
-#define LAYER_KANA  0 // かな。OS側のIMEを「かな入力」にして使う
-#define LAYER_ALPHA 1 // 英数
-#define LAYER_SYM   2 // 数字・記号
-#define LAYER_FN    3 // ファンクション・メディア
-#define LAYER_CONF  4 // 設定。左右のFnを両方ホールドしている間だけ (set_fn 参照)
-#define LAYER_SIZE  5
+/* レイヤー番号。keymaps[] の並びと一致させること。
+ *
+ * かなの Shift 面は、こ / み のホールド中だけ上げる (windmill.c の apply_bottom_hold)。
+ * 英数と記号より下に置くのは、Shift を押しながら Ctrl で英数レイヤーを上げたときや、
+ * 記号レイヤーを上げたときに、そちらのキーが勝つようにするため */
+#define LAYER_KANA       0 // かな。OS側のIMEを「かな入力」にして使う
+#define LAYER_KANA_SHIFT 1 // かなの Shift 面
+#define LAYER_ALPHA      2 // 英数
+#define LAYER_SYM        3 // 数字・記号
+#define LAYER_FN         4 // ファンクション・メディア
+#define LAYER_CONF       5 // 設定。左右のFnを両方ホールドしている間だけ (set_fn 参照)
+#define LAYER_SIZE       6
 
 /* 英数レイヤーの親指Shift (SandS)。左右とも LSFT_T(KC_SPC) で同じキーコード
  * なので、キーコードでは左右を区別できない。同じ行に並んでいるので列 (col)
@@ -49,12 +54,12 @@
 #endif
 
 /* 英数レイヤーの Fn。左右を両方ホールドしている間だけ設定レイヤーへ移す
- * (set_fn 参照、issue #62)。左右とも MO(3) で同じキーコードなので、
+ * (set_fn 参照、issue #62)。左右とも MO(LAYER_FN) で同じキーコードなので、
  * ALPHA_THUMB_SHIFT と同じく matrix の列 (col) で左右を見分ける。列が見た目の
  * 位置と違う機種は config.h で上書きする (ALPHA_THUMB_SHIFT_L_COL 参照)。
  * keymaps[] のレイヤー1(英数)の並びと一致させること。かなレイヤーの Fn (そ / ね) は
  * 独自キーコードなので列を見ない */
-#define ALPHA_FN MO(3)
+#define ALPHA_FN MO(LAYER_FN)
 #ifndef FN_L_COL
 #    define FN_L_COL 3
 #endif
@@ -82,16 +87,19 @@
  * 448個) は本来キーマップ用だが、このリポジトリのキーマップは全てここのキーコード
  * だけで書いてあり、SAFE_RANGE から独自に足しているものは無い。
  *
- * 記号とかなのキー (KN_* / SY_*) がホストへ何を送るかは、windmill.c の出力表
- * (key_outputs[]) が持つ。キーマップには「どの文字のキーか」だけを書き、
- * 接続先の配列やOSで変わるキーコードは表の側で吸収する。
+ * 英数レイヤー以外の文字キー (数字、記号、かな) は全て独自キーコードで、
+ * 1キー1出力にする (issue #82)。押した瞬間に送り切ってリピートせず、押されている
+ * Shift は打ち消す。ホストへ何を送るかは windmill.c の出力表 (key_outputs[]) が持つ。
+ * キーマップには「どの文字のキーか」だけを書き、接続先の配列やOSで変わるキーコードは
+ * 表の側で吸収する。英数レイヤーのキーと文字以外のキー (Enter や矢印など) は
+ * 素のキーコードのままで、リピートと Shift はQMKに任せる。
  *
  * LT() / MT() のタップ側には独自キーコードを置けない (8bitの基本キーコードしか
- * 入らない)。英数レイヤーの LT(2,KC_BSLS) / LT(2,KC_SLSH) は素のキーコードのまま
- * 残してある。かなレイヤー最下段は LT() / MT() をやめて独自キーコードにし、
- * タップ・ホールドの判定を windmill.c が持つ (issue #85)。
+ * 入らない)。英数レイヤーの LT(LAYER_SYM,KC_BSLS) / LT(LAYER_SYM,KC_SLSH) は
+ * 素のキーコードのまま残してある。かなレイヤー最下段は LT() / MT() をやめて
+ * 独自キーコードにし、タップ・ホールドの判定を windmill.c が持つ (issue #85)。
  *
- * KN_NU 〜 SY_QUES は key_outputs[] のインデックス (keycode - KEY_OUTPUT_FIRST) に
+ * KB_TSU 〜 SY_QUES は key_outputs[] のインデックス (keycode - KEY_OUTPUT_FIRST) に
  * 使っている。足すときは表にも行を足すこと (tests/test_key_output.cpp が
  * 全キーの出力を見ている)。 */
 enum windmill_keycodes {
@@ -109,13 +117,21 @@ enum windmill_keycodes {
     KB_SA,  // さ  ホールド: Alt。同上
     KB_SO,  // そ  ホールド: Fn。ね と両方で設定レイヤー
     KB_HI,  // ひ  ホールド: 記号レイヤー
-    KB_KO,  // こ  ホールド: 左Shift
-    KB_MI,  // み  ホールド: 右Shift
+    KB_KO,  // こ  ホールド: 左Shift。ホールド中は Shift 面
+    KB_MI,  // み  ホールド: 右Shift。同上
     KB_MO,  // も  ホールド: 記号レイヤー
     KB_NE,  // ね  ホールド: Fn
 
-    /* かなレイヤー。名前はShift無しで出るかな。Shift時に別のかなを出すものは
-     * コメントに添えた。それ以外はOSのIMEに任せる (あ → ぁ、わ → を など) */
+    /* Shift 面の最下段。ホールドの役割は、同じ位置にあるかなレイヤーのキー (KB_*) と
+     * 同じで、タップで出るものだけが変わる。透過の位置 (さ そ ひ) はかなレイヤーの
+     * キーがそのまま効く */
+    KB_XTSU,   // っ  (つ の位置)
+    KB_SPC,    // 空  (こ / み の位置) 親指の組で出す半角スペース。組にならないタップは、
+               //     同じ位置のかなレイヤーのキーとして出す (windmill.c の send_bottom_tap)
+    KB_QUES,   // ？  (も の位置) 半角。英数に切り替えて送り、かなに戻す
+    KB_TOUTEN, // 、  (ね の位置)
+
+    /* かなレイヤー。名前は出るかな */
     KN_NU,   // ぬ
     KN_FU,   // ふ
     KN_A,    // あ
@@ -127,39 +143,65 @@ enum windmill_keycodes {
     KN_YO,   // よ
     KN_WA,   // わ
     KN_TA,   // た
-    KN_TE,   // て  Shift時: へ
+    KN_TE,   // て
     KN_I,    // い
-    KN_SU,   // す  Shift時: む
+    KN_SU,   // す
     KN_KA,   // か
     KN_N,    // ん
-    KN_NA,   // な  Shift時: ほ
+    KN_NA,   // な
     KN_NI,   // に
-    KN_RA,   // ら  Shift時: 「
-    KN_SE,   // せ  Shift時: 」
-    KN_DAKU, // ゛  Shift時: ゜
-    KN_CHI,  // ち  Shift時: っ
+    KN_RA,   // ら
+    KN_SE,   // せ
+    KN_DAKU, // ゛
+    KN_CHI,  // ち
     KN_TO,   // と
     KN_SHI,  // し
     KN_HA,   // は
     KN_KI,   // き
     KN_KU,   // く
     KN_MA,   // ま
-    KN_NO,   // の  Shift時: 、
-    KN_RI,   // り  Shift時: 。
-    KN_RE,   // れ  Shift時: ・
-    KN_KE,   // け  Shift時: ー
+    KN_NO,   // の
+    KN_RI,   // り
+    KN_RE,   // れ
+    KN_KE,   // け
     KN_RU,   // る
     KN_ME,   // め
     KN_RO,   // ろ
 
-    /* 英数レイヤーの記号。「Shift無しの文字_Shift時の文字」の組で1つ */
-    SY_SCLN_COLN, // ; :
-    SY_QUOT_DQUO, // ' "
-    SY_COMM_LABK, // , <
-    SY_DOT_RABK,  // . >
+    /* かなの Shift 面 */
+    KN_XA,      // ぁ
+    KN_XU,      // ぅ
+    KN_XE,      // ぇ
+    KN_XO,      // ぉ
+    KN_XYA,     // ゃ
+    KN_XYU,     // ゅ
+    KN_XYO,     // ょ
+    KN_WO,      // を
+    KN_HE,      // へ
+    KN_XI,      // ぃ
+    KN_MU,      // む
+    KN_HO,      // ほ
+    KN_LKAKKO,  // 「
+    KN_RKAKKO,  // 」
+    KN_HANDAKU, // ゜
+    KN_XTSU,    // っ
+    KN_TOUTEN,  // 、
+    KN_KUTEN,   // 。
+    KN_NAKAGURO, // ・
+    KN_CHOON,   // ー
 
-    /* 記号レイヤー。1キー1文字。is_sym_ime_wrap_target() が SY_EXLM 〜 SY_QUES を
-     * 範囲で見ているので、記号レイヤーのキーはこの間に足すこと */
+    /* 記号レイヤー。1キー1文字。is_alpha_output() が SY_1 〜 SY_QUES を範囲で
+     * 見ているので、記号レイヤーのキーはこの間に足すこと */
+    SY_1,    // 1
+    SY_2,    // 2
+    SY_3,    // 3
+    SY_4,    // 4
+    SY_5,    // 5
+    SY_6,    // 6
+    SY_7,    // 7
+    SY_8,    // 8
+    SY_9,    // 9
+    SY_0,    // 0
     SY_EXLM, // !
     SY_AT,   // @
     SY_HASH, // #
@@ -186,18 +228,21 @@ enum windmill_keycodes {
     WINDMILL_KEYCODE_END, // 番兵。キーマップには置かない
 };
 
-// かなレイヤー最下段のキーの範囲
+// かなレイヤー最下段のキーの範囲。Shift 面の最下段 (KB_XTSU 〜 KB_TOUTEN) を含む
 #define KEY_BOTTOM_FIRST KB_TSU
-#define KEY_BOTTOM_LAST  KB_NE
+#define KEY_BOTTOM_LAST  KB_TOUTEN
 
-// 出力表 (windmill.c の key_outputs[]) で引くキーの範囲
-#define KEY_OUTPUT_FIRST KN_NU
+// 出力表 (windmill.c の key_outputs[]) で引くキーの範囲。最下段のキーはタップで出すものを引く
+#define KEY_OUTPUT_FIRST KB_TSU
 #define KEY_OUTPUT_LAST  SY_QUES
 
-/* 出力表で引くキーなら、Shift無しでホストへ送るキーコードを返す。かなレイヤー
- * 最下段のキーなら、タップで送るキーコードを返す。それ以外はそのまま返す。
- * キーマップのキーコードを素のキーコードとして読みたい機種側の処理
- * (geonix41 のブロブ) 向け */
+// 1キー1出力で送る文字キーの範囲 (最下段のキーを除く)
+#define KEY_CHAR_FIRST KN_NU
+#define KEY_CHAR_LAST  SY_QUES
+
+/* 出力表で引くキー (かなレイヤー最下段のキーを含む) なら、ホストへ送るキーコードを
+ * 返す。Shift の要るものは S() 付き。それ以外はそのまま返す。キーマップのキーコードを
+ * 素のキーコードとして読みたい機種側の処理 (geonix41 のブロブ) 向け */
 uint16_t windmill_output_keycode(uint16_t keycode);
 
 #ifdef WINDMILL_LED_ENABLE

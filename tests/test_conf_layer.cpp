@@ -25,7 +25,7 @@
  * 壊しやすいのは離すほう。QMKのレイヤーは参照カウントを持たないので、片方の
  * Fnを離したときにFnレイヤーごと落ちたり、設定レイヤーが残ったりしないことを
  * 左右それぞれで見る。かなレイヤーの そ / ね (KB_SO / KB_NE) と英数レイヤーの
- * MO(3) とでキーコードも処理の経路も違うので、両方のベースで通す。 */
+ * MO(LAYER_FN) とでキーコードも処理の経路も違うので、両方のベースで通す。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -228,7 +228,7 @@ TEST_F(ConfLayer, releasing_one_fn_on_kana_returns_to_fn_layer) {
     default_layer_set((layer_state_t)1 << LAYER_ALPHA);
 }
 
-/* 英数ベース (左右とも MO(3)) で、両方押している間は設定レイヤー */
+/* 英数ベース (左右とも MO(LAYER_FN)) で、両方押している間は設定レイヤー */
 TEST_F(ConfLayerAlpha, both_fn_reach_conf_layer) {
     TestDriver driver;
     set_windmill_keymap();
