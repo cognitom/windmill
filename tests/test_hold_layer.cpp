@@ -22,9 +22,9 @@
  * ホストへ出るレポートから分かる。
  *
  * 特に効かせたいのは「離せば必ずかなへ戻る」ほう。自分で英数レイヤーを上げると
- * つ/さ の解放は mod-tap (LGUI_T(KC_Z)) ではなく英数レイヤー側の素の KC_LGUI で
- * 引き直されることがあり、mod-tap のキーコードで解放を待つ実装だと英数レイヤーへ
- * 貼りついたまま戻れなくなる (update_hold_layer 参照)。
+ * つ/さ の位置は英数レイヤー側の素の KC_LGUI / KC_LALT として引かれるようになる。
+ * 以前の mod-tap (LGUI_T(KC_Z)) はこれで解放を取り逃し、英数レイヤーへ貼りついた
+ * ことがある。今の つ/さ は windmill.c が位置で解放を見分ける (issue #85)。
  *
  * 起動直後のベースレイヤーは英数 (issue #22) なので、かなレイヤー上の挙動を
  * 見るには先に MY_LCTL をタップしてかなへ切り替えておく必要がある。 */
@@ -74,7 +74,7 @@ TEST_F(HoldLayer, gui_hold_switches_to_alpha_and_back) {
 
     tsu.press();
     run_one_scan_loop();
-    idle_for(250); // TAPPING_TERM 超え。ホールド確定
+    idle_for(250); // 250ms 押し続けてホールド確定
     tap_key(nu, 120);
     idle_for(120);
     tsu.release();
@@ -117,9 +117,9 @@ TEST_F(HoldLayer, alt_hold_switches_to_alpha_and_back) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 別キー割り込みでホールドが確定する経路 (HOLD_ON_OTHER_KEY_PRESS)。
- * 割り込んだキー自身も英数レイヤーで解決される必要があるので、レイヤーを
- * 上げるのは押下の処理中でなければ間に合わない */
+/* 別キー割り込みでホールドが確定する経路。つ を押してすぐ ぬ を押すと、ぬ は
+ * つ が決まるまで待たされ、つ が 150ms でホールドに決まった後に英数レイヤーで
+ * 解決される */
 TEST_F(HoldLayer, gui_hold_by_interrupt_resolves_on_alpha) {
     TestDriver driver;
     set_windmill_keymap();
@@ -130,7 +130,7 @@ TEST_F(HoldLayer, gui_hold_by_interrupt_resolves_on_alpha) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_GUI));       // ぬ の押下でホールド確定
+        EXPECT_REPORT(driver, (KC_LEFT_GUI));       // ぬ を押したまま 150ms でホールド確定
         EXPECT_REPORT(driver, (KC_LEFT_GUI, KC_Q)); // 割り込んだ ぬ も英数
         EXPECT_REPORT(driver, (KC_LEFT_GUI));
         EXPECT_EMPTY_REPORT(driver);
@@ -138,7 +138,7 @@ TEST_F(HoldLayer, gui_hold_by_interrupt_resolves_on_alpha) {
 
     tsu.press();
     run_one_scan_loop();
-    nu.press(); // TAPPING_TERM を待たずホールドが確定する
+    nu.press(); // 150ms 未満なので、ぬ は つ が決まるまで待つ
     run_one_scan_loop();
     idle_for(120);
     nu.release();
@@ -167,7 +167,7 @@ TEST_F(HoldLayer, tap_stays_on_kana) {
         EXPECT_EMPTY_REPORT(driver);
     }
 
-    tap_key(tsu, 50); // TAPPING_TERM 未満
+    tap_key(tsu, 50); // 150ms 未満
     idle_for(120);
     tap_key(nu, 120);
     idle_for(120);
@@ -177,7 +177,7 @@ TEST_F(HoldLayer, tap_stays_on_kana) {
 /* Ctrl + Win の重ね押し。先に離したほうのぶんだけ下がる。
  *
  * Ctrlが先に押されていると英数レイヤーが既に上がっているので、つ の押下は
- * mod-tap ではなく英数レイヤー側の素の KC_LGUI として解決される。そちらを
+ * かなの KB_TSU ではなく英数レイヤー側の素の KC_LGUI として解決される。そちらを
  * 数え損ねると、Ctrlを離した時点でかなへ戻ってしまう */
 TEST_F(HoldLayer, ctrl_and_gui_overlap_keeps_alpha) {
     TestDriver driver;

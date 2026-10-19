@@ -210,25 +210,25 @@ TEST_F(AndroidMods, blocked_mod_works_again_after_release) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* かなレイヤーで「つ」「さ」を続けて打つ。issue #57 の元になった打ち方。
+/* かなレイヤーで「つ」「さ」を重ねて長押しする。issue #57 の元になった打ち方。
  *
- * 「さ」の押下で「つ」のホールドが確定し (HOLD_ON_OTHER_KEY_PRESS)、「さ」は
- * 上がった英数レイヤーの素の KC_LALT として解決される。それを握りつぶす。
- * 握りつぶした Alt はホストへ出ないので、英数レイヤーを上げた数に入れてしまうと
- * 下ろす機会が無くなる。離したあとにかなへ戻っていることを「ぬ」で見る */
+ * 最下段のキーの押下では先のキーが決まらないので、「つ」「さ」はどちらも未判定の
+ * まま並び、それぞれ 250ms でホールドに決まる。後から決まった「さ」の Alt を
+ * 握りつぶす。握りつぶした Alt はホストへ出ないので、英数レイヤーを上げた数に
+ * 入れてしまうと下ろす機会が無くなる。離したあとにかなへ戻っていることを「ぬ」で見る */
 TEST_F(AndroidMods, kana_roll_over_gui_and_alt_sends_gui_only) {
     TestDriver driver;
     set_windmill_keymap();
     select_android(this, driver);
     switch_to_kana(this, driver);
 
-    auto tsu = key(POS_TSU); // つ  LGUI_T(KC_Z)
-    auto sa  = key(POS_SA);  // さ  LALT_T(KC_X)
+    auto tsu = key(POS_TSU); // つ  KB_TSU
+    auto sa  = key(POS_SA);  // さ  KB_SA
     auto nu  = key(POS_NU);  // ぬ  かな = KC_1 / 英数 = KC_Q
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_GUI)); // さ の押下でホールド確定。Alt は出ない
+        EXPECT_REPORT(driver, (KC_LEFT_GUI)); // つ 250ms でホールド。さ の Alt は出ない
         EXPECT_EMPTY_REPORT(driver);          // つ 解放
         EXPECT_REPORT(driver, (KC_1));        // さ を押したままでも、かなへ戻っている
         EXPECT_EMPTY_REPORT(driver);
@@ -238,9 +238,10 @@ TEST_F(AndroidMods, kana_roll_over_gui_and_alt_sends_gui_only) {
 
     tsu.press();
     run_one_scan_loop();
+    idle_for(20);
     sa.press();
     run_one_scan_loop();
-    idle_for(50);
+    idle_for(300);
     tsu.release();
     run_one_scan_loop();
     idle_for(50);
@@ -254,6 +255,42 @@ TEST_F(AndroidMods, kana_roll_over_gui_and_alt_sends_gui_only) {
     VERIFY_AND_CLEAR(driver);
 
     default_layer_set((layer_state_t)1 << LAYER_ALPHA); // 次のテストへかなを持ち越さない
+}
+
+/* 「つ」「さ」を続けてすばやく打てば、どちらも 150ms 未満で離れるのでタップ。
+ * Win も Alt も出ないので、Caps Lock の切り替えもアプリ一覧も起きない */
+TEST_F(AndroidMods, kana_quick_roll_over_is_two_taps) {
+    TestDriver driver;
+    set_windmill_keymap();
+    select_android(this, driver);
+    switch_to_kana(this, driver);
+
+    auto tsu = key(POS_TSU);
+    auto sa  = key(POS_SA);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_Z)); // つ
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_X)); // さ
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    tsu.press();
+    run_one_scan_loop();
+    idle_for(20);
+    sa.press();
+    run_one_scan_loop();
+    idle_for(40);
+    tsu.release();
+    run_one_scan_loop();
+    idle_for(20);
+    sa.release();
+    run_one_scan_loop();
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+
+    default_layer_set((layer_state_t)1 << LAYER_ALPHA);
 }
 
 /* Win+. は Alt+. として出る。Win を押したまま続けて打てば、そのたびに出る。
@@ -307,7 +344,7 @@ TEST_F(AndroidMods, kana_gui_dot_is_sent_as_alt_dot) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_GUI)); // り の押下でホールド確定
+        EXPECT_REPORT(driver, (KC_LEFT_GUI)); // り を押したまま 150ms でホールド確定
         expect_gui_dot_as_alt_dot(driver);
         EXPECT_REPORT(driver, (KC_LEFT_GUI, KC_Q)); // 英数レイヤーのまま
         EXPECT_REPORT(driver, (KC_LEFT_GUI));
@@ -318,9 +355,9 @@ TEST_F(AndroidMods, kana_gui_dot_is_sent_as_alt_dot) {
 
     tsu.press();
     run_one_scan_loop();
-    ri.press(); // TAPPING_TERM を待たずホールドが確定する
+    ri.press(); // 150ms 未満なので、り は つ が決まるまで待つ
     run_one_scan_loop();
-    idle_for(50);
+    idle_for(160);
     ri.release();
     run_one_scan_loop();
     idle_for(50);

@@ -8,7 +8,7 @@ minipeg48 / geonix41 の4つで、**キー処理の本体は `firmware/windmill.
 
 | パス | 中身 |
 |--|--|
-| `firmware/windmill.c` `firmware/windmill.h` | 全機種共通のキー処理。レイヤー、Shift出し分け、親指Shift、LED |
+| `firmware/windmill.c` `firmware/windmill.h` | 全機種共通のキー処理。レイヤー、Shift出し分け、かな最下段のタップ・ホールド、LED |
 | `firmware/<機種>/` | `keyboard.json`, `rules.mk`, `keymaps/default/keymap.c` |
 | `compose.agent.yaml` | QMK を動かすコンテナ。`qmk` サービスが常駐し、geonix41 のビルドだけ使い捨ての `geonix41` サービスで回す |
 | `scripts/` | lint (`lint.sh`) とテスト (`test.sh`)、ビルド (`build.sh`。geonix41 だけのものは `geonix41/` の下)、リリース (`release.sh`) |
@@ -95,7 +95,15 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
 
 ## 用語
 
-- **SandS** — Spaceをホールドすると Shift になる。実装は `process_thumb_shift()`
+- **SandS** — 英数レイヤーで Spaceをホールドすると Shift になる。QMK の `LSFT_T(KC_SPC)` で、
+  左右の持ち替えは `process_alpha_thumb_shift()`
+- **最下段のタップ・ホールド** — かなレイヤー最下段の8キー (つ さ そ ひ こ み も ね) は独自キーコード
+  (`KB_*`) で、タップ・ホールドの判定を QMK に任せず自前で持つ。150ms 未満で離せばタップ、
+  250ms でホールド、150ms 以上で別のキーを押せばホールド。未判定の間に押されたキーは
+  キューで待たせ、押した順に出す。実装は `process_bottom_row()`
+- **親指の組** — こ (左Shift) と み (右Shift) の同時押しで半角スペースを出す規則。
+  「こ / み」「そ / ね」「ひ / も」は同じ役割の組で、互いを「相方」と呼ぶ。
+  実装は `settle_thumb_pair()`
 - **出力表** — 記号とかなのキーは独自キーコード (`KN_*` / `SY_*`) で、ホストへ送るキーは
   `key_outputs[]` のテーブル引きで決める。列は接続先の配列 (今は US だけ)。
   実装は `process_key_output()`
@@ -104,4 +112,4 @@ bash scripts/release.sh --dry-run    # CHANGES.md へ書く内容だけ見て終
 - **レイヤー** — `LAYER_KANA`(0) / `LAYER_ALPHA`(1) / `LAYER_SYM`(2) / `LAYER_FN`(3) /
   `LAYER_CONF`(4)。0と1がベースレイヤーで `default_layer_set()` で切り替える
 - **設定レイヤー** — `LAYER_CONF`。左右のFnを両方ホールドしている間だけ有効になる。
-  配置は全機種で共通。実装は `process_fn()`
+  配置は全機種で共通。実装は `set_fn()`

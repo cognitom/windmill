@@ -31,7 +31,7 @@ issue #18 は「言語切り替え直後の1打鍵目だけ Shift が効かず�
 ## 間隔まで見ることがある
 
 issue #36 は、そのレポート列すら1打鍵目と2打鍵目で完全に同じで、**違うのは送出の間隔だけ**だった。
-親指Shiftのホールドが別キー割り込みで確定する (`HOLD_ON_OTHER_KEY_PRESS`) ため、1打鍵目は
+親指Shiftのホールドが別キー割り込みで確定するため、1打鍵目は
 `[LSFT]` → `[]` → `[KC_MINS]` が全て同じスキャンで出てしまい、実機のIMEがShiftの上げ下げを
 取りこぼしていた。この手の不具合はレポート列では固定できないので、
 `EXPECT_REPORT(...).WillOnce(...)` で `timer_read()` を控えて間隔も突き合わせる
@@ -41,6 +41,10 @@ issue #36 は、そのレポート列すら1打鍵目と2打鍵目で完全に�
 (`ThumbShift.space_drops_shift_in_its_own_report`)。こちらは `del_mods()`/`set_mods()` が
 レポートを送らないぶん、1本目が `[LSFT]` → `[KC_SPC]` と「Shiftを離す」と「Spaceを押す」を
 まとめた形になっていて、レポート列と間隔の両方を見る必要がある。
+
+かなレイヤー最下段のタップ・ホールド (issue #85) は判定が時間で決まるので、
+`test_bottom_row.cpp` は押し離しを「最初の押下からの ms」で並べて流す (`BottomRow::play()`)。
+各手はその時刻のスキャンで処理されるので、150ms / 250ms ちょうどの境界もそのまま書ける。
 
 ## レイヤーもレポートで見る
 
@@ -58,8 +62,9 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_keymap.hpp` | テスト用キーマップと `WindmillTest` フィクスチャ |
 | `test_shift_pair.cpp` | 親指Shift + `process_shift_pair()` のレポート列 |
 | `test_key_output.cpp` | 記号とかなのキー (独自キーコード `KN_*` / `SY_*`) の出力を、かな・英数・記号の3レイヤーの全キーぶん総当たりで見る。期待値は独自キーコードにする前の出力そのもので、出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。押しっぱなしでリピートが効くこと、記号を続けて打っても Shift が次のキーへ漏れないことも見る (issue #73) |
+| `test_bottom_row.cpp` | かなレイヤー最下段のタップ・ホールド (issue #85)。issue の「テストで固定するケース」a〜z と、150ms / 250ms の境界、待っている間はレポートが出ないこと、待っていたキーが押した順に出ることのレポート列 |
 | `test_kana_qmark.cpp` | かなレイヤーの「も」でのShift+タップ (半角`?`) のレポート列 |
-| `test_thumb_shift.cpp` | 左右の親指Shiftの持ち替え (ハンドオーバー) と同時押しスペースのレポート列 |
+| `test_thumb_shift.cpp` | かなレイヤーの親指Shift (こ = 左Shift / み = 右Shift) の持ち替えと、同時押しスペースの前に Shift を下ろすレポートと間隔 |
 | `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左右とも同じキーコード) の持ち替え (ハンドオーバー) のレポート列 |
 | `test_hold_layer.cpp` | Ctrl / Win / Alt のホールド中だけ英数レイヤーへ移ることのレポート列 |
 | `test_lang_toggle.cpp` | Ctrl (`MY_LCTL`) のタップでの言語切替。OSごとの送るキーとベースレイヤーの反転、Fn+Ctrl (`MY_IME`) がIMEだけを切り替えることのレポート列 |
