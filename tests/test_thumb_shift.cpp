@@ -48,8 +48,8 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 左 (こ) を押したまま右 (み) を押し、左を先に離す。右が残っているので Shift は
- * 途切れず、持ち替えた後のキーにも乗る。
+/* 左 (こ) を押したまま右 (み) を押し、左を先に離す。右が残っているので Shift と
+ * Shift 面は途切れず、持ち替えた後に打った わ は Shift 面の「を」(Shift+0) になる。
  *
  * 2つ目の み は こ と組になりうるので、み が決まるまで こ の解放も待つ。
  * み が 250ms でホールドに決まった時点で、両方の Shift が重なってから左が外れる */
@@ -60,14 +60,14 @@ TEST_F(ThumbShift, handover_left_to_right_keeps_shift) {
 
     auto ko = key(POS_KO); // 左親指Shift
     auto mi = key(POS_MI); // 右親指Shift
-    auto ha = key(POS_HA); // は (KC_F)
+    auto wa = key(POS_WA); // わ。Shift 面では「を」
 
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));                 // こ ホールド確定
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_RIGHT_SHIFT)); // み ホールド確定
         EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));                // こ 解放
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_F));          // 持ち替え後も Shift が乗る
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_0));          // 持ち替え後も Shift 面の「を」
         EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);                            // み 解放
     }
@@ -81,7 +81,7 @@ TEST_F(ThumbShift, handover_left_to_right_keeps_shift) {
     ko.release(); // 左を離す。右はまだ押されている
     run_one_scan_loop();
     idle_for(120);
-    tap_key(ha, 120);
+    tap_key(wa, 120);
     idle_for(120);
     mi.release();
     run_one_scan_loop();
@@ -96,14 +96,14 @@ TEST_F(ThumbShift, handover_right_to_left_keeps_shift) {
 
     auto ko = key(POS_KO);
     auto mi = key(POS_MI);
-    auto ha = key(POS_HA);
+    auto wa = key(POS_WA);
 
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_RIGHT_SHIFT));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
-        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_F));
+        EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_0));
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);
     }
@@ -117,7 +117,7 @@ TEST_F(ThumbShift, handover_right_to_left_keeps_shift) {
     mi.release();
     run_one_scan_loop();
     idle_for(120);
-    tap_key(ha, 120);
+    tap_key(wa, 120);
     idle_for(120);
     ko.release();
     run_one_scan_loop();
@@ -133,7 +133,7 @@ TEST_F(ThumbShift, both_released_clears_shift) {
 
     auto ko = key(POS_KO);
     auto mi = key(POS_MI);
-    auto ha = key(POS_HA);
+    auto wa = key(POS_WA);
 
     {
         InSequence s;
@@ -141,7 +141,7 @@ TEST_F(ThumbShift, both_released_clears_shift) {
         EXPECT_REPORT(driver, (KC_LEFT_SHIFT, KC_RIGHT_SHIFT));
         EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
         EXPECT_EMPTY_REPORT(driver);   // 両方離れた
-        EXPECT_REPORT(driver, (KC_F)); // Shiftは残っていない
+        EXPECT_REPORT(driver, (KC_0)); // Shift も Shift 面も残っていない (「を」ではなく わ)
         EXPECT_EMPTY_REPORT(driver);
     }
 
@@ -157,7 +157,7 @@ TEST_F(ThumbShift, both_released_clears_shift) {
     mi.release();
     run_one_scan_loop();
     idle_for(120);
-    tap_key(ha, 120);
+    tap_key(wa, 120);
     idle_for(120);
     VERIFY_AND_CLEAR(driver);
 }

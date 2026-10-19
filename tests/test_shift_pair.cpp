@@ -14,7 +14,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* 親指Shift + process_shift_pair() のHIDレポートを検証する。
+/* 親指Shift で Shift 面のキーを打ったときのHIDレポートを検証する。
+ *
+ * 以前は同じキーの Shift 時の出力を別に持っていた (process_shift_pair)。今は
+ * こ / み のホールド中に Shift 面 (LAYER_KANA_SHIFT) が上がり、そこのキーを
+ * 1キー1出力で送る (issue #82)。押されている Shift の扱いは変わらない。
  *
  * ここで見たいのは「どの文字が出たか」ではなく「どんなレポート列が出たか」。
  * issue #18 は修飾の付け外しが1本余計なレポートを挟むのが原因で、キーコード
@@ -59,7 +63,7 @@ static void switch_to_kana(WindmillTest* f, TestDriver& driver) {
  * 左Shiftを押し直すレポートが挟まっていた。technik ではその1文字だけ Shift が
  * 無視されて「、」ではなく「ね」になっていた。
  *
- * 「み」は右Shift (issue #85)。shifted 側が S(KC_x) でも weak Shift (左Shift) を
+ * 「み」は右Shift (issue #85)。Shift 面の「、」は S(KC_COMM) だが、weak Shift (左Shift) を
  * 付けず、押されている右Shiftをそのまま使うので、入れ替わりは起きない。 */
 TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
     TestDriver driver;
@@ -98,8 +102,8 @@ TEST_F(ShiftPair, thumb_shift_keeps_held_shift_on_first_keypress) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* issue #36 の再現手順。issue #18 と同じ形だが、こちらは shifted 側が
- * Shift無しで送る側のキー。
+/* issue #36 の再現手順。issue #18 と同じ形だが、こちらは Shift 面のキーが
+ * Shift無しで送るもの (「ほ」= KC_MINS)。
  *
  *   は の位置 (英数では f) : 英数で1文字入力 (起動直後は英数)
  *   MY_LCTL タップ         : かなへ
@@ -176,7 +180,7 @@ TEST_F(ShiftPair, without_shift_sends_plain_keycode) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* shifted 側が Shift 付きキーコードなら、押されている Shift をそのまま使う。
+/* Shift 面のキーが Shift 付きのもの (「「」= S(KC_LBRC)) なら、押されている Shift をそのまま使う。
  * 修飾の付け外しレポートが挟まらないこと。 */
 TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     TestDriver driver;
@@ -184,7 +188,7 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
-    auto ra = key(POS_RA); // KN_RA -> S(KC_LBRC)
+    auto ra = key(POS_RA); // Shift 面では KN_LKAKKO -> S(KC_LBRC)
 
     {
         InSequence s;
@@ -205,7 +209,7 @@ TEST_F(ShiftPair, shifted_pair_reuses_held_shift) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* shifted 側が Shift 不要なキー (KN_SU -> バックスラッシュ) では、いったん
+/* Shift 面のキーが Shift 不要なもの (「む」= バックスラッシュ) では、いったん
  * Shift を外して戻す。del_mods()/set_mods() はレポートを送らないので、
  * ここは register 系でなければ戻りがホストへ伝わらない。 */
 TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
@@ -214,7 +218,7 @@ TEST_F(ShiftPair, unshifted_pair_drops_and_restores_shift) {
     switch_to_kana(this, driver);
 
     auto mi = key(POS_MI);
-    auto su = key(POS_SU); // KN_SU -> KC_BSLS
+    auto su = key(POS_SU); // Shift 面では KN_MU -> KC_BSLS
 
     {
         InSequence s;

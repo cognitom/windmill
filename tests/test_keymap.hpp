@@ -47,15 +47,22 @@ static const uint16_t windmill_keymap[LAYER_SIZE][MATRIX_ROWS][MATRIX_COLS] = {
     {MY_LCTL, KB_TSU,       KB_SA,        KB_SO,       KB_HI,         KB_KO,          KB_MI,          KB_MO,         KB_NE,          KN_RU,      KN_ME,   KN_RO},
   },
 
+  [LAYER_KANA_SHIFT] = {
+    {KC_TRNS, KC_TRNS, KC_TRNS, KN_XA,   KN_XU,   KN_XE,   KN_XO,   KN_XYA,  KN_XYU,    KN_XYO,    KN_WO,       KC_TRNS},
+    {KC_TRNS, KC_TRNS, KN_HE,   KN_XI,   KN_MU,   KC_TRNS, KC_TRNS, KN_HO,   KC_TRNS,   KN_LKAKKO, KN_RKAKKO,   KN_HANDAKU},
+    {KC_TRNS, KN_XTSU, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KN_TOUTEN, KN_KUTEN,  KN_NAKAGURO, KN_CHOON},
+    {KC_TRNS, KB_XTSU, KC_TRNS, KC_TRNS, KC_TRNS, KB_SPC,  KB_SPC,  KB_QUES, KB_TOUTEN, KN_KUTEN,  KN_NAKAGURO, KC_TRNS},
+  },
+
   [LAYER_ALPHA] = {
-    {KC_TRNS, KC_Q,    KC_W,    KC_E,  KC_R,          KC_T,           KC_Y,           KC_U,          KC_I,         KC_O,        KC_P,         KC_TRNS},
-    {KC_TRNS, KC_A,    KC_S,    KC_D,  KC_F,          KC_G,           KC_H,           KC_J,          KC_K,         KC_L,        SY_SCLN_COLN, SY_QUOT_DQUO},
-    {KC_TRNS, KC_Z,    KC_X,    KC_C,  KC_V,          KC_B,           KC_N,           KC_M,          SY_COMM_LABK, SY_DOT_RABK, KC_UP,        KC_RGHT},
-    {KC_TRNS, KC_LGUI, KC_LALT, MO(3), LT(2,KC_BSLS), LSFT_T(KC_SPC), LSFT_T(KC_SPC), LT(2,KC_SLSH), MO(3),        KC_APP,      KC_LEFT,      KC_DOWN},
+    {KC_TRNS, KC_Q,    KC_W,    KC_E,         KC_R,                  KC_T,           KC_Y,           KC_U,                  KC_I,         KC_O,   KC_P,    KC_TRNS},
+    {KC_TRNS, KC_A,    KC_S,    KC_D,         KC_F,                  KC_G,           KC_H,           KC_J,                  KC_K,         KC_L,   KC_SCLN, KC_QUOT},
+    {KC_TRNS, KC_Z,    KC_X,    KC_C,         KC_V,                  KC_B,           KC_N,           KC_M,                  KC_COMM,      KC_DOT, KC_UP,   KC_RGHT},
+    {KC_TRNS, KC_LGUI, KC_LALT, MO(LAYER_FN), LT(LAYER_SYM,KC_BSLS), LSFT_T(KC_SPC), LSFT_T(KC_SPC), LT(LAYER_SYM,KC_SLSH), MO(LAYER_FN), KC_APP, KC_LEFT, KC_DOWN},
   },
 
   [LAYER_SYM] = {
-    {KC_TRNS, KC_1,         KC_2,         KC_3,        KC_4,          KC_5,           KC_6,           KC_7,          KC_8,           KC_9,       KC_0,    KC_TRNS},
+    {KC_TRNS, SY_1,         SY_2,         SY_3,        SY_4,          SY_5,           SY_6,           SY_7,          SY_8,           SY_9,       SY_0,    KC_TRNS},
     {KC_TRNS, SY_EXLM,      SY_AT,        SY_HASH,     SY_DLR,        SY_PERC,        SY_CIRC,        SY_AMPR,       SY_ASTR,        SY_LPRN,    SY_RPRN, SY_GRV},
     {KC_TRNS, SY_EQL,       SY_PLUS,      SY_MINS,     SY_UNDS,       SY_LBRC,        SY_RBRC,        SY_TILD,       SY_LCBR,        SY_RCBR,    KC_UP,   KC_RGHT},
     {KC_TRNS, KC_TRNS,      KC_TRNS,      KC_TRNS,     KC_TRNS,       SY_PIPE,        SY_QUES,        KC_TRNS,       KC_TRNS,        KC_TRNS,    KC_LEFT, KC_DOWN},
@@ -90,24 +97,24 @@ static inline uint8_t windmill_matrix_col(uint8_t row, uint8_t col) {
 
 /* かなレイヤー上の位置 (見た目の行と位置。matrix の列ではない)。コメントの文字は JISかな入力での出力 */
 #define POS_LCTL 3, 0  // 言語切替 (英数⇔かな)
-#define POS_KO 3, 5    // こ  KB_KO  ホールドで左Shift。英数レイヤーでは LSFT_T(KC_SPC)
-#define POS_MI 3, 6    // み  KB_MI  ホールドで右Shift。英数レイヤーでは LSFT_T(KC_SPC)
-#define POS_NO 2, 8    // の  KN_NO  Shift時 S(KC_COMM) = 、
-#define POS_RA 1, 9    // ら  KN_RA  Shift時 S(KC_LBRC)
-#define POS_SU 1, 4    // す  KN_SU  Shift時 KC_BSLS  (Shiftを外す必要がある)
-#define POS_NA 1, 7    // な  KN_NA  Shift時 KC_MINS = ほ (Shiftを外す必要がある)
+#define POS_KO 3, 5    // こ  KB_KO  ホールドで左Shift と Shift 面。英数レイヤーでは LSFT_T(KC_SPC)
+#define POS_MI 3, 6    // み  KB_MI  ホールドで右Shift と Shift 面。英数レイヤーでは LSFT_T(KC_SPC)
+#define POS_NO 2, 8    // の  KN_NO  Shift 面では S(KC_COMM) = 、
+#define POS_RA 1, 9    // ら  KN_RA  Shift 面では S(KC_LBRC) = 「
+#define POS_SU 1, 4    // す  KN_SU  Shift 面では KC_BSLS = む (Shiftを外す必要がある)
+#define POS_NA 1, 7    // な  KN_NA  Shift 面では KC_MINS = ほ (Shiftを外す必要がある)
 #define POS_HA 2, 4    // は  KN_HA  英数レイヤーでは "f"
 #define POS_HI 3, 4    // ひ  KB_HI  ホールドで記号レイヤー
-#define POS_MO 3, 7    // も  KB_MO  ホールドで記号レイヤー。Shift+タップで半角?
+#define POS_MO 3, 7    // も  KB_MO  ホールドで記号レイヤー。Shift 面では半角? (KB_QUES)
 #define POS_TSU 3, 1   // つ  KB_TSU ホールドで Win。英数レイヤーでは KC_LGUI
 #define POS_SA 3, 2    // さ  KB_SA  ホールドで Alt。英数レイヤーでは KC_LALT
 #define POS_NU 0, 1    // ぬ  KN_NU        英数レイヤーでは "q"、Fnレイヤーでは F1
-#define POS_WA 0, 10   // わ  KN_WA        Shift で「を」
-#define POS_A 0, 3     // あ  KN_A         Shift で「ぁ」
+#define POS_WA 0, 10   // わ  KN_WA        Shift 面では「を」
+#define POS_A 0, 3     // あ  KN_A         Shift 面では「ぁ」
 #define POS_TA 1, 1    // た  KN_TA        記号レイヤーでは「!」、設定レイヤーでは MY_WIN
 #define POS_RI 2, 9    // り  KN_RI        英数レイヤーでは "."
-#define POS_FN_L 3, 3  // そ  KB_SO  ホールドで Fn。英数レイヤーでは MO(3)
-#define POS_FN_R 3, 8  // ね  KB_NE  ホールドで Fn。英数レイヤーでは MO(3)
+#define POS_FN_L 3, 3  // そ  KB_SO  ホールドで Fn。英数レイヤーでは MO(LAYER_FN)
+#define POS_FN_R 3, 8  // ね  KB_NE  ホールドで Fn。英数レイヤーでは MO(LAYER_FN)
 
 /* 設定レイヤー上の位置。左右のFnを両方ホールドしている間だけ出る (issue #62) */
 #define POS_WIN 1, 1   // MY_WIN   Fnレイヤーでは KC_F11

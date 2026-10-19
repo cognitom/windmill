@@ -46,7 +46,7 @@
 #define DEBOUNCE 5
 
 /* tap-hold は別キーが押された時点でホールド確定。
- * MY_LCTL や英数レイヤーの LSFT_T(KC_SPC) / LT(2,KC_BSLS) の打鍵感がこれで決まる。
+ * MY_LCTL や英数レイヤーの LSFT_T(KC_SPC) / LT(LAYER_SYM,KC_BSLS) の打鍵感がこれで決まる。
  * かなレイヤー最下段は windmill.c が自前で判定するので、これの影響を受けない */
 #define HOLD_ON_OTHER_KEY_PRESS
 

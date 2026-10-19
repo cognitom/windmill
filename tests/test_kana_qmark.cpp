@@ -14,10 +14,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* send_kana_qmark() のHIDレポートを検証する (issue #17)。
+/* Shift 面の半角「？」(KB_QUES) のHIDレポートを検証する (issue #17、issue #82)。
  *
- * かなレイヤーの「も」(KB_MO) をShiftを押しながらタップすると、
- * KC_LNG2 → Shift+KC_SLSH → KC_LNG1 の順で送出し、半角「?」を入力する。
+ * かなレイヤーの「も」(KB_MO) をShiftを押しながらタップすると、Shift 面の同じ位置の
+ * 「？」になり、KC_LNG2 → Shift+KC_SLSH → KC_LNG1 の順で送出して半角「?」を入力する。
+ * 送り方は記号レイヤーの記号と同じ send_output() で、英数に切り替えて送る。
  * キーコードの並びだけでなく、実Shiftがいつ外れていつ戻るかをレポート列で
  * 固定する (issue #18 と同じ理由で、キーコードの一致だけでは修飾の出方の
  * 崩れに気づけない)。要点は2つ。
@@ -117,7 +118,9 @@ TEST_F(KanaQmark, shifted_tap_sends_halfwidth_question_mark) {
 
 /* 実機で報告された は→も→も の再現 (PR #32)。「も」以外のキーを打った直後の
  * 1打鍵目だけ半角「/」になっていた。Shiftを入れ替えずに使えば1回目も2回目も
- * 同じレポート列になる。 */
+ * 同じレポート列になる。
+ *
+ * 「は」は Shift 面で透過なので、Shift を外して「は」のまま出る (issue #82) */
 TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
     TestDriver driver;
     set_windmill_keymap();
@@ -130,8 +133,10 @@ TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));        // み ホールド確定
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT, KC_F));  // は
-        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));
+        EXPECT_EMPTY_REPORT(driver);                    // は。Shift を外して送る
+        EXPECT_REPORT(driver, (KC_F));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_RIGHT_SHIFT));        // 押しっぱなしの Shift を戻す
         expect_qmark_reports(driver, KC_RIGHT_SHIFT);   // も 1回目
         expect_qmark_reports(driver, KC_RIGHT_SHIFT);   // も 2回目
         EXPECT_EMPTY_REPORT(driver);                   // み 解放
@@ -153,7 +158,7 @@ TEST_F(KanaQmark, shifted_tap_is_stable_after_other_key) {
 }
 
 /* ホールドすれば通常どおりSymレイヤーに乗る。かなベースのままなので、数字は
- * 既存のIMEラップ (is_sym_ime_wrap_target) で KC_LNG2 -> KC_1 -> KC_LNG1 に
+ * 英数に切り替えて送る (is_alpha_output) ので KC_LNG2 -> KC_1 -> KC_LNG1 に
  * なる。半角「?」の処理がホールドに割り込んでいないことの確認 */
 TEST_F(KanaQmark, hold_still_enters_sym_layer) {
     TestDriver driver;

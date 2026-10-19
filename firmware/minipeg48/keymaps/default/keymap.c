@@ -17,12 +17,16 @@
 #include QMK_KEYBOARD_H
 #include "windmill.h"
 
-/* レイヤー0(かな)とレイヤー1(英数)がベースレイヤーで、MY_LCTL のタップで
- * 交互に切り替わる。レイヤー1で透過のキーはレイヤー0へ落ちる。
+/* かな (LAYER_KANA) と英数 (LAYER_ALPHA) がベースレイヤーで、MY_LCTL のタップで
+ * 交互に切り替わる。英数で透過のキーはかなへ落ちる。
+ *
+ * かなの Shift 面 (LAYER_KANA_SHIFT) は、こ / み のホールド中だけ有効になる
+ * (issue #82)。透過のキーは、Shift を打ち消して下のかなを出す。最下段は同じ位置の
+ * かなのキーと同じホールドの役割を持ち、タップで出るものだけが変わる。
  *
  * technik / ymd40 と同じ配列。LED非搭載なので MY_DARK だけ置いていない。
  *
- * レイヤー4(設定)は左右のFnを両方ホールドしている間だけ有効になる (issue #62)。
+ * 設定 (LAYER_CONF) は左右のFnを両方ホールドしている間だけ有効になる (issue #62)。
  * 配置は全機種で共通で、無線モード切替 (MD_*) は無線を持つ geonix41 にしか
  * 無いので、ここでは KC_NO。Fn の位置は透過のままにしておくこと
  * (windmill.c の set_fn 参照)。 */
@@ -35,15 +39,22 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     MY_LCTL, KB_TSU,       KB_SA,        KB_SO,       KB_HI,         KB_KO,          KB_MI,          KB_MO,         KB_NE,          KN_RU,      KN_ME,   KN_RO
   ),
 
+  [LAYER_KANA_SHIFT] = LAYOUT_ortho_4x12(
+    _______, _______, _______, KN_XA,   KN_XU,   KN_XE,   KN_XO,   KN_XYA,  KN_XYU,    KN_XYO,    KN_WO,       _______,
+    _______, _______, KN_HE,   KN_XI,   KN_MU,   _______, _______, KN_HO,   _______,   KN_LKAKKO, KN_RKAKKO,   KN_HANDAKU,
+    _______, KN_XTSU, _______, _______, _______, _______, _______, _______, KN_TOUTEN, KN_KUTEN,  KN_NAKAGURO, KN_CHOON,
+    _______, KB_XTSU, _______, _______, _______, KB_SPC,  KB_SPC,  KB_QUES, KB_TOUTEN, KN_KUTEN,  KN_NAKAGURO, _______
+  ),
+
   [LAYER_ALPHA] = LAYOUT_ortho_4x12(
-    _______, KC_Q,    KC_W,    KC_E,  KC_R,          KC_T,           KC_Y,           KC_U,          KC_I,         KC_O,        KC_P,         _______,
-    _______, KC_A,    KC_S,    KC_D,  KC_F,          KC_G,           KC_H,           KC_J,          KC_K,         KC_L,        SY_SCLN_COLN, SY_QUOT_DQUO,
-    _______, KC_Z,    KC_X,    KC_C,  KC_V,          KC_B,           KC_N,           KC_M,          SY_COMM_LABK, SY_DOT_RABK, KC_UP,        KC_RGHT,
-    _______, KC_LGUI, KC_LALT, MO(3), LT(2,KC_BSLS), LSFT_T(KC_SPC), LSFT_T(KC_SPC), LT(2,KC_SLSH), MO(3),        KC_APP,      KC_LEFT,      KC_DOWN
+    _______, KC_Q,    KC_W,    KC_E,         KC_R,                  KC_T,           KC_Y,           KC_U,                  KC_I,         KC_O,   KC_P,    _______,
+    _______, KC_A,    KC_S,    KC_D,         KC_F,                  KC_G,           KC_H,           KC_J,                  KC_K,         KC_L,   KC_SCLN, KC_QUOT,
+    _______, KC_Z,    KC_X,    KC_C,         KC_V,                  KC_B,           KC_N,           KC_M,                  KC_COMM,      KC_DOT, KC_UP,   KC_RGHT,
+    _______, KC_LGUI, KC_LALT, MO(LAYER_FN), LT(LAYER_SYM,KC_BSLS), LSFT_T(KC_SPC), LSFT_T(KC_SPC), LT(LAYER_SYM,KC_SLSH), MO(LAYER_FN), KC_APP, KC_LEFT, KC_DOWN
   ),
 
   [LAYER_SYM] = LAYOUT_ortho_4x12(
-    _______, KC_1,         KC_2,         KC_3,        KC_4,          KC_5,           KC_6,           KC_7,          KC_8,           KC_9,       KC_0,    _______,
+    _______, SY_1,         SY_2,         SY_3,        SY_4,          SY_5,           SY_6,           SY_7,          SY_8,           SY_9,       SY_0,    _______,
     _______, SY_EXLM,      SY_AT,        SY_HASH,     SY_DLR,        SY_PERC,        SY_CIRC,        SY_AMPR,       SY_ASTR,        SY_LPRN,    SY_RPRN, SY_GRV,
     _______, SY_EQL,       SY_PLUS,      SY_MINS,     SY_UNDS,       SY_LBRC,        SY_RBRC,        SY_TILD,       SY_LCBR,        SY_RCBR,    KC_UP,   KC_RGHT,
     _______, _______,      _______,      _______,     _______,       SY_PIPE,        SY_QUES,        _______,       _______,        _______,    KC_LEFT, KC_DOWN

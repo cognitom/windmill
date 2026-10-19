@@ -37,7 +37,7 @@ _Static_assert((int)QMK_KB_BLE3_PAIR < (int)MY_WIN,
 /* BLEペアリングコード等の自動入力用。静的キーマップのレイヤー0から引く。
  *
  * ブロブは引いたキーコードの下位8bitをそのまま register_code() へ渡す。
- * レイヤー0(かな)のキーはほとんどが独自キーコード (KN_*) で、下位8bitだけ
+ * レイヤー0(かな)のキーはほとんどが独自キーコード (KN_* / KB_*) で、下位8bitだけ
  * 読まれると無関係なキーに化ける。ホストへ送るキーコードに直してから返す */
 uint16_t dynamic_keymap_get_keycode(uint8_t layer, uint8_t row, uint8_t column) {
     if (layer >= keymap_layer_count()) {
@@ -189,7 +189,8 @@ void windmill_board_pre_process_record(uint16_t keycode, keyrecord_t *record) {
 
 bool windmill_board_process_record(uint16_t keycode, keyrecord_t *record) {
     // 無線モード切替など、ブロブ側のキーコードはここで処理される。
-    // windmill の独自キーコードは来ない。記号とかなのキーのうちShiftで出し分けない
-    // ものは、ホストへ送る素のキーコードに直されて来る (windmill.c の process_key_output)
+    // windmill の独自キーコードは来ない。数字・記号・かなのキーは、ホストへ送る素の
+    // キーコード (Shift は外したもの) に直されて来る (windmill.c の process_char_key)。
+    // 押下と解放の両方が来る。押下で false を返すと、windmill.c はそのキーを送らない
     return Key_Value_Dispose(keycode, record);
 }

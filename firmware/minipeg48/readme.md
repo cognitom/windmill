@@ -8,7 +8,7 @@
 * LED: なし
 
 LED非搭載なので `windmill.c` の配色処理は `WINDMILL_LED_ENABLE` によって
-コンパイルから外れる。あわせて、レイヤー3の `MY_DARK` (明るさ 強/弱) も置いていない。
+コンパイルから外れる。あわせて、Fnレイヤーの `MY_DARK` (明るさ 強/弱) も置いていない。
 
 本家QMKには収録されていないキーボードなので、定義はこのリポジトリで持っている。
 
@@ -17,6 +17,6 @@ LED非搭載なので `windmill.c` の配色処理は `WINDMILL_LED_ENABLE` に�
     make windmill/minipeg48:default
 
 書き込み (Escキー = マトリクス(0,0) を押しながらUSB接続でブートローダ起動。
-効かない場合はPCB裏のリセットボタン。レイヤー4(設定)の `QK_BOOT` でも入れる):
+効かない場合はPCB裏のリセットボタン。設定レイヤーの `QK_BOOT` でも入れる):
 
     make windmill/minipeg48:default:flash
