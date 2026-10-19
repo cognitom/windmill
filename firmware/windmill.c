@@ -101,30 +101,6 @@ uint8_t windmill_host_layout(void) {
     return layout == WINDMILL_LAYOUT_US ? WINDMILL_LAYOUT_US : WINDMILL_LAYOUT_JIS; // 予約の値は既定に倒す
 }
 
-// 設定レイヤーのキー
-static const struct {
-    uint16_t keycode;
-    uint8_t  setting; // HOST_*
-    uint8_t  value;
-} PROGMEM host_setting_keys[] = {
-    {MY_WIN, HOST_OS, OS_WIN},
-    {MY_ANDR, HOST_OS, OS_ANDR},
-    {MY_JIS, HOST_LAYOUT, WINDMILL_LAYOUT_JIS},
-    {MY_US, HOST_LAYOUT, WINDMILL_LAYOUT_US},
-};
-
-// 設定のキーなら false (消費済み)
-static bool process_host_setting(uint16_t keycode, keyrecord_t *record) {
-    for (uint8_t i = 0; i < ARRAY_SIZE(host_setting_keys); ++i) {
-        if (pgm_read_word(&host_setting_keys[i].keycode) != keycode) continue;
-        if (record->event.pressed) {
-            set_host_setting(pgm_read_byte(&host_setting_keys[i].setting), pgm_read_byte(&host_setting_keys[i].value));
-        }
-        return false;
-    }
-    return true;
-}
-
 /*
  * 起動時のベースレイヤー
  */
@@ -1338,7 +1314,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
     }
 
     if (!process_jis_alpha_symbol(keycode, record)) return false; // 英数レイヤーの ; ' \ (JIS のときだけ)
-    if (!process_host_setting(keycode, record)) return false;     // MY_WIN / MY_ANDR / MY_JIS / MY_US
 
     switch (keycode) {
 #ifdef WINDMILL_LED_ENABLE
@@ -1348,6 +1323,11 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
             }
             return false;
 #endif
+
+        case MY_WIN:  if (record->event.pressed) set_host_setting(HOST_OS, OS_WIN); return false;
+        case MY_ANDR: if (record->event.pressed) set_host_setting(HOST_OS, OS_ANDR); return false;
+        case MY_JIS:  if (record->event.pressed) set_host_setting(HOST_LAYOUT, WINDMILL_LAYOUT_JIS); return false;
+        case MY_US:   if (record->event.pressed) set_host_setting(HOST_LAYOUT, WINDMILL_LAYOUT_US); return false;
 
         /* Fn+Ctrl: IMEだけを今のベースレイヤーの側へ切り替える。Android のトグルが
          * ずれたとき、キーボードを動かさずに合わせ直すため。Windows では揃っていれば
