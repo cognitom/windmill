@@ -137,7 +137,11 @@ void windmill_init_keycolors(uint8_t *user_colorset) {
 }
 
 uint16_t windmill_base_keycode(uint16_t keycode) {
-    if (IS_QK_MOD_TAP(keycode)) return QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+    if (IS_QK_MOD_TAP(keycode)) {
+        /* タップ側が KC_NO のもの (MY_LCTL) は、展開すると keymap.c 側が色を引けない */
+        const uint16_t tap = QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+        return tap == KC_NO ? keycode : tap;
+    }
     if (IS_QK_LAYER_TAP(keycode)) return QK_LAYER_TAP_GET_TAP_KEYCODE(keycode);
     return keycode;
 }
@@ -252,30 +256,31 @@ static bool process_led_timeout(uint16_t keycode, keyrecord_t *record) {
 
 /* かな中でも Ctrl+C や Win+V がかな配列のまま解決されないようにする (issue #34)。
  *
- * 上げ下げは、押されている修飾 (mods) から決める。修飾ごとに数えて上げ下げすると、
- * 解放を取り逃したときにレイヤーが残ってしまうし、QMKのレイヤーは参照カウントを
- * 持たないので、重ね押しで先に離したほうがまだ押している側のぶんまで落とす。
- * 英数ベースで上げても見え方は変わらないので、ベースレイヤーは見ない */
-#define HOLD_LAYER      LAYER_ALPHA
-#define HOLD_LAYER_MODS (MOD_MASK_CTRL | MOD_MASK_GUI | MOD_MASK_ALT)
+ * QMKのレイヤーは参照カウントを持たないので、上げている修飾を1ビットずつ覚える。
+ * 素のままだと、重ね押しで先に離したほうが、まだ押している側のぶんまで落とす */
+#define HOLD_LAYER LAYER_ALPHA
 
-// mods は、このイベントを処理した後に押されている修飾。ホストへ出す前に決めてもよい
-static void set_hold_layer(uint8_t mods) {
-    const bool on = mods & HOLD_LAYER_MODS;
-    if (on == layer_state_is(HOLD_LAYER)) return; // 塗り直しを減らす
-    if (on) {
-        layer_on(HOLD_LAYER);
-    } else {
-        layer_off(HOLD_LAYER);
-    }
+static uint8_t hold_layer_mods      = 0;     // レイヤーを上げている修飾 (MOD_BIT)
+static bool    hold_layer_ctrl_seen = false; // Ctrl がホストへ出たのを確認済み
+
+static void hold_layer_on(uint8_t mod) {
+    if (!hold_layer_mods) layer_on(HOLD_LAYER);
+    hold_layer_mods |= mod;
+}
+
+static void hold_layer_off(uint8_t mod) {
+    if (!(hold_layer_mods & mod)) return; // 上げていない修飾の解放 (英数ベースで押した KC_LGUI など)
+    hold_layer_mods &= ~mod;
+    if (mod & MOD_MASK_CTRL) hold_layer_ctrl_seen = false;
+    if (!hold_layer_mods) layer_off(HOLD_LAYER);
 }
 
 /*
  * MY_LCTL: tap = 言語切替 (英数⇔かな), hold = Ctrl + 英数レイヤー
  *
- * タップ・ホールドの判定は最下段のキーと同じ (「かなレイヤー最下段のタップ・ホールド」、
- * issue #95)。QMK の mod-tap だと、最下段のキーが未判定の間に押した Ctrl が押した順で
- * 効かず、境目も tapping term で最下段と揃わない。
+ * 判定は QMK の mod-tap のまま。タップ直後に押し直すとタップの繰り返しになって Ctrl は
+ * 取れないが、切り替えた直後に Ctrl を押し続ける打ち方はしないので、それを切るために
+ * 全機種へ config.h を足すことはしない。
  */
 
 /* タップのたびに英数⇔かなを入れ替える。キーボード側はIMEの状態を読めないので、
@@ -614,6 +619,38 @@ static bool process_jis_alpha_symbol(uint16_t keycode, keyrecord_t *record) {
 }
 
 /*
+ * 英数レイヤーの Win / Alt と Ctrl
+ */
+
+/* Ctrl で英数レイヤーが上がった後の つ / さ は、素の KC_LGUI / KC_LALT になる。
+ * これも数えないと、Ctrl を先に離した時点でレイヤーが落ちる。英数ベースでは
+ * レイヤーが元から有効なので何もしない */
+static void process_alpha_gui_alt(uint16_t keycode, keyrecord_t *record) {
+    const uint8_t mod = (keycode == KC_LGUI) ? MOD_BIT(KC_LEFT_GUI) : MOD_BIT(KC_LEFT_ALT);
+    if (!record->event.pressed) {
+        hold_layer_off(mod);
+        return;
+    }
+    if (get_highest_layer(default_layer_state) != LAYER_KANA) return;
+    hold_layer_on(mod);
+}
+
+/* Ctrl (MY_LCTL) で上げたレイヤーは、解放イベントではなくホストへ出ている修飾を見て
+ * 下ろす。レイヤーを上げたせいで解放が別のキーコードに引き直されると、待っても来ない
+ * ため。上げた直後は QMK がまだ Ctrl を register していないスキャンがあるので、
+ * 一度出たのを確かめてから下ろす */
+static void update_hold_layer(void) {
+    const uint8_t ctrl = MOD_BIT(KC_LEFT_CTRL);
+    if (!(hold_layer_mods & ctrl)) return;
+
+    if (get_mods() & MOD_MASK_CTRL) {
+        hold_layer_ctrl_seen = true;
+    } else if (hold_layer_ctrl_seen) {
+        hold_layer_off(ctrl);
+    }
+}
+
+/*
  * Android での Win / Alt
  */
 
@@ -624,9 +661,8 @@ static bool process_jis_alpha_symbol(uint16_t keycode, keyrecord_t *record) {
  *
  * つ / さ は隣り合っているので、続けて打つだけで前者を踏む。後から出るほうを握りつぶす */
 
-// 押下時のOS設定で決める。Ctrl は関係しない
+// 押下時のOS設定で決める
 static bool android_blocks_mod(uint8_t mod) {
-    if (!(mod & (MOD_MASK_GUI | MOD_MASK_ALT))) return false;
     const uint8_t other = (mod & MOD_MASK_GUI) ? MOD_MASK_ALT : MOD_MASK_GUI;
     return is_android() && (get_mods() & other);
 }
@@ -689,7 +725,7 @@ static bool process_android_gui_dot(keyrecord_t *record) {
  */
 
 /* 左右のFnを両方ホールドしている間だけ設定レイヤーへ移す (issue #62)。
- * MO() に任せると、先に離したほうがまだ押している側のぶんまで落とす (set_hold_layer と
+ * MO() に任せると、先に離したほうがまだ押している側のぶんまで落とす (hold_layer_on と
  * 同じ理由) ので、ホールド中のFnを左右1ビットずつ覚え、Fnレイヤーと設定レイヤーの
  * 上げ下げを両方ここで持つ。
  *
@@ -739,8 +775,6 @@ static void set_sym(uint8_t bit, bool on) {
 
 /* QMK の tap-hold はキーごとに独立して決まり、親指の組のスペースや、未判定のキーを
  * 複数抱えたまま押した順に出す規則を表せないので、判定を自前で持つ (issue #85)。
- * 同じ段の Ctrl (MY_LCTL) もここに載せる (issue #95)。Ctrl は英数レイヤーでも透過で
- * 同じキーになるので、英数ベースでもこの判定を通る。
  *
  * - 押してから BOTTOM_HOLD_MS たてばホールド
  * - BOTTOM_INTERRUPT_MS 以上たっていて、後から最下段以外のキーが押されればホールド
@@ -754,9 +788,8 @@ static void set_sym(uint8_t bit, bool on) {
 #define BOTTOM_INTERRUPT_MS 150 // これ以上たっていれば、別のキーの押下でホールドになる
 #define BOTTOM_HOLD_MS      250 // 押したままこれだけたてばホールドになる
 
-#define BOTTOM_COUNT (KB_NE - MY_LCTL + 1)
-#define BOTTOM(keycode) ((keycode) - MY_LCTL)
-#define BOTTOM_KEYCODE(i) (MY_LCTL + (i))
+#define BOTTOM_COUNT (KB_NE - KB_TSU + 1)
+#define BOTTOM(keycode) ((keycode) - KB_TSU)
 #define NO_BOTTOM 0xFF
 
 static bool is_bottom_keycode(uint16_t keycode) {
@@ -768,12 +801,12 @@ static bool is_bottom_keycode(uint16_t keycode) {
 static uint8_t bottom_index(uint16_t keycode, keypos_t pos) {
     if (!is_bottom_keycode(keycode)) return NO_BOTTOM;
     if (keycode > KB_NE) keycode = keymap_key_to_keycode(LAYER_KANA, pos);
-    return keycode >= MY_LCTL && keycode <= KB_NE ? BOTTOM(keycode) : NO_BOTTOM;
+    return keycode >= KB_TSU && keycode <= KB_NE ? BOTTOM(keycode) : NO_BOTTOM;
 }
 
 // ホールドの役割
 enum {
-    BOTTOM_HOLD_MOD,    // Ctrl / Win / Alt。ホールド中は英数レイヤー
+    BOTTOM_HOLD_OS_MOD, // Win / Alt。ホールド中は英数レイヤー
     BOTTOM_HOLD_FN,     // Fn (set_fn)
     BOTTOM_HOLD_SYM,    // 記号レイヤー (set_sym)
     BOTTOM_HOLD_SHIFT,  // Shift。ホールド中は Shift 面
@@ -786,15 +819,14 @@ typedef struct {
 } bottom_key_t;
 
 static const bottom_key_t PROGMEM bottom_keys[] = {
-    [BOTTOM(MY_LCTL)] = {BOTTOM_HOLD_MOD, MOD_BIT(KC_LEFT_CTRL), NO_BOTTOM},
-    [BOTTOM(KB_TSU)]  = {BOTTOM_HOLD_MOD, MOD_BIT(KC_LEFT_GUI), NO_BOTTOM},
-    [BOTTOM(KB_SA)]   = {BOTTOM_HOLD_MOD, MOD_BIT(KC_LEFT_ALT), NO_BOTTOM},
-    [BOTTOM(KB_SO)]   = {BOTTOM_HOLD_FN, FN_BIT_L, BOTTOM(KB_NE)},
-    [BOTTOM(KB_HI)]   = {BOTTOM_HOLD_SYM, 1, BOTTOM(KB_MO)},
-    [BOTTOM(KB_KO)]   = {BOTTOM_HOLD_SHIFT, MOD_BIT(KC_LEFT_SHIFT), BOTTOM(KB_MI)},
-    [BOTTOM(KB_MI)]   = {BOTTOM_HOLD_SHIFT, MOD_BIT(KC_RIGHT_SHIFT), BOTTOM(KB_KO)},
-    [BOTTOM(KB_MO)]   = {BOTTOM_HOLD_SYM, 2, BOTTOM(KB_HI)},
-    [BOTTOM(KB_NE)]   = {BOTTOM_HOLD_FN, FN_BIT_R, BOTTOM(KB_SO)},
+    [BOTTOM(KB_TSU)] = {BOTTOM_HOLD_OS_MOD, MOD_BIT(KC_LEFT_GUI), NO_BOTTOM},
+    [BOTTOM(KB_SA)]  = {BOTTOM_HOLD_OS_MOD, MOD_BIT(KC_LEFT_ALT), NO_BOTTOM},
+    [BOTTOM(KB_SO)]  = {BOTTOM_HOLD_FN, FN_BIT_L, BOTTOM(KB_NE)},
+    [BOTTOM(KB_HI)]  = {BOTTOM_HOLD_SYM, 1, BOTTOM(KB_MO)},
+    [BOTTOM(KB_KO)]  = {BOTTOM_HOLD_SHIFT, MOD_BIT(KC_LEFT_SHIFT), BOTTOM(KB_MI)},
+    [BOTTOM(KB_MI)]  = {BOTTOM_HOLD_SHIFT, MOD_BIT(KC_RIGHT_SHIFT), BOTTOM(KB_KO)},
+    [BOTTOM(KB_MO)]  = {BOTTOM_HOLD_SYM, 2, BOTTOM(KB_HI)},
+    [BOTTOM(KB_NE)]  = {BOTTOM_HOLD_FN, FN_BIT_R, BOTTOM(KB_SO)},
 };
 _Static_assert(ARRAY_SIZE(bottom_keys) == BOTTOM_COUNT, "bottom_keys[] の行が最下段のキーの数と合っていない");
 
@@ -830,7 +862,7 @@ typedef struct {
 
 static bottom_state_t bottom_states[BOTTOM_COUNT];
 static uint8_t        bottom_seq   = 0;
-static uint16_t       bottom_held  = 0;         // ホールドを出しているキー (1 << 番号)
+static uint8_t        bottom_held  = 0;         // ホールドを出しているキー (1 << 番号)
 static uint8_t        thumb_pair_y = NO_BOTTOM; // 親指の組の、後から押したほう (settle_thumb_pair)
 static bool           thumb_pair_ready = false; // Y を離した時点で、X も Y もシフトとしてかかっていなかった
 
@@ -981,10 +1013,10 @@ static void settle_thumb_pair(uint16_t now) {
 static void apply_bottom_hold(uint8_t i) {
     const bottom_key_t key = get_bottom_key(i);
     switch (key.hold) {
-        case BOTTOM_HOLD_MOD:
+        case BOTTOM_HOLD_OS_MOD:
             if (android_blocks_mod(key.arg)) return;
             register_mods(key.arg);
-            set_hold_layer(get_mods());
+            hold_layer_on(key.arg);
             break;
         case BOTTOM_HOLD_FN:
             set_fn(key.arg, true);
@@ -1009,9 +1041,9 @@ static void release_bottom_hold(uint8_t i) {
 
     const bottom_key_t key = get_bottom_key(i);
     switch (key.hold) {
-        case BOTTOM_HOLD_MOD:
+        case BOTTOM_HOLD_OS_MOD:
             unregister_mods(key.arg);
-            set_hold_layer(get_mods());
+            hold_layer_off(key.arg);
             break;
         case BOTTOM_HOLD_FN:
             set_fn(key.arg, false);
@@ -1027,8 +1059,7 @@ static void release_bottom_hold(uint8_t i) {
 }
 
 /* タップを、出す時点のレイヤーで引き直して出す。記号レイヤーなど自分以外のキーに
- * 引かれたら、押下と解放を作って QMK に処理させ、通常のキーと同じ扱いにする
- * (Fn を押しながらの Ctrl のタップは、Fnレイヤーの MY_IME になる)。
+ * 引かれたら、押下と解放を作って QMK に処理させ、通常のキーと同じ扱いにする。
  * 空 は親指の組が成り立ったときのものなので、組にならないタップは こ / み として出す */
 static void send_bottom_tap(uint8_t i, keypos_t pos) {
     uint16_t keycode = keymap_key_to_keycode(layer_switch_get_layer(pos), pos);
@@ -1040,11 +1071,7 @@ static void send_bottom_tap(uint8_t i, keypos_t pos) {
         return;
     }
 
-    if (keycode == MY_LCTL) {
-        switch_lang();
-        return;
-    }
-    if (keycode == KB_SPC) keycode = BOTTOM_KEYCODE(i);
+    if (keycode == KB_SPC) keycode = KB_TSU + i;
     send_output(get_key_output(keycode), is_alpha_output(keycode));
 }
 
@@ -1208,7 +1235,7 @@ static void bottom_interrupt(uint16_t now) {
             state->used = true;
         } else if (state->decision == BOTTOM_UNDECIDED) {
             const int16_t age = bottom_age(state, now);
-            if (age < 0) continue; // このキーより前の押下 (QMKの tap-hold で遅れて届いた、英数レイヤーの LSFT_T(KC_SPC) など)
+            if (age < 0) continue; // このキーより前の押下 (QMKの tap-hold で遅れて届いた MY_LCTL など)
             if (age >= BOTTOM_INTERRUPT_MS) {
                 state->decision = BOTTOM_HOLD;
                 state->used     = true;
@@ -1313,14 +1340,12 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
         case KC_LGUI: // 英数レイヤーの Win / Alt (Ctrlのホールドで英数レイヤーが上がったときを含む)
         case KC_LALT:
-            // 先に見る。握りつぶした修飾は押されていないので、レイヤーにも効かせない
+            // 先に見る。握りつぶした修飾でレイヤーを上げると、下ろす機会を失う
             if (!process_android_gui_alt(keycode, record)) {
                 return false;
             }
-            /* 修飾そのものはこの後QMKが押し離しするので、その後の修飾で決めておく。
-             * Ctrl を先に離しても、Win / Alt を押している間は英数レイヤーのまま */
-            set_hold_layer(record->event.pressed ? get_mods() | MOD_BIT(keycode) : get_mods() & ~MOD_BIT(keycode));
-            break;
+            process_alpha_gui_alt(keycode, record);
+            break; // 修飾そのものはQMKに任せる
 
         case ALPHA_FN: // 英数レイヤーの Fn
             return process_fn(record);
@@ -1330,6 +1355,18 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
                 return false;
             }
             break;
+
+        case MY_LCTL: // 言語切替 (タップ) / Ctrl + 英数レイヤー (ホールド)
+            if (record->tap.count) {
+                if (record->event.pressed) {
+                    switch_lang();
+                }
+                return false; // タップ側は KC_NO なのでQMKへ渡さない
+            }
+            if (record->event.pressed) {
+                hold_layer_on(MOD_BIT(KC_LEFT_CTRL)); // Ctrl自体はQMKのmod-tapが押す
+            }
+            break; // レイヤーを下ろすのは update_hold_layer
     }
 
     return windmill_board_process_record(keycode, record);
@@ -1341,6 +1378,7 @@ void matrix_scan_kb(void) {
 #endif
 
     bottom_tick(timer_read());
+    update_hold_layer();
 
     matrix_scan_user();
 }
