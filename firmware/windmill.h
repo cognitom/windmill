@@ -55,17 +55,6 @@
 #    define FN_R_COL 8
 #endif
 
-/* 言語切替 (タップ) と Ctrl + 英数レイヤー (ホールド)。
- *
- * QMK標準の mod-tap。タップ側を KC_NO にしてあるので QMK はタップで何も送らず、
- * タップとホールドの両方を windmill.c が横取りする (QMKの docs/mod_tap.md
- * 「Changing both tap and hold」と同じ形)。以前はダブルタップ (かな) があった
- * ので自前の状態機械で見分けていたが、トグルにした (issue #53) ことで
- * tapping term の計測も別キー割り込みでのホールド確定も QMK に任せられる。
- *
- * keymaps[] のレイヤー0で使っているものと一致させること */
-#define MY_LCTL LCTL_T(KC_NO)
-
 /* 独自キーコード。全機種で QK_USER_0 から並べる。
  *
  * キーボード側のキーコードは QK_KB_0 から置くのがQMKの作法だが、そちらは
@@ -88,6 +77,7 @@
  * 入らない)。英数レイヤーの LT(LAYER_SYM,KC_BSLS) / LT(LAYER_SYM,KC_SLSH) は
  * 素のキーコードのまま残してある。かなレイヤー最下段は LT() / MT() をやめて
  * 独自キーコードにし、タップ・ホールドの判定を windmill.c が持つ (issue #85)。
+ * 同じ段の左端の Ctrl (MY_LCTL) も同じ判定に載せてある (issue #95)。
  *
  * KB_TSU 〜 SY_QUES は key_outputs[] のインデックス (keycode - KEY_OUTPUT_FIRST) に
  * 使っている。足すときは表にも行を足すこと (tests/test_key_output.cpp が
@@ -103,7 +93,9 @@ enum windmill_keycodes {
     /* かなレイヤー最下段。タップでかな、ホールドで修飾かレイヤー
      * (windmill.c「かなレイヤー最下段のタップ・ホールド」参照)。並びは左から順。
      * 足すときは windmill.c の bottom_keys[] にも行を足すこと */
-    KB_TSU, // つ  ホールド: Win。ホールド中は英数レイヤー
+    MY_LCTL, // Ctrl  タップ: 言語切替 (英数⇔かな)。ホールド: Ctrl。ホールド中は英数レイヤー。
+             //       英数レイヤーでは透過なので、英数ベースでもこのキーになる
+    KB_TSU, // つ  ホールド: Win。同上
     KB_SA,  // さ  ホールド: Alt。同上
     KB_SO,  // そ  ホールド: Fn。ね と両方で設定レイヤー
     KB_HI,  // ひ  ホールド: 記号レイヤー
@@ -218,8 +210,8 @@ enum windmill_keycodes {
     WINDMILL_KEYCODE_END, // 番兵。キーマップには置かない
 };
 
-// かなレイヤー最下段のキーの範囲。Shift 面の最下段 (KB_XTSU 〜 KB_TOUTEN) を含む
-#define KEY_BOTTOM_FIRST KB_TSU
+// かなレイヤー最下段のキーの範囲。Ctrl (MY_LCTL) と Shift 面の最下段 (KB_XTSU 〜 KB_TOUTEN) を含む
+#define KEY_BOTTOM_FIRST MY_LCTL
 #define KEY_BOTTOM_LAST  KB_TOUTEN
 
 // 出力表 (windmill.c の key_outputs[]) で引くキーの範囲。最下段のキーはタップで出すものを引く

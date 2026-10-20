@@ -69,6 +69,7 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_thumb_shift.cpp` | かなレイヤーの親指Shift (こ = 左Shift / み = 右Shift) の持ち替えと、同時押しスペースの前に Shift を下ろすレポートと間隔 |
 | `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左 = 左Shift / 右 = 右Shift) の持ち替えと、片方のホールド中にもう片方をタップしたときの Shift+Space のレポート列 |
 | `test_hold_layer.cpp` | Ctrl / Win / Alt のホールド中だけ英数レイヤーへ移ることのレポート列 |
+| `test_ctrl_tap_hold.cpp` | Ctrl (`MY_LCTL`) のタップ・ホールド (issue #95)。最下段と同じ 150ms / 250ms の境目、素早く2回押したときの2回目のホールド、最下段のキーと重ねたときに押した順に出ること。かなベースで Ctrl / Win / Alt を重ねて押し、どれかを離しても英数レイヤーのままであることのレポート列 |
 | `test_lang_toggle.cpp` | Ctrl (`MY_LCTL`) のタップでの言語切替。OSごとの送るキーとベースレイヤーの反転、Fn+Ctrl (`MY_IME`) がIMEだけを切り替えることのレポート列 |
 | `test_conf_layer.cpp` | 左右のFnを両方ホールドしている間だけ設定レイヤーへ移ること。片方を離したときにFnレイヤーへ戻ること |
 | `test_fn_layer.cpp` | Fnレイヤーのファンクションキーが数字キーに準じた位置にあること。最左列の Esc が透過のまま出ること、Fn+Tab が Caps Lock になること |

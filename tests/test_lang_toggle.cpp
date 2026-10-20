@@ -193,7 +193,7 @@ TEST_F(LangToggle, fn_ctrl_switches_host_only) {
 }
 
 /* ホールド (Ctrl) ではトグルを送らず、ベースレイヤーも動かさない。
- * 別キー割り込みで確定する経路 (HOLD_ON_OTHER_KEY_PRESS) で見る */
+ * 別キー割り込みで確定する経路で見る。境目は test_ctrl_tap_hold.cpp */
 TEST_F(LangToggle, hold_does_not_toggle) {
     TestDriver driver;
     set_windmill_keymap();
@@ -203,7 +203,7 @@ TEST_F(LangToggle, hold_does_not_toggle) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_CTRL));       // ぬ の押下でホールド確定
+        EXPECT_REPORT(driver, (KC_LEFT_CTRL));       // ぬ を押してあるので 150ms でホールド確定
         EXPECT_REPORT(driver, (KC_LEFT_CTRL, KC_Q)); // Ctrl+Q
         EXPECT_REPORT(driver, (KC_LEFT_CTRL));
         EXPECT_EMPTY_REPORT(driver);                 // Ctrl 解放。LNG1 は出ない
