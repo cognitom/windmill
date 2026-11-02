@@ -858,7 +858,6 @@ typedef struct {
     bool     pressed;     // 物理的に押されている
     bool     interrupted; // 押してから、最下段以外のキーが押された
     bool     used;        // ホールドとして他のキーにかかった
-    bool     chord_off;   // こ / み の同時押しにはしない (judge_thumb_chord)
 } bottom_state_t;
 
 static bottom_state_t bottom_states[BOTTOM_COUNT];
@@ -867,6 +866,7 @@ static uint8_t        bottom_held  = 0;         // ホールドを出してい�
 static uint8_t        thumb_pair_y = NO_BOTTOM; // 親指の組の、後から押したほう (settle_thumb_pair)
 static bool           thumb_pair_ready = false; // Y を離した時点で、X も Y もシフトとしてかかっていなかった
 static bool           thumb_pair_chord = false; // 組が同時押しの規則で成り立っている (judge_thumb_chord)
+static bool           thumb_chord_off  = false; // 同時押しにしない。相方が押されていない状態で親指を押すと下ろす
 
 /* 出力を待たせているイベント。押した順に並ぶ */
 enum {
@@ -986,17 +986,17 @@ static void thumb_pair_fail(uint16_t now) {
     if (bottom_states[y].decision == BOTTOM_UNDECIDED && !bottom_states[y].pressed) decide_bottom_tap(y, now);
 }
 
-/* 組の最初の解放で、同時押しかを決める。外れたら、残ったキーはこの後の押し直しでも
+/* 組の最初の解放で、同時押しかを決める。外れたら、残ったキーを離すまでは押し直しでも
  * 同時押しにしない。最初の解放が過ぎたのに、新しい組として数え直さないため */
 static void judge_thumb_chord(uint16_t now) {
-    bottom_state_t *ys = &bottom_states[thumb_pair_y];
-    bottom_state_t *xs = &bottom_states[get_bottom_key(thumb_pair_y).partner];
+    const bottom_state_t *ys = &bottom_states[thumb_pair_y];
+    const bottom_state_t *xs = &bottom_states[get_bottom_key(thumb_pair_y).partner];
 
     const uint16_t lag     = ys->pressed_at - xs->pressed_at;
     const uint16_t overlap = now - ys->pressed_at;
 
-    thumb_pair_chord = xs->decision == BOTTOM_UNDECIDED && !xs->chord_off && bottom_age(xs, now) < BOTTOM_INTERRUPT_MS && overlap >= lag;
-    if (!thumb_pair_chord) xs->chord_off = ys->chord_off = true;
+    thumb_pair_chord = xs->decision == BOTTOM_UNDECIDED && !thumb_chord_off && bottom_age(xs, now) < BOTTOM_INTERRUPT_MS && overlap >= lag;
+    if (!thumb_pair_chord) thumb_chord_off = true;
 }
 
 static void settle_thumb_pair(uint16_t now) {
@@ -1013,7 +1013,7 @@ static void settle_thumb_pair(uint16_t now) {
         thumb_pair_fail(now);
         return;
     }
-    if (thumb_pair_chord && ys->chord_off) {
+    if (thumb_pair_chord && thumb_chord_off) {
         thumb_pair_fail(now); // X を先に離して Y を待つ間に、組以外のキーが押された
         return;
     }
@@ -1225,15 +1225,14 @@ static void bottom_press(uint8_t i, keyrecord_t *record) {
         .pressed    = true,
     };
 
-    if (is_thumb_key(i) && bottom_states[get_bottom_key(i).partner].pressed) {
+    if (!is_thumb_key(i)) {
+        thumb_chord_off = true; // 最下段のキーどうしは判定に影響しないが、同時押しの「ほかのキー」には数える
+    } else if (bottom_states[get_bottom_key(i).partner].pressed) {
         thumb_pair_y     = i;
         thumb_pair_ready = false;
         thumb_pair_chord = false;
-    }
-    if (!is_thumb_key(i)) {
-        // 最下段のキーどうしは判定に影響しないが、同時押しの「ほかのキー」には数える
-        bottom_states[BOTTOM(KB_KO)].chord_off = true;
-        bottom_states[BOTTOM(KB_MI)].chord_off = true;
+    } else {
+        thumb_chord_off = false;
     }
 
     bottom_push(BOTTOM_ENTRY_PRESS, i, record);
@@ -1279,7 +1278,7 @@ static void bottom_interrupt(uint16_t now) {
         } else if (state->decision == BOTTOM_UNDECIDED) {
             const int16_t age = bottom_age(state, now);
             if (age < 0) continue; // このキーより前の押下 (QMKの tap-hold で遅れて届いた MY_LCTL など)
-            state->chord_off = true;
+            if (is_thumb_key(i)) thumb_chord_off = true;
             if (age >= BOTTOM_INTERRUPT_MS) {
                 state->decision = BOTTOM_HOLD;
                 state->used     = true;
