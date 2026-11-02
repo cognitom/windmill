@@ -708,18 +708,16 @@ TEST_F(BottomRow, hold_boundary_250ms_is_hold) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* 親指の組の X (先に押したほう) は、150ms 以上押していなければ組にならない。
- * 149ms ならそれぞれのタップ、150ms ちょうどなら半角スペース */
-TEST_F(BottomRow, thumb_pair_boundary_149ms_is_two_taps) {
+/* 親指の組の X (先に押したほう) が 149ms でも、重なりが時間差以上なら同時押しで
+ * 半角スペース (issue #99)。み を離した 100ms で決まる */
+TEST_F(BottomRow, thumb_pair_boundary_149ms_is_chord_space) {
     TestDriver driver;
     set_windmill_keymap();
     switch_to_kana(driver);
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_B));
-        EXPECT_EMPTY_REPORT(driver);
-        EXPECT_REPORT(driver, (KC_N));
+        expect_space_while_x_held(driver);
         EXPECT_EMPTY_REPORT(driver);
     }
     play({{POS_KO, DN, 0}, {POS_MI, DN, 50}, {POS_MI, UP, 100}, {POS_KO, UP, 149}});
@@ -737,6 +735,23 @@ TEST_F(BottomRow, thumb_pair_boundary_150ms_is_space) {
         EXPECT_EMPTY_REPORT(driver);
     }
     play({{POS_KO, DN, 0}, {POS_MI, DN, 50}, {POS_MI, UP, 100}, {POS_KO, UP, 150}});
+    VERIFY_AND_CLEAR(driver);
+}
+
+// 重なりが時間差に届かなければ、149ms で離したときはそれぞれのタップのまま
+TEST_F(BottomRow, thumb_pair_boundary_149ms_without_overlap_is_two_taps) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_B));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_N));
+        EXPECT_EMPTY_REPORT(driver);
+    }
+    play({{POS_KO, DN, 0}, {POS_MI, DN, 100}, {POS_MI, UP, 130}, {POS_KO, UP, 149}});
     VERIFY_AND_CLEAR(driver);
 }
 
@@ -766,6 +781,365 @@ TEST_F(BottomRow, thumb_pair_y_250ms_is_hold) {
     }
     play({{POS_KO, DN, 0}, {POS_MI, DN, 100}, {POS_KO, UP, 200}, {POS_MI, UP, 350}});
     VERIFY_AND_CLEAR(driver);
+}
+
+/*
+ * こ / み の同時押し (issue #99)
+ *
+ * 左右で同じ結果になることを見るため、X / Y を入れ替えて1つのテストの中で2回回す。
+ */
+
+struct ThumbChord {
+    const char* name;
+    uint8_t     x_row, x_col, y_row, y_col;
+    uint8_t     x_shift, y_shift; // ホールドの Shift
+    uint8_t     x_tap, y_tap;     // タップで送るキー
+};
+
+// POS_* は「row, col」に展開される
+static const ThumbChord thumb_chords[] = {
+    {"こ→み", POS_KO, POS_MI, KC_LEFT_SHIFT, KC_RIGHT_SHIFT, KC_B, KC_N},
+    {"み→こ", POS_MI, POS_KO, KC_RIGHT_SHIFT, KC_LEFT_SHIFT, KC_N, KC_B},
+};
+
+class ThumbChordTest : public BottomRow {
+   public:
+    // 親指の組の4手を流す。x_up / y_up は解放の時刻
+    void play_pair(const ThumbChord& t, uint16_t y_down, uint16_t x_up, uint16_t y_up) {
+        if (x_up < y_up) {
+            play({{t.x_row, t.x_col, DN, 0}, {t.y_row, t.y_col, DN, y_down}, {t.x_row, t.x_col, UP, x_up}, {t.y_row, t.y_col, UP, y_up}});
+        } else {
+            play({{t.x_row, t.x_col, DN, 0}, {t.y_row, t.y_col, DN, y_down}, {t.y_row, t.y_col, UP, y_up}, {t.x_row, t.x_col, UP, x_up}});
+        }
+    }
+};
+
+// X を押したまま決まったスペースのレポート列。X のホールドの Shift を外して送り、戻す
+static void expect_chord_space_while_x_held(TestDriver& driver, const ThumbChord& t) {
+    EXPECT_REPORT(driver, (t.x_shift));
+    EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (KC_SPACE));
+    EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (t.x_shift));
+}
+
+static void expect_tap(TestDriver& driver, uint8_t keycode) {
+    EXPECT_REPORT(driver, (keycode));
+    EXPECT_EMPTY_REPORT(driver);
+}
+
+// X↓0 Y↓y_down を Y から離して、スペースになる
+#define EXPECT_CHORD_Y_FIRST(y_down, y_up, x_up)                 \
+    for (const auto& t : thumb_chords) {                         \
+        SCOPED_TRACE(t.name);                                    \
+        {                                                        \
+            InSequence s;                                        \
+            expect_chord_space_while_x_held(driver, t);          \
+            EXPECT_EMPTY_REPORT(driver);                         \
+        }                                                        \
+        play_pair(t, y_down, x_up, y_up);                        \
+        VERIFY_AND_CLEAR(driver);                                \
+    }
+
+// こ↓0 み↓20 み↑70 こ↑80 → スペース
+TEST_F(ThumbChordTest, y_first_overlap_over_lag_is_space) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    EXPECT_CHORD_Y_FIRST(20, 70, 80);
+}
+
+// 境界 (重なり = 時間差)。こ↓0 み↓50 み↑100 こ↑120 → スペース
+TEST_F(ThumbChordTest, y_first_overlap_equals_lag_is_space) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    EXPECT_CHORD_Y_FIRST(50, 100, 120);
+}
+
+// 境界 (重なり = 時間差 - 1)。こ↓0 み↓50 み↑99 こ↑120 → こみ
+TEST_F(ThumbChordTest, y_first_overlap_under_lag_is_two_taps) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, t.y_tap);
+        }
+        play_pair(t, 50, 120, 99);
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// 境界 (重なり = 時間差)。こ↓0 み↓50 こ↑100 み↑140 → スペース
+TEST_F(ThumbChordTest, x_first_overlap_equals_lag_is_space) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, KC_SPACE); // X は離れているので Shift は出ない
+        }
+        play_pair(t, 50, 100, 140);
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// 境界 (重なり = 時間差 - 1)。こ↓0 み↓50 こ↑99 み↑140 → こみ
+TEST_F(ThumbChordTest, x_first_overlap_under_lag_is_two_taps) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, t.y_tap);
+        }
+        play_pair(t, 50, 99, 140);
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// こ↓0 み↓40 こ↑70 み↑110 → こみ
+TEST_F(ThumbChordTest, x_first_short_overlap_is_two_taps) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, t.y_tap);
+        }
+        play_pair(t, 40, 70, 110);
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// こ↓0 み↓100 こ↑130 み↑200 → こみ
+TEST_F(ThumbChordTest, x_first_late_partner_is_two_taps) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, t.y_tap);
+        }
+        play_pair(t, 100, 130, 200);
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// こ↓0 み↓50 こ↑100 み↑400 → こ (み はホールド)。み が 250ms に達した時点で こ が出る
+TEST_F(ThumbChordTest, x_first_y_reaches_hold) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        uint16_t start = 0, at_tap = 0;
+        {
+            InSequence s;
+            EXPECT_REPORT(driver, (t.x_tap)).WillOnce(InvokeWithoutArgs([&] { at_tap = since(start); }));
+            EXPECT_EMPTY_REPORT(driver);
+            EXPECT_REPORT(driver, (t.y_shift));
+            EXPECT_EMPTY_REPORT(driver);
+        }
+        start = timer_read();
+        play_pair(t, 50, 100, 400);
+        VERIFY_AND_CLEAR(driver);
+        EXPECT_EQ(at_tap, 300);
+    }
+}
+
+// 境界。み を押してから 249ms で離せばスペース、250ms ちょうどならホールド
+TEST_F(ThumbChordTest, x_first_y_249ms_is_space) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, KC_SPACE);
+        }
+        play_pair(t, 50, 100, 299);
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+TEST_F(ThumbChordTest, x_first_y_250ms_is_hold) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            EXPECT_REPORT(driver, (t.y_shift));
+            EXPECT_EMPTY_REPORT(driver);
+        }
+        play_pair(t, 50, 100, 300);
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// こ↓0 み↓20 わ↓40 わ↑60 み↑70 こ↑80 → 今の規則のまま (こみわ)
+TEST_F(ThumbChordTest, other_key_before_first_release_is_not_chord) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, t.y_tap);
+            expect_tap(driver, KC_0);
+        }
+        play({{t.x_row, t.x_col, DN, 0}, {t.y_row, t.y_col, DN, 20}, {POS_WA, DN, 40}, {POS_WA, UP, 60}, {t.y_row, t.y_col, UP, 70}, {t.x_row, t.x_col, UP, 80}});
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// Y を押す前に押したほかのキーも同じ。こ↓0 わ↓10 わ↑15 み↓20 み↑70 こ↑80 → こわみ
+TEST_F(ThumbChordTest, other_key_before_y_is_not_chord) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, KC_0);
+            expect_tap(driver, t.y_tap);
+        }
+        play({{t.x_row, t.x_col, DN, 0}, {POS_WA, DN, 10}, {POS_WA, UP, 15}, {t.y_row, t.y_col, DN, 20}, {t.y_row, t.y_col, UP, 70}, {t.x_row, t.x_col, UP, 80}});
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// 最下段のキーも「ほかのキー」。こ↓0 み↓20 ひ↓30 ひ↑40 み↑70 こ↑80 → こみひ
+TEST_F(ThumbChordTest, other_bottom_key_before_first_release_is_not_chord) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, t.y_tap);
+            expect_tap(driver, KC_V);
+        }
+        play({{t.x_row, t.x_col, DN, 0}, {t.y_row, t.y_col, DN, 20}, {POS_HI, DN, 30}, {POS_HI, UP, 40}, {t.y_row, t.y_col, UP, 70}, {t.x_row, t.x_col, UP, 80}});
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+/* X を先に離して Y を待つ間にほかのキーを押すと不成立。X はタップになり、Y は通常の判定へ。
+ * こ↓0 み↓50 こ↑100 わ↓120 わ↑130 み↑140 → こみわ */
+TEST_F(ThumbChordTest, other_key_while_waiting_for_y_breaks_chord) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, t.y_tap);
+            expect_tap(driver, KC_0);
+        }
+        play({{t.x_row, t.x_col, DN, 0}, {t.y_row, t.y_col, DN, 50}, {t.x_row, t.x_col, UP, 100}, {POS_WA, DN, 120}, {POS_WA, UP, 130}, {t.y_row, t.y_col, UP, 140}});
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// 最下段のキーでも同じ。こ↓0 み↓50 こ↑100 ひ↓110 ひ↑120 み↑140 → こみひ
+TEST_F(ThumbChordTest, other_bottom_key_while_waiting_for_y_breaks_chord) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, t.y_tap);
+            expect_tap(driver, KC_V);
+        }
+        play({{t.x_row, t.x_col, DN, 0}, {t.y_row, t.y_col, DN, 50}, {t.x_row, t.x_col, UP, 100}, {POS_HI, DN, 110}, {POS_HI, UP, 120}, {t.y_row, t.y_col, UP, 140}});
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+// こ↓0 み↓20 み↑70 わ↓100 わ↑130 こ↑200 → スペース を。X はホールドのまま続きに乗る
+TEST_F(ThumbChordTest, space_then_x_stays_as_shift) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_chord_space_while_x_held(driver, t);
+            EXPECT_REPORT(driver, (t.x_shift, KC_0)); // を
+            EXPECT_REPORT(driver, (t.x_shift));
+            EXPECT_EMPTY_REPORT(driver);
+        }
+        play({{t.x_row, t.x_col, DN, 0}, {t.y_row, t.y_col, DN, 20}, {t.y_row, t.y_col, UP, 70}, {POS_WA, DN, 100}, {POS_WA, UP, 130}, {t.x_row, t.x_col, UP, 200}});
+        VERIFY_AND_CLEAR(driver);
+    }
+}
+
+/* 最初の解放で外れたら、同じ X のまま Y を押し直しても同時押しにしない。
+ * こ↓0 み↓20 み↑30 み↓40 み↑100 こ↑120 → こみみ */
+TEST_F(ThumbChordTest, repress_after_failed_first_release_is_not_chord) {
+    TestDriver driver;
+    set_windmill_keymap();
+    switch_to_kana(driver);
+
+    for (const auto& t : thumb_chords) {
+        SCOPED_TRACE(t.name);
+        {
+            InSequence s;
+            expect_tap(driver, t.x_tap);
+            expect_tap(driver, t.y_tap);
+            expect_tap(driver, t.y_tap);
+        }
+        play({{t.x_row, t.x_col, DN, 0}, {t.y_row, t.y_col, DN, 20}, {t.y_row, t.y_col, UP, 30}, {t.y_row, t.y_col, DN, 40}, {t.y_row, t.y_col, UP, 100}, {t.x_row, t.x_col, UP, 120}});
+        VERIFY_AND_CLEAR(driver);
+    }
 }
 
 /*

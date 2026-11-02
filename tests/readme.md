@@ -64,7 +64,7 @@ issue #34 の「Ctrl / Win / Alt のホールド中だけ英数レイヤーへ�
 | `test_keymap.hpp` | テスト用キーマップと `WindmillTest` フィクスチャ |
 | `test_shift_pair.cpp` | 親指Shift で Shift 面のキーを打ったときのレポート列。押されている Shift をそのまま使うこと、Shift を外す前後の間隔 |
 | `test_key_output.cpp` | 文字キー (独自キーコード `KN_*` / `SY_*` / `KB_*` のタップ) の出力を、かな・Shift 面・記号レイヤーの全キーぶん総当たりで見る。配列が US のとき (`KeyOutput`) と JIS のとき (`KeyOutputJis`。Android も) の両方。JIS では英数レイヤーの `;` `'` `\` を横取りして1キー1出力で送ることも (issue #80)。出力表 (`key_outputs[]`) の書き漏らしや取り違えを拾う。1キー1出力でリピートしないこと、押されている Shift を打ち消すこと、記号レイヤーで Shift が効かないこと、かなの直後の記号で Shift と記号キーの間が空くこと (issue #87) も見る (issue #73、issue #82)。US では英数レイヤーの記号が素のキーコードのままであることも |
-| `test_bottom_row.cpp` | かなレイヤー最下段のタップ・ホールド (issue #85)。issue の「テストで固定するケース」a〜ab (Shift 面を通しても同じ文字になること) と、150ms / 250ms の境界、待っている間はレポートが出ないこと、待っていたキーが押した順に出ることのレポート列 |
+| `test_bottom_row.cpp` | かなレイヤー最下段のタップ・ホールド (issue #85)。issue の「テストで固定するケース」a〜ab (Shift 面を通しても同じ文字になること) と、150ms / 250ms の境界、待っている間はレポートが出ないこと、待っていたキーが押した順に出ることのレポート列。こ / み の同時押し (issue #99) の打ち方の表と、重なりと時間差の境界も左右両方で見る |
 | `test_kana_qmark.cpp` | Shift 面の「？」(かなレイヤーの「も」の位置。半角`?`) のレポート列 |
 | `test_thumb_shift.cpp` | かなレイヤーの親指Shift (こ = 左Shift / み = 右Shift) の持ち替えと、同時押しスペースの前に Shift を下ろすレポートと間隔 |
 | `test_alpha_thumb_shift.cpp` | 英数レイヤーの親指Shift (左 = 左Shift / 右 = 右Shift) の持ち替えと、片方のホールド中にもう片方をタップしたときの Shift+Space のレポート列 |
