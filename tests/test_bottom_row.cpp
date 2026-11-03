@@ -610,7 +610,7 @@ TEST_F(BottomRowConf, m_both_fn_hold_reach_conf_layer) {
     play({{POS_FN_L, DN, 0}, {POS_FN_R, DN, 50}, {POS_TA, DN, 300}, {POS_TA, UP, 330}, {POS_FN_R, UP, 340}, {POS_FN_L, UP, 350}});
     VERIFY_AND_CLEAR(driver);
 
-    // Windows に戻っていれば、言語切替は Ctrl+Space ではなく KC_LNG2 (かな → 英数)
+    // Windows に戻っていれば、言語切替は無変換 (KC_INT5) ではなく KC_LNG2 (かな → 英数)
     {
         InSequence s;
         EXPECT_REPORT(driver, (KC_LNG2));

@@ -27,7 +27,7 @@
  * テストでは test_host が有線のままなので、既定と同じに振る舞う。
  *
  * OSの違いは言語切替 (MY_LCTL) のタップで見る。英数からのタップで、Windows は
- * KC_LNG1、Android は Ctrl+Space を送る (test_lang_toggle.cpp 参照)。 */
+ * KC_LNG1、Android は変換 (KC_INT4) を送る (test_lang_toggle.cpp 参照)。 */
 
 #include "keyboard_report_util.hpp"
 #include "keycode.h"
@@ -82,13 +82,7 @@ static void expect_lang_toggle(WindmillTest* f, TestDriver& driver, bool android
 
     {
         InSequence s;
-        if (android) {
-            EXPECT_REPORT(driver, (KC_LEFT_CTRL));
-            EXPECT_REPORT(driver, (KC_LEFT_CTRL, KC_SPC));
-            EXPECT_REPORT(driver, (KC_LEFT_CTRL));
-        } else {
-            EXPECT_REPORT(driver, (KC_LNG1));
-        }
+        EXPECT_REPORT(driver, (android ? KC_INT4 : KC_LNG1));
         EXPECT_EMPTY_REPORT(driver);
     }
 
