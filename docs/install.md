@@ -3,14 +3,26 @@
 ## 準備
 
 1. 対応キーボードを入手
-2. PC/Macに[QMK Toolbox](https://github.com/qmk/qmk_toolbox/releases)をインストール
-3. Windmillの[コンパイル済みファームウェア (windmill.hex)](https://github.com/cognitom/windmill/releases) をダウンロード
+2. Windmillの[コンパイル済みファームウェア](https://github.com/cognitom/windmill/releases)から、機種に合ったファイルをダウンロード
+
+| キーボード | ファームウェア |
+|--|--|
+| Technik | `windmill_technik.hex` |
+| YMD40 | `windmill_ymd40.hex` |
+| Geonix48 | `windmill_minipeg48.hex` |
+| Geonix Rev.2.5 | `windmill_geonix41.bin` |
 
 ## ファームウェアの書き込み
 
-### Technik / YMD40
+Windows (PC) からでも、Android (スマホ) からでも書き込めます。
 
-1. QMK Toolboxからファームウェアファイルを指定
+### Windows から書き込む
+
+#### Technik / YMD40 / Geonix48
+
+[QMK Toolbox](https://github.com/qmk/qmk_toolbox/releases) をインストールしておきます。
+
+1. QMK Toolboxからファームウェアファイル (`.hex`) を指定
 2. キーボードを接続
 3. 左右の<kbd>Fn</kbd>を両方押しながら<kbd>Enter</kbd>で書き込み可能なモードに<br>※v3.1.0 以前のファームウェアが入っている場合は <kbd>Fn</kbd> + <kbd>P</kbd><br>※あるいは、キーボード基板裏のリセットボタンを爪楊枝などで押す
 4. `Flash`実行
@@ -19,24 +31,29 @@
 
 ※なお、Macについては未検証なので、調整が必要かもしれません。
 
+#### Geonix Rev.2.5
+
+ブートローダーが USB ドライブとして見えるので、ファイルをコピーするだけで書き込めます。
+
+1. <kbd>Esc</kbd>を押しながら、キーボードを接続
+2. 現れた USB ドライブへ、エクスプローラーで `windmill_geonix41.bin` をコピー
+
 ### Android から書き込む
 
-PC/Mac が無くても、Android のスマホから書き込めます。キーボードとは USB OTG (OTG ケーブルや変換アダプタ) でつなぎます。
+キーボードとは USB OTG (OTG ケーブルや変換アダプタ) でつなぎます。
 
-#### Technik / YMD40 / Geonix48 (minipeg48)
+#### Technik / YMD40 / Geonix48
 
 1. スマホとキーボードを USB OTG でつなぐ
 2. 左右の<kbd>Fn</kbd>を両方押しながら<kbd>Enter</kbd>で書き込み可能なモードに
 3. Android の Chrome で [AVRFlashOnWeb](https://tmk.github.io/AVRFlashOnWeb/) を開き、ファームウェアファイル (`.hex`) を選んで書き込む
 
-※minipeg48 で書き込めることを確かめています。
+※Geonix48 で書き込めることを確かめています。
 
-#### Geonix Rev.2.5 (geonix41)
-
-ブートローダーが USB ドライブとして見えるので、ファイルをコピーするだけで書き込めます。
+#### Geonix Rev.2.5
 
 1. <kbd>Esc</kbd>を押しながら、スマホに USB OTG でつなぐ
-2. 現れた USB ドライブへ、ファイルアプリで `windmill_geonix41.bin` をコピーする
+2. 現れた USB ドライブへ、ファイルアプリで `windmill_geonix41.bin` をコピー
 
 ## IMEの設定
 
