@@ -22,7 +22,8 @@
  * - IMEへ送るキーが MY_WIN / MY_ANDR で出し分けられていること。
  *   Windows は切り替え先に合わせて KC_LNG1 / KC_LNG2 を交互に送る (モードを
  *   直接指定するので、IMEとずれてもタップし直せば揃う)。Android は
- *   Ctrl+Space のトグル
+ *   変換 (KC_INT4) / 無変換 (KC_INT5) で同じく直接指定する (issue #105)。
+ *   KC_LNG1 / KC_LNG2 は記号の一時的な切り替えで使うので、Android では出さない
  * - キーボード側のベースレイヤーも一緒に反転していること。IMEの状態は
  *   読めないので、ここがずれるとかなのつもりで英字配列を打つことになる
  *
@@ -227,8 +228,9 @@ TEST_F(LangToggle, hold_does_not_toggle) {
     VERIFY_AND_CLEAR(driver);
 }
 
-/* MY_ANDR を押した後は Ctrl+Space を送る。ベースレイヤーの反転は同じ */
-TEST_F(LangToggleAndroid, tap_sends_ctrl_space) {
+/* MY_ANDR を押した後は、かなへは変換 (KC_INT4)、英数へは無変換 (KC_INT5) を
+ * 修飾なしの単独で送る。ベースレイヤーの反転は Windows と同じ */
+TEST_F(LangToggleAndroid, tap_sends_henkan_and_muhenkan) {
     TestDriver driver;
     set_windmill_keymap();
     select_android(this, driver);
@@ -238,11 +240,13 @@ TEST_F(LangToggleAndroid, tap_sends_ctrl_space) {
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_CTRL));
-        EXPECT_REPORT(driver, (KC_LEFT_CTRL, KC_SPC));
-        EXPECT_REPORT(driver, (KC_LEFT_CTRL));
+        EXPECT_REPORT(driver, (KC_INT4)); // → かな
         EXPECT_EMPTY_REPORT(driver);
-        EXPECT_REPORT(driver, (KC_1)); // かなへ
+        EXPECT_REPORT(driver, (KC_1));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_INT5)); // → 英数
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_Q));
         EXPECT_EMPTY_REPORT(driver);
     }
 
@@ -250,25 +254,34 @@ TEST_F(LangToggleAndroid, tap_sends_ctrl_space) {
     settle();
     tap_key(nu, 120);
     idle_for(120);
+    tap_key(lctl, 120);
+    settle();
+    tap_key(nu, 120);
+    idle_for(120);
     VERIFY_AND_CLEAR(driver);
 }
 
-/* Android でも Fn+Ctrl はIMEだけを切り替える。トグルしか送れないので、
- * ずれているときに押して揃える使い方になる */
-TEST_F(LangToggleAndroid, fn_ctrl_sends_ctrl_space_without_layer_change) {
+/* Android でも Fn+Ctrl はIMEだけを今のベースレイヤーの側へ指定し直す。
+ * 直接指定なので、揃っているときに押しても逆にずれない */
+TEST_F(LangToggleAndroid, fn_ctrl_specifies_host_only) {
     TestDriver driver;
     set_windmill_keymap();
     select_android(this, driver);
 
-    auto nu = key(POS_NU);
+    auto lctl = key(POS_LCTL);
+    auto nu   = key(POS_NU);
 
     {
         InSequence s;
-        EXPECT_REPORT(driver, (KC_LEFT_CTRL));
-        EXPECT_REPORT(driver, (KC_LEFT_CTRL, KC_SPC));
-        EXPECT_REPORT(driver, (KC_LEFT_CTRL));
+        EXPECT_REPORT(driver, (KC_INT5)); // 英数のまま。英数をもう一度指定する
         EXPECT_EMPTY_REPORT(driver);
-        EXPECT_REPORT(driver, (KC_Q)); // ベースレイヤーは英数のまま
+        EXPECT_REPORT(driver, (KC_Q));    // ベースレイヤーは英数のまま
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_INT4)); // MY_LCTL タップ → かなへ
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_INT4)); // Fn+Ctrl。かなをもう一度指定する
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_1));    // ベースレイヤーはかなのまま
         EXPECT_EMPTY_REPORT(driver);
     }
 
@@ -276,5 +289,53 @@ TEST_F(LangToggleAndroid, fn_ctrl_sends_ctrl_space_without_layer_change) {
     settle();
     tap_key(nu, 120);
     idle_for(120);
+
+    tap_key(lctl, 120); // かなへ
+    settle();
+    tap_with_fn(this, POS_IME);
+    settle();
+    tap_key(nu, 120);
+    idle_for(120);
+    VERIFY_AND_CLEAR(driver);
+}
+
+/* Android でも、かなベースの記号レイヤーの数字は KC_LNG2 / KC_LNG1 で一時的に
+ * 英数へ切り替えて送る。言語切替の変換 / 無変換と混ざらないこと。
+ * 流れは test_kana_qmark.cpp の hold_still_enters_sym_layer と同じ */
+TEST_F(LangToggleAndroid, kana_symbol_still_uses_lng) {
+    TestDriver driver;
+    set_windmill_keymap();
+    select_android(this, driver);
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_INT4)); // → かな
+        EXPECT_EMPTY_REPORT(driver);
+    }
+    tap_key(key(POS_LCTL), 120);
+    settle();
+    VERIFY_AND_CLEAR(driver);
+
+    auto mo  = key(POS_MO);
+    auto one = key(0, 1); // Symレイヤーでの数字段
+
+    {
+        InSequence s;
+        EXPECT_REPORT(driver, (KC_LNG2));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_1));
+        EXPECT_EMPTY_REPORT(driver);
+        EXPECT_REPORT(driver, (KC_LNG1));
+        EXPECT_EMPTY_REPORT(driver);
+    }
+
+    mo.press();
+    run_one_scan_loop();
+    idle_for(50);
+    tap_key(one, 60);
+    idle_for(60);
+    mo.release();
+    run_one_scan_loop();
+    idle_for(60);
     VERIFY_AND_CLEAR(driver);
 }

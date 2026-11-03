@@ -80,6 +80,8 @@ Windmill is a keymap for 40% keyboards.
 | MY_WIN | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | Windows 11 | 日本語 (JIS) / English (US) | Microsof IME |
 | MY_ANDR | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>S</kbd> | Android | 日本語 (JIS) / English (US) | Gboard |
 
+Android でかな/英数を切り替えるには、[cognitom/windmill-android](https://github.com/cognitom/windmill-android) のアプリが必要です ([導入方法](docs/install.md#android))。
+
 接続先の配列は <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Z</kbd> (JIS、既定) / <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>X</kbd> (US) で、接続先ごとに選びます。
 
 ## v3での変更点

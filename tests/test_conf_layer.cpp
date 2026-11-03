@@ -20,7 +20,7 @@
  * MY_WIN / MY_ANDR の位置は、Fnレイヤーでは KC_F11 / KC_F12 なのでレポートが出る。
  * 設定レイヤーではレポートが出ず、かわりにOSの設定が変わる。OSは言語切替
  * (MY_LCTL) のタップで見る。英数からのタップで、Windows は KC_LNG1、Android は
- * Ctrl+Space を送る (test_lang_toggle.cpp 参照)。
+ * 変換 (KC_INT4) を送る (test_lang_toggle.cpp 参照)。
  *
  * 壊しやすいのは離すほう。QMKのレイヤーは参照カウントを持たないので、片方の
  * Fnを離したときにFnレイヤーごと落ちたり、設定レイヤーが残ったりしないことを
@@ -62,13 +62,7 @@ static void expect_lang_toggle(WindmillTest* f, TestDriver& driver, bool android
 
     {
         InSequence s;
-        if (android) {
-            EXPECT_REPORT(driver, (KC_LEFT_CTRL));
-            EXPECT_REPORT(driver, (KC_LEFT_CTRL, KC_SPC));
-            EXPECT_REPORT(driver, (KC_LEFT_CTRL));
-        } else {
-            EXPECT_REPORT(driver, (KC_LNG1));
-        }
+        EXPECT_REPORT(driver, (android ? KC_INT4 : KC_LNG1));
         EXPECT_EMPTY_REPORT(driver);
     }
 

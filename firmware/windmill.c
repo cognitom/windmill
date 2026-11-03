@@ -288,15 +288,18 @@ static void hold_layer_off(uint8_t mod) {
  *
  * - Windows: KC_LNG1 / KC_LNG2 でモードを直接指定する。トグルのキーと違い、IME側が
  *   ずれてもタップし直せば揃う
- * - Android: 日本語IMEは入力欄を移るたびにかなへ戻ってしまうので、Ctrl+Space で
- *   英語IMEと入れ替える (issue #53)。トグルなので、ずれたら MY_IME で合わせ直す */
-#define LANG_TOGGLE_ANDR C(KC_SPC)
+ * - Android: 日本語へは変換 (KC_INT4)、英語へは無変換 (KC_INT5) を送り、
+ *   cognitom/windmill-android のユーザー補助サービスが受けてIMEを直接指定する
+ *   (issue #105)。Ctrl+Space のトグル (issue #53) はずれると逆に切り替わったので
+ *   やめた。KC_LNG1 / KC_LNG2 は記号レイヤーと「も」の Shift+タップの一時的な
+ *   英数への切り替えに使っていて、アプリが横取りするとそれが壊れるので使わない */
+#define LANG_KANA_ANDR  KC_INT4
+#define LANG_ALPHA_ANDR KC_INT5
 
-/* ホストのIMEを layer (LAYER_KANA / LAYER_ALPHA) の側へ切り替える。
- * Android はモードを直接指定できないので layer は使わず、ただ切り替える */
+/* ホストのIMEを layer (LAYER_KANA / LAYER_ALPHA) の側へ切り替える */
 static void send_lang_to_host(uint8_t layer) {
     if (is_android()) {
-        tap_code16(LANG_TOGGLE_ANDR);
+        tap_code(layer == LAYER_KANA ? LANG_KANA_ANDR : LANG_ALPHA_ANDR);
     } else {
         tap_code16(layer == LAYER_KANA ? KC_LNG1 : KC_LNG2);
     }
@@ -1372,9 +1375,9 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
         case MY_JIS:  if (record->event.pressed) set_host_setting(HOST_LAYOUT, WINDMILL_LAYOUT_JIS); return false;
         case MY_US:   if (record->event.pressed) set_host_setting(HOST_LAYOUT, WINDMILL_LAYOUT_US); return false;
 
-        /* Fn+Ctrl: IMEだけを今のベースレイヤーの側へ切り替える。Android のトグルが
-         * ずれたとき、キーボードを動かさずに合わせ直すため。Windows では揃っていれば
-         * 何も起きないが、Android では揃っている状態で押すと逆にずれる */
+        /* Fn+Ctrl: IMEだけを今のベースレイヤーの側へ切り替える。入力欄を移るなどして
+         * IMEがずれたとき、キーボードを動かさずに合わせ直すため。モードを直接指定する
+         * ので、揃っている状態で押しても何も起きない */
         case MY_IME:
             if (record->event.pressed) {
                 send_lang_to_host(get_highest_layer(default_layer_state));
