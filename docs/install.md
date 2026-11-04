@@ -63,6 +63,16 @@ Windows (PC) からでも、Android (スマホ) からでも書き込めます�
 
 ### Android
 
-Android では、対象OSを Android に切り替えた上で ([対象OSの切り替え](../README.md#対象osの切り替え))、[cognitom/windmill-android](https://github.com/cognitom/windmill-android) のアプリを入れて、ユーザー補助サービスを有効にしておきます。
+Android では、対象OSを Android に切り替えた上で ([対象OSの切り替え](../README.md#対象osの切り替え))、Android アプリ「Windmill 言語切り替え」を入れておきます。
 
-かな/英数の切り替えで、キーボードはかなへは<kbd>変換</kbd>、英数へは<kbd>無変換</kbd>を送ります。Android 自体にはこれらのキーで入力言語を指定する仕組みが無いので、アプリがこのキーを受け取って日本語/英語の入力へ切り替えます。アプリが無いと、Ctrl のタップでかな/英数が切り替わりません。
+- 入手先: [cognitom/windmill-android のリリース](https://github.com/cognitom/windmill-android/releases) (最初の版は [v0.1.0](https://github.com/cognitom/windmill-android/releases/tag/v0.1.0))
+- 導入手順: [windmill-android の README](https://github.com/cognitom/windmill-android#導入) を見てください。APK から入れて、ユーザー補助サービスと英語用の IME を有効にします
+
+かな/英数の切り替えで、キーボードはかなへは<kbd>変換</kbd>、英数へは<kbd>無変換</kbd>を送ります。Android 自体にはこれらのキーで入力言語を指定する仕組みが無いので、アプリがこのキーを受け取って IME を切り替えます。
+
+| キー | アプリが切り替える先 |
+|--|--|
+| <kbd>変換</kbd> (かなへ) | 日本語側の IME。既定は Gboard で、アプリの設定画面で変えられます |
+| <kbd>無変換</kbd> (英数へ) | 英語用の IME「Windmill 英語」 |
+
+物理キーボードを外すと、日本語側の IME へ戻ります。アプリが無いと、Ctrl のタップでかな/英数が切り替わりません。
