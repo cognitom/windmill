@@ -41,3 +41,14 @@ services:
       - ./firmware:/qmk_firmware/keyboards/windmill
       - ./vendor:/qmk_firmware/lib/rdr_lib:ro
     command: bash /windmill/scripts/geonix41/entrypoint.sh
+
+  # README のキー配列の画像 (docs/images/layout-*.svg → PNG) を作る。フォントが要るので
+  # QMK とは別のイメージで、使い捨てで回す (scripts/images/build.sh)
+  images:
+    image: windmill-images
+    build: scripts/images
+    pull_policy: build
+    profiles: [images]
+    volumes:
+      - .:/windmill
+    command: bash /windmill/scripts/images/entrypoint.sh

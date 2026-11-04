@@ -75,6 +75,8 @@ Windmill is a keymap for 40% keyboards.
 
 各OSのIMEの差異を吸収するため、モードを切り替えることができます。<kbd>Fn</kbd>+<kbd>Fn</kbd> は、左右の Fn を両方押している間に押します。
 
+![conf](docs/images/layout-conf.png)
+
 | 独自キーコード | キー | 対象OS | 配列の認識 | IME |
 |--|--|--|--|--|
 | MY_WIN | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | Windows 11 | 日本語 (JIS) / English (US) | Microsof IME |

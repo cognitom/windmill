@@ -1,0 +1,71 @@
+<svg width="742" height="291" viewBox="0 0 742 291" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="742" height="291" fill="#FFFFFF"></rect>
+<g stroke="black" stroke-width="2" fill="#F2F2F2">
+<rect x="39" y="47" width="47" height="45" rx="5"></rect>
+<rect x="95" y="47" width="47" height="45" rx="5"></rect>
+<rect x="151" y="47" width="47" height="45" rx="5"></rect>
+<rect x="207" y="47" width="47" height="45" rx="5"></rect>
+<rect x="263" y="47" width="47" height="45" rx="5"></rect>
+<rect x="319" y="47" width="47" height="45" rx="5"></rect>
+<rect x="375" y="47" width="47" height="45" rx="5"></rect>
+<rect x="431" y="47" width="47" height="45" rx="5"></rect>
+<rect x="487" y="47" width="47" height="45" rx="5"></rect>
+<rect x="543" y="47" width="47" height="45" rx="5"></rect>
+<rect x="599" y="47" width="47" height="45" rx="5"></rect>
+<rect x="655" y="47" width="47" height="45" rx="5"></rect>
+<rect x="39" y="100" width="47" height="45" rx="5"></rect>
+<rect x="95" y="100" width="47" height="45" rx="5"></rect>
+<rect x="151" y="100" width="47" height="45" rx="5"></rect>
+<rect x="207" y="100" width="47" height="45" rx="5"></rect>
+<rect x="263" y="100" width="47" height="45" rx="5"></rect>
+<rect x="319" y="100" width="47" height="45" rx="5"></rect>
+<rect x="375" y="100" width="47" height="45" rx="5"></rect>
+<rect x="431" y="100" width="47" height="45" rx="5"></rect>
+<rect x="487" y="100" width="47" height="45" rx="5"></rect>
+<rect x="543" y="100" width="47" height="45" rx="5"></rect>
+<rect x="599" y="100" width="47" height="45" rx="5"></rect>
+<rect x="655" y="100" width="47" height="45" rx="5"></rect>
+<rect x="39" y="152" width="47" height="45" rx="5"></rect>
+<rect x="95" y="152" width="47" height="45" rx="5"></rect>
+<rect x="151" y="152" width="47" height="45" rx="5"></rect>
+<rect x="207" y="152" width="47" height="45" rx="5"></rect>
+<rect x="263" y="152" width="47" height="45" rx="5"></rect>
+<rect x="319" y="152" width="47" height="45" rx="5"></rect>
+<rect x="375" y="152" width="47" height="45" rx="5"></rect>
+<rect x="431" y="152" width="47" height="45" rx="5"></rect>
+<rect x="487" y="152" width="47" height="45" rx="5"></rect>
+<rect x="543" y="152" width="47" height="45" rx="5"></rect>
+<rect x="599" y="152" width="47" height="45" rx="5"></rect>
+<rect x="655" y="152" width="47" height="45" rx="5"></rect>
+<rect x="39" y="205" width="47" height="45" rx="5"></rect>
+<rect x="95" y="205" width="47" height="45" rx="5"></rect>
+<rect x="151" y="205" width="47" height="45" rx="5"></rect>
+<rect x="207" y="205" width="47" height="45" rx="5" fill="#F2C94C"></rect>
+<rect x="263" y="205" width="47" height="45" rx="5"></rect>
+<rect x="319" y="205" width="47" height="45" rx="5"></rect>
+<rect x="375" y="205" width="47" height="45" rx="5"></rect>
+<rect x="431" y="205" width="47" height="45" rx="5"></rect>
+<rect x="487" y="205" width="47" height="45" rx="5" fill="#F2C94C"></rect>
+<rect x="543" y="205" width="47" height="45" rx="5"></rect>
+<rect x="599" y="205" width="47" height="45" rx="5"></rect>
+<rect x="655" y="205" width="47" height="45" rx="5"></rect>
+</g>
+<path d="M46 43V34.5H303V43" stroke="black" stroke-width="1" fill="none"></path>
+<path d="M230.5 253V261.5H510.5V253" stroke="black" stroke-width="1" fill="none"></path>
+<g font-family="Noto Sans JP, Noto Sans CJK JP, sans-serif" font-weight="700" fill="black" text-anchor="middle">
+<text x="174.5" y="37" font-size="7" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round" paint-order="stroke">Geonix Rev.2.5 のみ</text>
+<text x="62.5" y="73" font-size="9">USB</text>
+<text x="118.5" y="73" font-size="9">BT1</text>
+<text x="174.5" y="73" font-size="9">BT2</text>
+<text x="230.5" y="73" font-size="9">BT3</text>
+<text x="286.5" y="73" font-size="9">2.4G</text>
+<text x="678.5" y="73" font-size="9">Boot</text>
+<text x="118.5" y="126" font-size="9">Windows</text>
+<text x="174.5" y="126" font-size="9">Android</text>
+<text x="118.5" y="178" font-size="9">JIS</text>
+<text x="174.5" y="178" font-size="9">US</text>
+<text x="230.5" y="231" font-size="9">fn</text>
+<text x="510.5" y="231" font-size="9">fn</text>
+<text x="370.5" y="264" font-size="7" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round" paint-order="stroke">同時押し</text>
+</g>
+</svg>
