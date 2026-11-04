@@ -75,8 +75,6 @@ Windmill is a keymap for 40% keyboards.
 
 各OSのIMEの差異を吸収するため、モードを切り替えることができます。<kbd>Fn</kbd>+<kbd>Fn</kbd> は、左右の Fn を両方押している間に押します。
 
-![conf](docs/images/layout-conf.png)
-
 | 独自キーコード | キー | 対象OS | 配列の認識 | IME |
 |--|--|--|--|--|
 | MY_WIN | <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>A</kbd> | Windows 11 | 日本語 (JIS) / English (US) | Microsof IME |
@@ -85,6 +83,8 @@ Windmill is a keymap for 40% keyboards.
 Android でかな/英数を切り替えるには、Android アプリ「Windmill 言語切り替え」が必要です。[cognitom/windmill-android のリリース](https://github.com/cognitom/windmill-android/releases)から入手できます ([導入方法](docs/install.md#android))。<kbd>変換</kbd>で日本語側の IME (既定は Gboard)、<kbd>無変換</kbd>で英語用の IME「Windmill 英語」へ切り替えます。
 
 接続先の配列は <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>Z</kbd> (JIS、既定) / <kbd>Fn</kbd>+<kbd>Fn</kbd>+<kbd>X</kbd> (US) で、接続先ごとに選びます。
+
+![conf](docs/images/layout-conf.png)
 
 ## v3での変更点
 
