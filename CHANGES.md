@@ -6,6 +6,19 @@
 
 **v3.0.1 以前は手書きのまま残してある。**
 
+## v3.2.1 (2026-11-04)
+
+- README を簡潔な内容に戻す ([#93](https://github.com/cognitom/windmill/pull/93))
+- windmill.c を挙動を変えずに短くする ([#96](https://github.com/cognitom/windmill/pull/96))
+- Ctrl のタップ・ホールドを最下段と同じ自前の判定にする ([#97](https://github.com/cognitom/windmill/pull/97))
+- Ctrl のタップ・ホールドを QMK の mod-tap に戻す ([#98](https://github.com/cognitom/windmill/pull/98))
+- こ / み を同時に押したら、150ms 未満でも半角スペースを出す ([#100](https://github.com/cognitom/windmill/pull/100))
+- Android の言語切替を、変換・無変換による直接指定にする ([#106](https://github.com/cognitom/windmill/pull/106))
+- Android からファームウェアを書き込む方法を導入方法に書く ([#109](https://github.com/cognitom/windmill/pull/109))
+- README と導入方法に Android アプリ「Windmill 言語切り替え」の案内を書き足す ([#110](https://github.com/cognitom/windmill/pull/110))
+
+---
+
 ## v3.2.0 (2026-10-19)
 
 - Ctrlタップで英数/かなを交互に切り替える (Windows: かな/英数キー / Android: Ctrl+Space) ([#54](https://github.com/cognitom/windmill/pull/54))
