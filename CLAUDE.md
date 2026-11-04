@@ -16,6 +16,7 @@ minipeg48 / geonix41 の4つで、**キー処理の本体は `firmware/windmill.
 | `patches/` | QMK本体へ当てるパッチ。コンテナ内でのみ使う |
 | `tests/` | QMKのテスト基盤に載せたユニットテスト。詳細は `tests/readme.md` |
 | `docs/` | 導入方法、ビルド手順 |
+| `docs/images/layout-*.svg` | README のキー配列の画像の元。`scripts/images/build.sh` が同名の PNG を作る (docker を直接使う) |
 | `CHANGES.md` | 変更履歴。`release.sh` が生成する |
 
 `output/` と `vendor/` と `.build/` は生成物なのでコミットしない (`.gitignore` 済み)。
