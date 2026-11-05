@@ -40,7 +40,7 @@ Windows (PC) からでも、Android (スマホ) からでも書き込めます�
 
 ### Android から書き込む
 
-Technik / YMD40 / Geonix48 が対象です。Geonix Rev.2.5 は Android からは書き込めないので、Windows から書き込んでください (書き込みモードには入れますが、Android がそのドライブを「破損した USB ストレージ」と表示して開けません)。
+※Geonix Rev.2.5 は対象外
 
 キーボードとは USB OTG (OTG ケーブルや変換アダプタ) でつなぎます。
 
