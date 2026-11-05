@@ -14,7 +14,7 @@
 
 ## ファームウェアの書き込み
 
-Windows (PC) からでも、Android (スマホ) からでも書き込めます。
+Windows (PC) からでも、Android (スマホ) からでも書き込めます。ただし Geonix Rev.2.5 は Windows からだけです。
 
 ### Windows から書き込む
 
@@ -40,20 +40,15 @@ Windows (PC) からでも、Android (スマホ) からでも書き込めます�
 
 ### Android から書き込む
 
-キーボードとは USB OTG (OTG ケーブルや変換アダプタ) でつなぎます。
+Technik / YMD40 / Geonix48 が対象です。Geonix Rev.2.5 は Android からは書き込めないので、Windows から書き込んでください (書き込みモードには入れますが、Android がそのドライブを「破損した USB ストレージ」と表示して開けません)。
 
-#### Technik / YMD40 / Geonix48
+キーボードとは USB OTG (OTG ケーブルや変換アダプタ) でつなぎます。
 
 1. スマホとキーボードを USB OTG でつなぐ
 2. 左右の<kbd>Fn</kbd>を両方押しながら<kbd>Enter</kbd>で書き込み可能なモードに
 3. Android の Chrome で [AVRFlashOnWeb](https://tmk.github.io/AVRFlashOnWeb/) を開き、ファームウェアファイル (`.hex`) を選んで書き込む
 
 ※Geonix48 で書き込めることを確かめています。
-
-#### Geonix Rev.2.5
-
-1. <kbd>Esc</kbd>を押しながら、スマホに USB OTG でつなぐ
-2. 現れた USB ドライブへ、ファイルアプリで `windmill_geonix41.bin` をコピー
 
 ## IMEの設定
 
