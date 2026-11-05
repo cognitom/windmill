@@ -14,41 +14,24 @@
 
 ## ファームウェアの書き込み
 
-Windows (PC) からでも、Android (スマホ) からでも書き込めます。ただし Geonix Rev.2.5 は Windows からだけです。
+### Technik / YMD40 / Geonix48
 
-### Windows から書き込む
+キーボードとは USB でつなぎます。
 
-#### Technik / YMD40 / Geonix48
+1. スマホとキーボードを USB OTG でつなぐ
+2. 左右の<kbd>Fn</kbd>を両方押しながら<kbd>Enter</kbd>で書き込み可能なモードに
+3. Chrome で [AVRFlashOnWeb](https://tmk.github.io/AVRFlashOnWeb/) を開き、ファームウェアファイル (`.hex`) を選んで書き込む
 
-[QMK Toolbox](https://github.com/qmk/qmk_toolbox/releases) をインストールしておきます。
+※ [QMK Toolbox](https://github.com/qmk/qmk_toolbox/releases) でも書き込み可
 
-1. QMK Toolboxからファームウェアファイル (`.hex`) を指定
-2. キーボードを接続
-3. 左右の<kbd>Fn</kbd>を両方押しながら<kbd>Enter</kbd>で書き込み可能なモードに<br>※v3.1.0 以前のファームウェアが入っている場合は <kbd>Fn</kbd> + <kbd>P</kbd><br>※あるいは、キーボード基板裏のリセットボタンを爪楊枝などで押す
-4. `Flash`実行
-
-![screenshot](images/qmk.png)
-
-※なお、Macについては未検証なので、調整が必要かもしれません。
-
-#### Geonix Rev.2.5
+### Geonix Rev.2.5
 
 ブートローダーが USB ドライブとして見えるので、ファイルをコピーするだけで書き込めます。
 
 1. <kbd>Esc</kbd>を押しながら、キーボードを接続
 2. 現れた USB ドライブへ、エクスプローラーで `windmill_geonix41.bin` をコピー
 
-### Android から書き込む
-
-※Geonix Rev.2.5 は対象外
-
-キーボードとは USB OTG (OTG ケーブルや変換アダプタ) でつなぎます。
-
-1. スマホとキーボードを USB OTG でつなぐ
-2. 左右の<kbd>Fn</kbd>を両方押しながら<kbd>Enter</kbd>で書き込み可能なモードに
-3. Android の Chrome で [AVRFlashOnWeb](https://tmk.github.io/AVRFlashOnWeb/) を開き、ファームウェアファイル (`.hex`) を選んで書き込む
-
-※Geonix48 で書き込めることを確かめています。
+※ Android からはうまく認識できないようです。
 
 ## IMEの設定
 
